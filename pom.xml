@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.vaadin.tatu</groupId>
+	<artifactId>binclass-root</artifactId>
+	<packaging>pom</packaging>
+	<version>3.0-SNAPSHOT</version>
+	<name>Binclass Root Project</name>
+
+	<properties>
+		<maven.minimum.version>3</maven.minimum.version>
+		<vaadin.version>25.2.3</vaadin.version>
+		<vaadin.plugin.version>${vaadin.version}</vaadin.plugin.version>
+		<logback.version>1.5.35</logback.version>
+		<slf4j.version>2.0.9</slf4j.version>
+		<jetty.plugin.version>12.1.10</jetty.plugin.version>
+		<jspecify.version>1.0.0</jspecify.version>
+		<servlet.version>6.1.0</servlet.version>
+		<spotless.version>3.2.1</spotless.version>
+		<spotless.skip>false</spotless.skip>
+		<junit6.version>6.1.1</junit6.version>
+	</properties>
+
+	<modules>
+		<module>binclass-algorithms</module>
+		<module>binclass-components</module>
+		<module>binclass-ui</module>
+		<module>binclass-cli</module>
+	</modules>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<!-- Module-friendly configuration: when running Maven inside a submodule,
+				     ${project.parent.basedir} points at the repo root. -->
+				<plugin>
+					<groupId>com.diffplug.spotless</groupId>
+					<artifactId>spotless-maven-plugin</artifactId>
+					<version>${spotless.version}</version>
+					<configuration>
+						<skip>${spotless.skip}</skip>
+						<java>
+							<eclipse>
+								<version>4.30</version>
+								<file>${project.parent.basedir}/eclipse-formatter.xml</file>
+							</eclipse>
+						</java>
+					</configuration>
+					<executions>
+						<execution>
+							<goals>
+								<goal>check</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>enforce-maven-version</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireMavenVersion>
+									<version>${maven.minimum.version}</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Root-only configuration so `mvn spotless:check` works at the repo root.
+			     Modules should declare the plugin (no config) to pick up pluginManagement. -->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>${spotless.version}</version>
+				<inherited>false</inherited>
+				<configuration>
+					<skip>${spotless.skip}</skip>
+					<java>
+						<eclipse>
+							<version>4.30</version>
+							<file>${project.basedir}/eclipse-formatter.xml</file>
+						</eclipse>
+					</java>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<profiles>
+		<profile>
+			<!-- m2e sets this property; skip Spotless only for IDE workspace builds. -->
+			<id>m2e</id>
+			<activation>
+				<property>
+					<name>m2e.version</name>
+				</property>
+			</activation>
+			<properties>
+				<spotless.skip>true</spotless.skip>
+			</properties>
+		</profile>
+
+		<profile>
+			<!-- Vaadin pre-release repositories -->
+			<id>vaadin-prerelease</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+
+			<repositories>
+				<!-- Maven central repository -->
+				<repository>
+					<id>central</id>
+					<url>https://repo.maven.apache.org/maven2</url>
+				</repository>
+				<!-- Vaadin pre-release repository -->
+				<repository>
+					<id>vaadin-prereleases</id>
+					<url>https://maven.vaadin.com/vaadin-prereleases</url>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+				</repository>
+			</repositories>
+			<pluginRepositories>
+				<pluginRepository>
+					<id>central</id>
+					<url>https://repo.maven.apache.org/maven2</url>
+				</pluginRepository>
+				<pluginRepository>
+					<id>vaadin-prereleases</id>
+					<url>https://maven.vaadin.com/vaadin-prereleases</url>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+				</pluginRepository>
+			</pluginRepositories>
+		</profile>
+	</profiles>
+
+</project>

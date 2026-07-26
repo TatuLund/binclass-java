@@ -1,0 +1,27 @@
+#
+# Digital UNIX 3.2 and newer
+#
+CC = gcc
+CFLAGS = -Wall -ansi -O4 -fno-strength-reduce -fomit-frame-pointer
+LFLAGS = -lm
+INSTALL = cp -f
+BINDIR = /usr/local/bin
+TARGET = binclass_gcc
+
+
+SOURCES = binclass.c binset.c bottom.c binstuff.c vars.c centroid.c glainf.c parser.c report.c classify.c adding.c gendat.c distmin.c vectors.c compare.c format.c bootstra.c logfile.c joingla.c splitgla.c tree.c cumulat.c mixture.c cut.c function.c t_alg_1.c
+HEADERS = const.h dep.h binset.h bottom.h binstuff.h vars.h centroid.h glainf.h parser.h report.h classify.h adding.h gendat.h distmin.h vectors.h compare.h format.h bootstra.h logfile.h splitgla.h joingla.h cumulat.h mixture.h cut.h function.h t_alg_1.h
+OBJECTS = binclass.o binset.o bottom.o binstuff.o vars.o centroid.o glainf.o parser.o report.o classify.o adding.o gendat.o distmin.o vectors.o compare.o format.o bootstra.o joingla.o splitgla.o tree.o logfile.o cumulat.o mixture.o cut.o function.o t_alg_1.o
+
+.o : $(SOURCES) $(HEADERS)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+binclass: $(OBJECTS)
+	$(CC) -o $(TARGET) $(OBJECTS) $(LFLAGS)
+	strip $(TARGET)
+
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+
+install:
+	$(INSTALL) $(TARGET) $(BINDIR)/$(TARGET)

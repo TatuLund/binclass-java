@@ -1,0 +1,5 @@
+binclass-ui/src/main/frontend/generated/
+*.o
+target/
+.devcontainer/
+.vscode/
