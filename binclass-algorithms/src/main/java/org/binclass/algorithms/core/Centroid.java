@@ -1,0 +1,187 @@
+/*
+ * Copyright (c) 2024 BinClass Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+package org.binclass.algorithms.core;
+
+import java.util.Arrays;
+
+import org.binclass.algorithms.util.MathUtils;
+
+/**
+ * An immutable centroid representing the mean of a cluster, mirroring the C
+ * {@code Centroid} struct from {@code binset.h}.
+ * <p>
+ * A centroid is computed as the frequency-weighted average of all binary
+ * vectors in a cluster. Immutable by design — centroids are recomputed when
+ * clusters change rather than mutated in place.
+ * </p>
+ * <p>
+ * Fields:
+ * <ul>
+ * <li>{@code el} — centroid values (floating-point averages, not just 0/1)</li>
+ * <li>{@code l} — length of the centroid vector</li>
+ * <li>{@code weight} — number of vectors contributing to this centroid</li>
+ * </ul>
+ * </p>
+ */
+public final class Centroid {
+
+    private final double[] el;
+    private final int l;
+    private final int weight;
+
+    /**
+     * Creates a new {@code Centroid} with the given data.
+     *
+     * @param el
+     *            the centroid values (floating-point averages)
+     * @param l
+     *            the length of the centroid vector
+     * @param weight
+     *            the number of vectors contributing to this centroid
+     */
+    public Centroid(double[] el, int l, int weight) {
+        this.el = Arrays.copyOf(el, el.length);
+        this.l = l;
+        this.weight = weight;
+    }
+
+    /**
+     * Creates a zero-length centroid with the given weight.
+     * <p>
+     * Used as an initial/uninitialized centroid state.
+     * </p>
+     *
+     * @param weight
+     *            the number of vectors contributing (0 for uninitialized)
+     */
+    public Centroid(int weight) {
+        this.el = new double[0];
+        this.l = 0;
+        this.weight = weight;
+    }
+
+    /**
+     * Returns the centroid value at the given index.
+     * <p>
+     * Equivalent to C function {@code centroid_get()} from {@code binset.h}.
+     * </p>
+     *
+     * @param i
+     *            zero-based index
+     * @return the centroid value at that position (floating-point average)
+     */
+    public double get(int i) {
+        if (i < 0 || i >= l) {
+            throw new IndexOutOfBoundsException(
+                    "Index " + i + " out of bounds for centroid length " + l);
+        }
+        return el[i];
+    }
+
+    /**
+     * Returns the value at index i as a log-probability.
+     * <p>
+     * Equivalent to C function {@code centroid_log0()} from {@code binset.h}.
+     * Computes log₂(1 - el[i]) for bit=0 probability.
+     * </p>
+     *
+     * @param i
+     *            zero-based index
+     * @return log₂(1 - el[i])
+     */
+    public double getLog0(int i) {
+        double val = get(i);
+        return MathUtils.log2Complement(val);
+    }
+
+    /**
+     * Returns the value at index i as a log-probability for bit=1.
+     * <p>
+     * Equivalent to C function {@code centroid_log1()} from {@code binset.h}.
+     * Computes log₂(el[i]) for bit=1 probability.
+     * </p>
+     *
+     * @param i
+     *            zero-based index
+     * @return log₂(el[i])
+     */
+    public double getLog1(int i) {
+        return MathUtils.log2(get(i));
+    }
+
+    /**
+     * Returns the length of this centroid.
+     *
+     * @return number of elements in the centroid vector
+     */
+    public int getLength() {
+        return l;
+    }
+
+    /**
+     * Returns the weight (number of contributing vectors) for this centroid.
+     *
+     * @return weight of the centroid
+     */
+    public int getWeight() {
+        return weight;
+    }
+
+    /**
+     * Returns a copy of this centroid.
+     * <p>
+     * Equivalent to C function {@code centroid_copy()} from {@code binset.h}.
+     * </p>
+     *
+     * @return a deep copy of this Centroid
+     */
+    public Centroid copy() {
+        return new Centroid(el, l, weight);
+    }
+
+    /**
+     * Returns the underlying array. Use with caution — direct mutation bypasses
+     * immutability.
+     *
+     * @return the internal storage array (defensive copy)
+     */
+    public double[] getArray() {
+        return Arrays.copyOf(el, el.length);
+    }
+
+    /**
+     * Returns a string representation of this centroid.
+     */
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Centroid{weight=").append(weight)
+                .append(", values=[");
+        for (int i = 0; i < l; i++) {
+            if (i > 0)
+                sb.append(", ");
+            sb.append(String.format("%.4f", el[i]));
+        }
+        return sb.append("]}").toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof Centroid other))
+            return false;
+        return l == other.l && weight == other.weight
+                && Arrays.equals(el, other.el);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Arrays.hashCode(el);
+        result = 31 * result + l;
+        result = 31 * result + weight;
+        return result;
+    }
+
+}

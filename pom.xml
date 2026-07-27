@@ -21,6 +21,11 @@
 		<spotless.version>3.2.1</spotless.version>
 		<spotless.skip>false</spotless.skip>
 		<junit6.version>6.1.1</junit6.version>
+		<browserless-test.version>1.1.1</browserless-test.version>
+		<maven.compiler.release>25</maven.compiler.release>
+		<maven.compiler.source>25</maven.compiler.source>
+		<maven.compiler.target>25</maven.compiler.target>
+		<maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
 	</properties>
 
 	<modules>
@@ -43,7 +48,7 @@
 						<skip>${spotless.skip}</skip>
 						<java>
 							<eclipse>
-								<version>4.30</version>
+							    <version>4.35</version>
 								<file>${project.parent.basedir}/eclipse-formatter.xml</file>
 							</eclipse>
 						</java>
@@ -92,7 +97,7 @@
 					<skip>${spotless.skip}</skip>
 					<java>
 						<eclipse>
-							<version>4.30</version>
+							<version>4.35</version>
 							<file>${project.basedir}/eclipse-formatter.xml</file>
 						</eclipse>
 					</java>
