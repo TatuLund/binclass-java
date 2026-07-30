@@ -4,6 +4,9 @@
  */
 package org.binclass.algorithms.data;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * A dynamic array of {@code double} values, mirroring the C {@code Vector} type
  * from {@code vectors.c}.
@@ -36,6 +39,22 @@ public final class DoubleVector {
         }
         this.el = new double[n];
         this.l = n;
+    }
+
+    /**
+     * Creates a new {@code DoubleVector} from an existing array of values.
+     * <p>
+     * This is a convenience constructor that copies the provided array so that
+     * subsequent modifications to the original array do not affect this vector.
+     * </p>
+     *
+     * @param data
+     *            the initial values for the vector; must not be {@code null}
+     */
+    public DoubleVector(double[] data) {
+        Objects.requireNonNull(data, "Data array must not be null");
+        this.el = Arrays.copyOf(data, data.length);
+        this.l = data.length;
     }
 
     /**

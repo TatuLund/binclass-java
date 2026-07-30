@@ -4,6 +4,7 @@
  */
 package org.binclass.algorithms.data;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -40,6 +41,21 @@ public final class DoubleMatrix {
         }
         this.el = new double[rows][cols];
         this.s = rows;
+    }
+
+    /**
+     * Creates a new {@code DoubleMatrix} from an existing 2D array of values.
+     *
+     * @param data
+     *            the initial values for the matrix; must not be {@code null}
+     */
+    public DoubleMatrix(double[][] data) {
+        Objects.requireNonNull(data, "Data array must not be null");
+        this.el = new double[data.length][];
+        this.s = data.length;
+        for (int i = 0; i < data.length; i++) {
+            this.el[i] = Arrays.copyOf(data[i], data[i].length);
+        }
     }
 
     /**
@@ -191,19 +207,15 @@ public final class DoubleMatrix {
      * {@code vectors.c}.
      * </p>
      *
-     * @param m
-     *            the matrix (rows × cols)
      * @param v
      *            the vector (length must equal cols)
      * @return the resulting vector (length = rows)
      */
-    public static DoubleVector matrixVectorMultiply(DoubleMatrix m,
-            DoubleVector v) {
-        Objects.requireNonNull(m, "Matrix must not be null");
+    public DoubleVector matrixVectorMultiply(DoubleVector v) {
         Objects.requireNonNull(v, "Vector must not be null");
 
-        int rows = m.getRows();
-        int cols = m.getCols(0);
+        int rows = getRows();
+        int cols = getCols(0);
 
         if (v.getLength() != cols) {
             throw new IllegalArgumentException("Vector length (" + v.getLength()
@@ -214,7 +226,7 @@ public final class DoubleMatrix {
         for (int i = 0; i < rows; i++) {
             double sum = 0.0;
             for (int j = 0; j < cols; j++) {
-                sum += m.get(i, j) * v.get(j);
+                sum += get(i, j) * v.get(j);
             }
             result.set(i, sum);
         }

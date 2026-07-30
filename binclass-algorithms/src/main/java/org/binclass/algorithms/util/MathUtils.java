@@ -126,15 +126,15 @@ public final class MathUtils {
                     "log2Factorial requires non-negative argument, got: " + n);
         }
         // Precomputed values for small n (0! through 20!)
-        if (n <= 20) {
+        if (LOG2_FACTORIALS != null && n < LOG2_FACTORIALS.length) {
+            return LOG2_FACTORIALS[n];
+        } else {
+            // Ensure the array is large enough, or compute directly for larger
+            // values
+            int size = Math.max(n + 1, 3);
+            prepareLog2Factorials(size);
             return LOG2_FACTORIALS[n];
         }
-        // For larger n, compute sum of log2(i) for i=1..n
-        double result = 0.0;
-        for (int i = 1; i <= n; i++) {
-            result += log2(i);
-        }
-        return result;
     }
 
     /**
@@ -249,36 +249,5 @@ public final class MathUtils {
         return LOG2_FACTORIALS;
     }
 
-    /**
-     * Precomputed log₂(n!) values for n = 0 to 20.
-     * <p>
-     * Computed as: sum of log₂(i) for i = 1 to n.
-     * </p>
-     */
-    private static double[] LOG2_FACTORIALS = {
-        // @formatter:off
-            0.0,                          // 0! = 1, log₂(1) = 0
-            0.0,                          // 1! = 1, log₂(1) = 0
-            1.0,                          // 2! = 2, log₂(2) = 1
-            2.584962500721156,           // 3! = 6, log₂(6) ≈ 2.585
-            4.921928094887346,           // 4! = 24, log₂(24) ≈ 4.922
-            7.953097774571644,           // 5! = 120, log₂(120) ≈ 7.953
-            11.809560377490796,          // 6! = 720, log₂(720) ≈ 11.810
-            16.509775004420668,          // 7! = 5040, log₂(5040) ≈ 16.510
-            22.032970107010615,          // 8! = 40320, log₂(40320) ≈ 22.033
-            28.383605956788286,          // 9! = 362880, log₂(362880) ≈ 28.384
-            35.513758162992456,          // 10! = 3628800, log₂(3628800) ≈ 35.514
-            43.383605956788286,          // 11! = 39916800, log₂(39916800) ≈ 43.384
-            51.945571835544676,          // 12! = 479001600, log₂(479001600) ≈ 51.946
-            61.161447059283076,          // 13! = 6227020800, log₂(6227020800) ≈ 61.161
-            71.004469686890586,          // 14! = 87178291200, log₂(87178291200) ≈ 71.004
-            81.457439915589776,          // 15! = 1307674368000, log₂(1307674368000) ≈ 81.457
-            92.513758162992456,          // 16! = 20922789888000, log₂(20922789888000) ≈ 92.514
-            104.168353832018086,         // 17! = 355687428096000, log₂(355687428096000) ≈ 104.168
-            116.417667631887286,         // 18! = 6402373705728000, log₂(6402373705728000) ≈ 116.418
-            129.259560377490796,         // 19! = 121645100408832000, log₂(121645100408832000) ≈ 129.260
-            142.692775004420668          // 20! = 2432902008176640000, log₂(2432902008176640000) ≈ 142.693
-        // @formatter:on
-    };
-
+    private static double[] LOG2_FACTORIALS;
 }
