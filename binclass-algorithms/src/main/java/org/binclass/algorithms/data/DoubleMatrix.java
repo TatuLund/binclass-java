@@ -141,16 +141,14 @@ public final class DoubleMatrix {
      *            the input matrix
      * @return the transposed matrix (rows become columns)
      */
-    public static DoubleMatrix transpose(DoubleMatrix m) {
-        Objects.requireNonNull(m, "Input matrix must not be null");
-
-        int rows = m.getRows();
-        int cols = m.getCols(0); // Assume uniform column count for transpose
+    public DoubleMatrix transpose() {
+        int rows = getRows();
+        int cols = getCols(0); // Assume uniform column count for transpose
 
         DoubleMatrix result = new DoubleMatrix(cols, rows);
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                result.set(j, i, m.get(i, j));
+                result.set(j, i, get(i, j));
             }
         }
         return result;
@@ -171,14 +169,13 @@ public final class DoubleMatrix {
      * @throws IllegalArgumentException
      *             if inner dimensions don't match
      */
-    public static DoubleMatrix multiply(DoubleMatrix m1, DoubleMatrix m2) {
-        Objects.requireNonNull(m1, "First matrix must not be null");
-        Objects.requireNonNull(m2, "Second matrix must not be null");
+    public DoubleMatrix multiply(DoubleMatrix other) {
+        Objects.requireNonNull(other, "Second matrix must not be null");
 
-        int rows1 = m1.getRows();
-        int cols1 = m1.getCols(0);
-        int rows2 = m2.getRows();
-        int cols2 = m2.getCols(0);
+        int rows1 = getRows();
+        int cols1 = getCols(0);
+        int rows2 = other.getRows();
+        int cols2 = other.getCols(0);
 
         if (cols1 != rows2) {
             throw new IllegalArgumentException(
@@ -192,7 +189,7 @@ public final class DoubleMatrix {
             for (int j = 0; j < cols2; j++) {
                 double sum = 0.0;
                 for (int k = 0; k < cols1; k++) {
-                    sum += m1.get(i, k) * m2.get(k, j);
+                    sum += get(i, k) * other.get(k, j);
                 }
                 result.set(i, j, sum);
             }
@@ -245,11 +242,9 @@ public final class DoubleMatrix {
      * @throws IllegalArgumentException
      *             if matrix is not square or singular
      */
-    public static DoubleMatrix inverse(DoubleMatrix m) {
-        Objects.requireNonNull(m, "Input matrix must not be null");
-
-        int n = m.getRows();
-        int cols0 = m.getCols(0);
+    public DoubleMatrix inverse() {
+        int n = getRows();
+        int cols0 = getCols(0);
         if (n != cols0) {
             throw new IllegalArgumentException(
                     "Matrix must be square for inversion: " + n + "×" + cols0);
@@ -259,7 +254,7 @@ public final class DoubleMatrix {
         DoubleMatrix aug = new DoubleMatrix(n, 2 * n);
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                aug.set(i, j, m.get(i, j));
+                aug.set(i, j, get(i, j));
             }
             aug.set(i, n + i, 1.0); // Identity matrix on right side
         }
@@ -267,7 +262,7 @@ public final class DoubleMatrix {
         // Gauss-Jordan elimination
         for (int i = 0; i < n; i++) {
             // Find pivot
-            double maxVal = Math.abs(aug.get(i, i));
+            double maxVal = Math.abs(get(i, i));
             int maxRow = i;
             for (int k = i + 1; k < n; k++) {
                 if (Math.abs(aug.get(k, i)) > maxVal) {
@@ -332,14 +327,12 @@ public final class DoubleMatrix {
      *            the input matrix
      * @return the pseudo-inverse matrix
      */
-    public static DoubleMatrix pseudoInverse(DoubleMatrix m) {
-        Objects.requireNonNull(m, "Input matrix must not be null");
-
+    public DoubleMatrix pseudoInverse() {
         // A⁺ = (AᵀA)⁻¹Aᵀ for full-rank matrices
-        DoubleMatrix at = transpose(m);
-        DoubleMatrix ata = multiply(at, m);
-        DoubleMatrix ataInv = inverse(ata);
-        return multiply(ataInv, at);
+        DoubleMatrix at = this.transpose();
+        DoubleMatrix ata = at.multiply(this);
+        DoubleMatrix ataInv = ata.inverse();
+        return ataInv.multiply(at);
     }
 
     @Override

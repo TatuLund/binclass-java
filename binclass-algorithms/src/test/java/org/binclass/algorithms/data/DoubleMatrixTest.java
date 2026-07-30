@@ -82,7 +82,7 @@ public class DoubleMatrixTest {
         m.set(1, 1, 5.0);
         m.set(1, 2, 6.0);
 
-        DoubleMatrix mt = DoubleMatrix.transpose(m);
+        DoubleMatrix mt = m.transpose();
 
         assertEquals(3, mt.getRows());
         assertEquals(2, mt.getCols(0));
@@ -110,7 +110,7 @@ public class DoubleMatrixTest {
         m2.set(2, 0, 11.0);
         m2.set(2, 1, 12.0);
 
-        DoubleMatrix product = DoubleMatrix.multiply(m, m2);
+        DoubleMatrix product = m.multiply(m2);
 
         assertEquals(2, product.getRows());
         assertEquals(2, product.getCols(0));
@@ -128,13 +128,13 @@ public class DoubleMatrixTest {
         square.set(1, 0, 2.0);
         square.set(1, 1, 6.0);
 
-        DoubleMatrix inv = DoubleMatrix.inverse(square);
+        DoubleMatrix inv = square.inverse();
 
         assertEquals(2, inv.getRows());
         assertEquals(2, inv.getCols(0));
 
         // Verify M × M⁻¹ ≈ I
-        DoubleMatrix identity = DoubleMatrix.multiply(square, inv);
+        DoubleMatrix identity = square.multiply(inv);
         assertEquals(1.0, identity.get(0, 0), 1e-8);
         assertEquals(0.0, identity.get(0, 1), 1e-8);
         assertEquals(0.0, identity.get(1, 0), 1e-8);
@@ -294,13 +294,13 @@ public class DoubleMatrixTest {
         m.set(2, 1, 0.0);
         m.set(2, 2, 6.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(3, pinv.getRows());
         assertEquals(3, pinv.getCols(0));
 
         // Verify M × M⁺ ≈ I for square full-rank matrices
-        DoubleMatrix product = DoubleMatrix.multiply(m, pinv);
+        DoubleMatrix product = m.multiply(pinv);
         assertEquals(1.0, product.get(0, 0), 1e-8);
         assertEquals(0.0, product.get(0, 1), 1e-8);
         assertEquals(0.0, product.get(0, 2), 1e-8);
@@ -329,13 +329,13 @@ public class DoubleMatrixTest {
         m.set(3, 1, 12.0);
         m.set(3, 2, 14.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(3, pinv.getRows());
         assertEquals(4, pinv.getCols(0));
 
         // For tall full-rank matrix: A⁺A ≈ I (left pseudo-inverse)
-        DoubleMatrix product = DoubleMatrix.multiply(pinv, m);
+        DoubleMatrix product = pinv.multiply(m);
         assertEquals(1.0, product.get(0, 0), 1e-8);
         assertEquals(0.0, product.get(0, 1), 1e-8);
         assertEquals(0.0, product.get(0, 2), 1e-8);
@@ -365,7 +365,7 @@ public class DoubleMatrixTest {
         m.set(2, 3, 14.0);
 
         assertThrows(IllegalArgumentException.class, () -> {
-            DoubleMatrix.pseudoInverse(m);
+            m.pseudoInverse();
         });
     }
 
@@ -377,7 +377,7 @@ public class DoubleMatrixTest {
         I.set(1, 1, 1.0);
         I.set(2, 2, 1.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(I);
+        DoubleMatrix pinv = I.pseudoInverse();
 
         assertEquals(3, pinv.getRows());
         assertEquals(3, pinv.getCols(0));
@@ -393,28 +393,19 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_nullInput() {
-        assertThrows(NullPointerException.class, () -> {
-            DoubleMatrix.pseudoInverse(null);
-        });
-    }
-
-    @Test
     public void testPseudoInverse_2x2Matrix() {
-        // Simple 2×2 case for easy manual verification
         DoubleMatrix m = new DoubleMatrix(2, 2);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
         m.set(1, 0, 3.0);
         m.set(1, 1, 4.0);
-
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(2, pinv.getRows());
         assertEquals(2, pinv.getCols(0));
 
         // Verify M × M⁺ ≈ I
-        DoubleMatrix product = DoubleMatrix.multiply(m, pinv);
+        DoubleMatrix product = m.multiply(pinv);
         assertEquals(1.0, product.get(0, 0), 1e-8);
         assertEquals(0.0, product.get(0, 1), 1e-8);
         assertEquals(0.0, product.get(1, 0), 1e-8);
@@ -436,13 +427,13 @@ public class DoubleMatrixTest {
         m.set(4, 0, 0.0);
         m.set(4, 1, 3.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(2, pinv.getRows());
         assertEquals(5, pinv.getCols(0));
 
         // A⁺A should approximate identity for full column-rank matrices
-        DoubleMatrix product = DoubleMatrix.multiply(pinv, m);
+        DoubleMatrix product = pinv.multiply(m);
         assertEquals(1.0, product.get(0, 0), 1e-8);
         assertEquals(0.0, product.get(0, 1), 1e-8);
         assertEquals(0.0, product.get(1, 0), 1e-8);
@@ -463,13 +454,13 @@ public class DoubleMatrixTest {
         m.set(2, 1, 7.0);
         m.set(2, 2, -8.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(3, pinv.getRows());
         assertEquals(3, pinv.getCols(0));
 
         // Verify M × M⁺ ≈ I
-        DoubleMatrix product = DoubleMatrix.multiply(m, pinv);
+        DoubleMatrix product = m.multiply(pinv);
         assertEquals(1.0, product.get(0, 0), 1e-8);
         assertEquals(0.0, product.get(0, 1), 1e-8);
         assertEquals(0.0, product.get(0, 2), 1e-8);
@@ -502,13 +493,13 @@ public class DoubleMatrixTest {
         m.set(3, 2, -1.0);
         m.set(3, 3, 2.0);
 
-        DoubleMatrix pinv = DoubleMatrix.pseudoInverse(m);
+        DoubleMatrix pinv = m.pseudoInverse();
 
         assertEquals(4, pinv.getRows());
         assertEquals(4, pinv.getCols(0));
 
         // Verify M × M⁺ ≈ I
-        DoubleMatrix product = DoubleMatrix.multiply(m, pinv);
+        DoubleMatrix product = m.multiply(pinv);
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
                 double expected = (i == j) ? 1.0 : 0.0;
@@ -533,7 +524,7 @@ public class DoubleMatrixTest {
         m.set(2, 2, 9.0);
 
         assertThrows(IllegalArgumentException.class, () -> {
-            DoubleMatrix.pseudoInverse(m);
+            m.pseudoInverse();
         });
     }
 }
