@@ -29,7 +29,7 @@ public final class Centroid {
 
     private final double[] el;
     private final int l;
-    private final int weight;
+    private int weight;
 
     /**
      * Creates a new {@code Centroid} with the given data.
@@ -48,17 +48,53 @@ public final class Centroid {
     }
 
     /**
-     * Creates a zero-length centroid with the given weight.
+     * Creates a new {@code Centroid} with the given length and default weight.
+     * Convenience constructor for quick initialization.
+     *
+     * @param l
+     *            the length of the centroid vector
+     */
+    public Centroid(int l) {
+        this(new double[l], l, 0);
+    }
+
+    /**
+     * Creates a zero-length centroid with no contributing vectors.
+     */
+    public Centroid() {
+        this(0);
+    }
+
+    /**
+     * Sets the value at index i in this centroid.
      * <p>
-     * Used as an initial/uninitialized centroid state.
+     * Equivalent to C function {@code centroid_set()} from {@code binset.h}.
+     * </p>
+     *
+     * @param i
+     *            zero-based index
+     * @param value
+     *            the new value at that position
+     */
+    public void set(int i, double value) {
+        if (i < 0 || i >= l) {
+            throw new IndexOutOfBoundsException(
+                    "Index " + i + " out of bounds for centroid length " + l);
+        }
+        el[i] = value;
+    }
+
+    /**
+     * Sets the weight (number of contributing vectors) for this centroid.
+     * <p>
+     * Equivalent to C function {@code centroid_set_weight()} from
+     * {@code binset.h}.
      * </p>
      *
      * @param weight
-     *            the number of vectors contributing (0 for uninitialized)
+     *            the new weight value
      */
-    public Centroid(int weight) {
-        this.el = new double[0];
-        this.l = 0;
+    public void setWeight(int weight) {
         this.weight = weight;
     }
 
@@ -93,6 +129,8 @@ public final class Centroid {
      */
     public double getLog0(int i) {
         double val = get(i);
+        // Return negated log₂(1 - el[i]) so it represents information content
+        // (positive for prob < 1)
         return MathUtils.log2Complement(val);
     }
 
@@ -100,7 +138,7 @@ public final class Centroid {
      * Returns the value at index i as a log-probability for bit=1.
      * <p>
      * Equivalent to C function {@code centroid_log1()} from {@code binset.h}.
-     * Computes log₂(el[i]) for bit=1 probability.
+     * Computes log₂(el[i]) for information content (positive when prob &lt; 1).
      * </p>
      *
      * @param i
@@ -148,7 +186,7 @@ public final class Centroid {
      * @return the internal storage array (defensive copy)
      */
     public double[] getArray() {
-        return Arrays.copyOf(el, el.length);
+        return el; // Return reference to internal array for direct mutation
     }
 
     /**

@@ -10,20 +10,22 @@ import java.util.*;
  * A set of {@link BinaryVector} instances, mirroring the C {@code ST} struct
  * from {@code binset.h}.
  * <p>
- * Backed by a {@link HashSet} for O(1) lookup performance (unlike the original
- * C implementation which used a linked list). Provides methods to manage
- * collections of binary vectors during clustering operations.
+ * Backed by an {@link IdentityHashMap} for identity-based comparison (using
+ * reference equality) rather than content-based equality. This ensures each
+ * vector instance is treated as unique regardless of its bit pattern, which
+ * matches the behavior expected in clustering operations where different
+ * instances may have identical content but represent distinct vectors.
  * </p>
  */
 public final class VectorSet implements Iterable<BinaryVector> {
 
-    private final Set<BinaryVector> elements;
+    private final IdentityHashMap<BinaryVector, Boolean> elements;
 
     /**
      * Creates an empty {@code VectorSet}.
      */
     public VectorSet() {
-        this.elements = new HashSet<>();
+        this.elements = new IdentityHashMap<>();
     }
 
     /**
@@ -33,7 +35,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *            the expected number of elements
      */
     public VectorSet(int initialCapacity) {
-        this.elements = new HashSet<>(initialCapacity);
+        this.elements = new IdentityHashMap<>(initialCapacity);
     }
 
     /**
@@ -48,7 +50,21 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *         already present)
      */
     public boolean addElement(BinaryVector bv) {
-        return elements.add(bv);
+        return elements.put(bv, Boolean.TRUE) == null;
+    }
+
+    /**
+     * Adds an element to this set (convenience method).
+     * <p>
+     * Equivalent to {@link #addElement(BinaryVector)}.
+     * </p>
+     *
+     * @param bv
+     *            the BinaryVector to add
+     * @return true if the set changed as a result of the call
+     */
+    public boolean add(BinaryVector bv) {
+        return elements.put(bv, Boolean.TRUE) == null;
     }
 
     /**
@@ -63,7 +79,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return true if the set contained the specified element
      */
     public boolean removeElement(BinaryVector bv) {
-        return elements.remove(bv);
+        return elements.remove(bv) != null;
     }
 
     /**
@@ -77,7 +93,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return true if the set contains the specified element
      */
     public boolean contains(BinaryVector bv) {
-        return elements.contains(bv);
+        return elements.containsKey(bv);
     }
 
     /**
@@ -101,7 +117,31 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return an iterator over the BinaryVector instances
      */
     public Iterator<BinaryVector> iterator() {
-        return elements.iterator();
+        return elements.keySet().iterator();
+    }
+
+    /**
+     * Returns a new array containing all vectors in this set.
+     * <p>
+     * Equivalent to C function {@code st_to_array()} from {@code binset.h}.
+     * </p>
+     *
+     * @param type
+     *            the component type of the returned array (unused, for API
+     *            compatibility)
+     * @return a new array containing all BinaryVector instances in this set
+     */
+    public <T> T[] toArray(T[] type) {
+        return (T[]) elements.keySet().toArray(type);
+    }
+
+    /**
+     * Returns the underlying collection of elements.
+     *
+     * @return an unmodifiable view of the elements
+     */
+    public Collection<BinaryVector> getElements() {
+        return Collections.unmodifiableCollection(elements.keySet());
     }
 
     /**

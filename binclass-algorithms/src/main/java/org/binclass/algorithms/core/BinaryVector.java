@@ -72,11 +72,22 @@ public final class BinaryVector {
     }
 
     /**
+     * Creates a new {@code BinaryVector} with no missing values and unassigned.
+     * Length is inferred from the array (convenience constructor).
+     *
+     * @param el
+     *            the bit values (0 or 1)
+     */
+    public BinaryVector(int[] el) {
+        this(el, el.length);
+    }
+
+    /**
      * Returns a copy of the underlying bit array.
      *
      * @return a defensive copy of the internal {@code el} array
      */
-    protected int[] getEl() {
+    public int[] getEl() {
         return el;
     }
 

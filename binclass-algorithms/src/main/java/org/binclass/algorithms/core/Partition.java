@@ -41,6 +41,17 @@ public final class Partition {
     }
 
     /**
+     * Creates an empty partition with the given number of clusters and default
+     * vector length. Convenience constructor for quick initialization.
+     *
+     * @param k
+     *            the number of clusters (1-based)
+     */
+    public Partition(int k, int l) {
+        this(k);
+    }
+
+    /**
      * Returns the number of clusters in this partition.
      * <p>
      * Equivalent to C function {@code partition_size()} from {@code binset.h}.
@@ -50,6 +61,25 @@ public final class Partition {
      */
     public int size() {
         return k;
+    }
+
+    /**
+     * Sets the number of clusters in this partition.
+     * <p>
+     * Equivalent to C assignment {@code P->k = k} from {@code distmin.c}. Used
+     * by nearest-neighbor algorithms to initialize partition size before
+     * assigning vectors.
+     * </p>
+     *
+     * @param newSize
+     *            the new number of clusters (1-based)
+     */
+    public void setSize(int newSize) {
+        if (newSize <= 0) {
+            throw new IllegalArgumentException(
+                    "Number of clusters must be positive, got: " + newSize);
+        }
+        this.k = newSize;
     }
 
     /**

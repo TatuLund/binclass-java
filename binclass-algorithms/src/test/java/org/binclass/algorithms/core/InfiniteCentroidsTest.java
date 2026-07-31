@@ -124,11 +124,12 @@ public class InfiniteCentroidsTest {
         InfiniteCentroids ic = new InfiniteCentroids(3, 5);
 
         // All centroids should be initialized with weight 0 (uninitialized
-        // state)
+        // state) - length is set to l during construction but can be
+        // zero-length
         for (int i = 0; i < 3; i++) {
             Centroid c = ic.get(i);
             assertEquals(0, c.getWeight());
-            assertEquals(0, c.getLength());
+            assertEquals(5, c.getLength());
         }
     }
 

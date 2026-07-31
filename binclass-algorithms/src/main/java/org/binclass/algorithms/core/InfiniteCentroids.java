@@ -42,10 +42,25 @@ public final class InfiniteCentroids {
         this.centroids = new Centroid[k];
         this.scValues = new double[k][l];
 
-        // Initialize with zero-length centroids (uninitialized state)
+        // Initialize with centroids of proper length (uninitialized state)
         for (int i = 0; i < k; i++) {
-            centroids[i] = new Centroid(0);
+            centroids[i] = new Centroid(l);
         }
+    }
+
+    /**
+     * Creates a new {@code InfiniteCentroids} with the given number of
+     * clusters. Uses a default length of 16 bits for binary vectors.
+     * <p>
+     * Convenience constructor for quick initialization when vector length is
+     * not critical.
+     * </p>
+     *
+     * @param k
+     *            the number of clusters (1-based)
+     */
+    public InfiniteCentroids(int k) {
+        this(k, 16); // Default to 16-bit vectors
     }
 
     /**

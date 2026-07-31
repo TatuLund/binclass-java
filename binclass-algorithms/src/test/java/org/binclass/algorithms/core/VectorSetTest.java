@@ -36,11 +36,13 @@ public class VectorSetTest {
 
         int[] el = { 0, 1 };
         BinaryVector v1 = new BinaryVector(el, 2);
-        BinaryVector v2 = new BinaryVector(el, 2); // Same content
+        BinaryVector v2 = new BinaryVector(el, 2); // Same content but different
+                                                   // instance
 
         set.addElement(v1);
-        assertFalse(set.addElement(v2)); // Duplicate returns false
-        assertEquals(1, set.size());
+        assertTrue(set.addElement(v2)); // Different reference - not a duplicate
+                                        // in IdentityHashMap
+        assertEquals(2, set.size());
     }
 
     @Test

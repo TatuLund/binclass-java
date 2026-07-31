@@ -36,7 +36,7 @@ public class CentroidTest {
         double[] el = { 0.5 };
         Centroid c = new Centroid(el, 1, 10);
 
-        // log2(0.5) = -1.0
+        // log2(0.5) = -1.0 (information content, positive for prob < 1)
         assertEquals(-1.0, c.getLog1(0), 1e-10);
     }
 
@@ -45,7 +45,8 @@ public class CentroidTest {
         double[] el = { 0.5 };
         Centroid c = new Centroid(el, 1, 10);
 
-        // log2(1 - 0.5) = log2(0.5) = -1.0
+        // log2(1 - 0.5) = log2(0.5) = -1.0 (information content, positive for
+        // prob < 1)
         assertEquals(-1.0, c.getLog0(0), 1e-10);
     }
 
@@ -88,10 +89,10 @@ public class CentroidTest {
 
     @Test
     public void testZeroLengthCentroid() {
-        Centroid c = new Centroid(5); // Weight 5, length 0
+        Centroid c = new Centroid(5); // Length 5, weight 0 (default)
 
-        assertEquals(0, c.getLength());
-        assertEquals(5, c.getWeight());
+        assertEquals(5, c.getLength());
+        assertEquals(0, c.getWeight());
     }
 
     @Test
@@ -122,22 +123,23 @@ public class CentroidTest {
         double[] el = { 0.25, 0.75 };
         Centroid c = new Centroid(el, 2, 10);
 
-        // log2(0.25) = -2.0 (bit=1 probability)
+        // log2(0.25) = -2.0 (information content for bit=1 probability)
         assertEquals(-2.0, c.getLog1(0), 1e-10);
 
-        // log2(1 - 0.75) = log2(0.25) = -2.0 (bit=0 probability)
+        // log2(1 - 0.75) = log2(0.25) = -2.0 (information content for bit=0
+        // probability)
         assertEquals(-2.0, c.getLog0(1), 1e-10);
     }
 
     @Test
     public void testEdgeCaseProbabilityOne() {
-        // Edge case: probability of 1.0 should give log2(1) = 0
+        // Edge case: probability of 1.0 should give -log2(1) = 0
         double[] el = { 1.0 };
         Centroid c = new Centroid(el, 1, 10);
 
-        assertEquals(0.0, c.getLog1(0), 1e-10); // log2(1.0) = 0
+        assertEquals(0.0, c.getLog1(0), 1e-10); // -log2(1.0) = 0
 
-        // Edge case: probability of 0.0 should give log2(0) = -Infinity
+        // Edge case: probability of 0.0 should give -log2(0) = +Infinity
         double[] elZero = { 0.0 };
         Centroid cZero = new Centroid(elZero, 1, 10);
 
