@@ -89,7 +89,7 @@ public final class DynamicPartition {
         }
 
         // Update Hamming distances with all other clusters
-        updateHammingDistances(i, bv);
+        updateHammingDistances(i);
     }
 
     /**
@@ -120,7 +120,7 @@ public final class DynamicPartition {
         }
 
         // Update Hamming distances with all other clusters
-        updateHammingDistances(i, bv);
+        updateHammingDistances(i);
     }
 
     /**
@@ -168,6 +168,22 @@ public final class DynamicPartition {
     }
 
     /**
+     * Returns the number of vectors in a specific cluster.
+     * <p>
+     * Equivalent to C function {@code dyn_partition_get_size()} from
+     * {@code binset.h}.
+     * </p>
+     *
+     * @param i
+     *            the 1-based cluster index (1..k)
+     * @return number of vectors in that cluster
+     */
+    public int getClusterSize(int i) {
+        checkClusterIndex(i);
+        return partition.getSize(i);
+    }
+
+    /**
      * Returns a string representation of this DynamicPartition.
      */
     @Override
@@ -194,7 +210,7 @@ public final class DynamicPartition {
      * Updates Hamming distances between cluster {@code i} and all other
      * clusters.
      */
-    private void updateHammingDistances(int i, BinaryVector bv) {
+    private void updateHammingDistances(int i) {
         // Recalculate Hamming distance for cluster i with all other clusters
         for (int j = 0; j < k; j++) {
             if (j != i - 1) { // Skip self-comparison

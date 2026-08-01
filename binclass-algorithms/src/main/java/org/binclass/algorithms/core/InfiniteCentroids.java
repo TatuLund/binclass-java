@@ -123,11 +123,12 @@ public final class InfiniteCentroids {
     }
 
     /**
-     * Computes the sum-of-costs (SC) values for all clusters.
+     * Computes the sum-of-costs (SC, Stochastic Complexity) values for all
+     * clusters.
      * <p>
      * Equivalent to C function {@code infinite_centroids_calculate_sc()} from
      * {@code binset.h}. SC represents the total cost of assigning vectors to
-     * their respective centroids.
+     * their respective centroids using Shannon entropy per bit position.
      * </p>
      *
      * @param partition
@@ -140,20 +141,22 @@ public final class InfiniteCentroids {
             int clusterIdx = i + 1; // Convert to 1-based for partition access
             Centroid centroid = centroids[i];
             int[] freqs = partition.getFreqs(clusterIdx);
+            int classSize = partition.getClusterSize(clusterIdx);
 
             double sc = 0.0;
             for (int bit = 0; bit < centroid.getLength(); bit++) {
-                if (freqs[bit] > 0) {
-                    // Cost contribution from this bit position
+                if (freqs[bit] > 0 || freqs[bit] < classSize) {
+                    // Cost contribution from this bit position using Shannon
+                    // entropy
                     double prob1 = centroid.get(bit);
                     double prob0 = 1.0 - prob1;
 
                     // Handle edge cases where prob is 0 or 1 to avoid NaN
                     // (0 * log(0) should be treated as 0, not NaN)
-                    double term1 = (prob1 > 0)
+                    double term1 = (prob1 > 0 && freqs[bit] > 0)
                             ? freqs[bit] * (Math.log(prob1) / Math.log(2))
                             : 0;
-                    int count0 = centroid.getWeight() - freqs[bit];
+                    int count0 = classSize - freqs[bit];
                     double term2 = (count0 > 0 && prob0 > 0)
                             ? count0 * (Math.log(prob0) / Math.log(2))
                             : 0;

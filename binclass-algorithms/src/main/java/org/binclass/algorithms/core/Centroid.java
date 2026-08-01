@@ -29,7 +29,7 @@ public final class Centroid {
 
     private final double[] el;
     private final int l;
-    private int weight;
+    private double weight;
 
     /**
      * Creates a new {@code Centroid} with the given data.
@@ -39,9 +39,10 @@ public final class Centroid {
      * @param l
      *            the length of the centroid vector
      * @param weight
-     *            the number of vectors contributing to this centroid
+     *            frequency ratio (class_size / total_vectors) for weighted
+     *            codelength
      */
-    public Centroid(double[] el, int l, int weight) {
+    public Centroid(double[] el, int l, double weight) {
         this.el = Arrays.copyOf(el, el.length);
         this.l = l;
         this.weight = weight;
@@ -55,7 +56,7 @@ public final class Centroid {
      *            the length of the centroid vector
      */
     public Centroid(int l) {
-        this(new double[l], l, 0);
+        this(new double[l], l, 0.0);
     }
 
     /**
@@ -85,16 +86,17 @@ public final class Centroid {
     }
 
     /**
-     * Sets the weight (number of contributing vectors) for this centroid.
+     * Sets the frequency ratio weight for this centroid.
      * <p>
      * Equivalent to C function {@code centroid_set_weight()} from
-     * {@code binset.h}.
+     * {@code binset.h}. Weight is computed as (class_size / total_vectors) for
+     * weighted codelength calculations.
      * </p>
      *
      * @param weight
-     *            the new weight value
+     *            the new frequency ratio value (class_size / total_vectors)
      */
-    public void setWeight(int weight) {
+    public void setWeight(double weight) {
         this.weight = weight;
     }
 
@@ -159,11 +161,15 @@ public final class Centroid {
     }
 
     /**
-     * Returns the weight (number of contributing vectors) for this centroid.
+     * Returns the frequency ratio weight for this centroid.
+     * <p>
+     * Weight is computed as (class_size / total_vectors) for weighted
+     * codelength calculations.
+     * </p>
      *
-     * @return weight of the centroid
+     * @return weight of the centroid (frequency ratio)
      */
-    public int getWeight() {
+    public double getWeight() {
         return weight;
     }
 
@@ -218,7 +224,8 @@ public final class Centroid {
     public int hashCode() {
         int result = Arrays.hashCode(el);
         result = 31 * result + l;
-        result = 31 * result + weight;
+        long weightBits = Double.doubleToLongBits(weight);
+        result = 31 * result + (int) (weightBits ^ (weightBits >>> 32));
         return result;
     }
 

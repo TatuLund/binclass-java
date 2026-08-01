@@ -109,6 +109,23 @@ public final class VectorSet implements Iterable<BinaryVector> {
     }
 
     /**
+     * Returns the length (number of bits) of vectors in this set.
+     * <p>
+     * Assumes all vectors in the set have the same length. Iterates through the
+     * set to find any vector and returns its length.
+     * </p>
+     *
+     * @return the bit-length of vectors in this set, or 0 if empty
+     */
+    public int getVectorLength() {
+        BinaryVector bv = elements.keySet().stream().findFirst().orElse(null);
+        if (bv != null) {
+            return bv.getLength();
+        }
+        return 0; // Empty set
+    }
+
+    /**
      * Returns an iterator over the elements in this set.
      * <p>
      * Equivalent to C function {@code st_iterator()} from {@code binset.h}.

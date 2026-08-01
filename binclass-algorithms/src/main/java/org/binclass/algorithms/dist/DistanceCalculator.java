@@ -188,7 +188,8 @@ public final class DistanceCalculator {
      * <p>
      * Equivalent to C function {@code class_code_length()} from
      * {@code distmin.c}. Averages code lengths (or weighted code lengths) over
-     * all vectors in the specified class, optionally rounding centroids first.
+     * all vectors in the specified class, optionally rounding centroids first
+     * using {@link #infAverage(VectorSet, Centroid, boolean, int)}.
      * </p>
      *
      * @param partition
@@ -198,7 +199,9 @@ public final class DistanceCalculator {
      * @param classIndex
      *            1-based class index (1..k)
      * @param totalVectors
-     *            total number of vectors across all classes (for weight calc)
+     *            total number of vectors across all classes — used to compute
+     *            centroid weights when {@code roundedCentroids} is true,
+     *            matching the C parameter {@code s}
      * @return average codelength for this class
      */
     public static double classCodeLength(Partition partition,
@@ -209,6 +212,17 @@ public final class DistanceCalculator {
 
         VectorSet classVectors = partition.getElements(classIndex);
         Centroid centroid = centroids.get(classIndex - 1); // Convert to 0-based
+
+        /*
+         * Original C: if (rounded_centroids)
+         * inf_average(P->el[i],C->el[i],FALSE,s); Compute weighted centroid
+         * before measuring distances, matching the behavior of inf_average() in
+         * distmin.c.
+         */
+        if (useRoundedCentroids()) {
+            infAverage(classVectors, centroid, true, totalVectors);
+        }
+
         double totalLength = 0.0;
         int count = 0;
 
@@ -521,6 +535,85 @@ public final class DistanceCalculator {
         // In a full implementation, this would set a module-level flag.
         // For Phase 2, we keep it simple with the getter returning false by
         // default.
+    }
+
+    /**
+     * Returns whether rounded centroids are currently enabled.
+     * <p>
+     * Mirrors the C global variable {@code rounded_centroids} from
+     * {@code vars.h}. When true, centroid computation rounds probabilities to 0
+     * or 1 before distance calculations.
+     * </p>
+     *
+     * @return true if rounded centroids are enabled
+     */
+    public static boolean useRoundedCentroids() {
+        // In the original C code, this is a global variable controlled by CLI
+        // args. For now, default to false — can be made configurable later.
+        return false;
+    }
+
+    /**
+     * Computes weighted centroid from a vector set, mirroring C function
+     * {@code inf_average()} from {@code distmin.c}.
+     * <p>
+     * Accumulates bit counts across all vectors in the class, computes per-
+     * position averages, and optionally rounds to 0/1. Sets centroid weight as
+     * (class_size / total_vectors) for frequency-based weighting.
+     * </p>
+     *
+     * @param vectorSet
+     *            the set of vectors in this class
+     * @param centroid
+     *            the centroid to update with computed values
+     * @param rounded
+     *            if true, round probabilities to 0 or 1 (threshold 0.5)
+     * @param totalVectors
+     *            total number of vectors across all classes — used for weight
+     *            calculation: {@code weight = classSize / totalVectors}
+     */
+    private static void infAverage(VectorSet vectorSet, Centroid centroid,
+            boolean rounded, int totalVectors) {
+        Objects.requireNonNull(vectorSet, "VectorSet must not be null");
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
+
+        // Get length from first vector (mirrors C: l = V->el->length)
+        int numBits = vectorSet.getVectorLength();
+
+        // Accumulate bit counts per position (mirrors C: el[i] += w[i])
+        double[] bitCounts = new double[numBits];
+        int classSize = 0;
+
+        for (BinaryVector vector : vectorSet) {
+            for (int i = 0; i < numBits; i++) {
+                bitCounts[i] += vector.get(i);
+            }
+            classSize++;
+        }
+        if (classSize == 0) {
+            throw new ArithmeticException(
+                    "Cannot compute centroid for empty class");
+        }
+
+        // Compute averages per position (mirrors C: x->el[i] = el[i] / n)
+        for (int i = 0; i < numBits; i++) {
+            centroid.set(i, bitCounts[i] / classSize);
+        }
+
+        // Set weight based on class frequency (mirrors C: x->weight = n / s)
+        double weight = (double) classSize / (double) totalVectors;
+        if (weight < 1e-7) { // EPS from const.h
+            weight = 1e-7;
+        }
+        centroid.setWeight(weight);
+
+        // Optionally round to 0 or 1 (mirrors C: if (rounded) ...)
+        if (rounded) {
+            for (int i = 0; i < numBits; i++) {
+                double value = centroid.get(i);
+                centroid.set(i, value < 0.5 ? 0.0 : 1.0);
+            }
+        }
     }
 
 }
