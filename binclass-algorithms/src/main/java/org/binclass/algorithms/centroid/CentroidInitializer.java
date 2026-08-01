@@ -4,8 +4,11 @@
  */
 package org.binclass.algorithms.centroid;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
@@ -22,6 +25,7 @@ import org.binclass.algorithms.core.VectorSet;
  */
 public final class CentroidInitializer {
 
+    private static final String VECTOR_SET_MUST_NOT_BE_NULL = "VectorSet must not be null";
     private static final Random RANDOM = new Random();
 
     private CentroidInitializer() {
@@ -69,7 +73,7 @@ public final class CentroidInitializer {
      * </p>
      */
     public static InfiniteCentroids randomInit(VectorSet vectors, int k) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         if (k <= 0) {
             throw new IllegalArgumentException("k must be positive");
         }
@@ -104,7 +108,7 @@ public final class CentroidInitializer {
 
         // Select k random unique indices from the vector set and use their
         // bit patterns as initial centroids (preserving binary values)
-        java.util.Set<Integer> selectedIndices = new java.util.HashSet<>();
+        Set<Integer> selectedIndices = new HashSet<>();
         while (selectedIndices.size() < k && selectedIndices.size() < n) {
             int idx = RANDOM.nextInt(n);
             selectedIndices.add(idx);
@@ -118,7 +122,7 @@ public final class CentroidInitializer {
             double[] el = new double[l];
             for (int j = 0; j < l && j < bv.getLength(); j++) {
                 // Use actual binary values from the vector (preserves 0/1)
-                el[j] = (double) bv.get(j);
+                el[j] = bv.get(j);
             }
             centroids.set(centroidIdx, new Centroid(el, l, 0));
             centroidIdx++;
@@ -145,7 +149,7 @@ public final class CentroidInitializer {
      * @return a new InfiniteCentroids array initialized from data samples
      */
     public static InfiniteCentroids pickInit(int k, int l, VectorSet vectors) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
 
         if (k <= 0 || l <= 0) {
             throw new IllegalArgumentException("k and l must be positive");
@@ -165,7 +169,7 @@ public final class CentroidInitializer {
 
         // Select k random indices from the vector set (with replacement if n <
         // k)
-        java.util.Set<Integer> selectedIndices = new java.util.HashSet<>();
+        Set<Integer> selectedIndices = new HashSet<>();
         while (selectedIndices.size() < k && selectedIndices.size() < n) {
             int idx = RANDOM.nextInt(n);
             selectedIndices.add(idx);
@@ -178,7 +182,7 @@ public final class CentroidInitializer {
             double[] el = new double[l];
             for (int j = 0; j < l && j < bv.getLength(); j++) {
                 // Scale binary values to probability range [1/3, 2/3]
-                el[j] = (1.0 + (double) bv.get(j)) / 3.0;
+                el[j] = (1.0 + bv.get(j)) / 3.0;
             }
             centroids.set(centroidIdx, new Centroid(el, l, 0));
             centroidIdx++;
@@ -191,7 +195,7 @@ public final class CentroidInitializer {
             double[] el = new double[l];
             for (int j = 0; j < l && j < bv.getLength(); j++) {
                 // Scale binary values to probability range [1/3, 2/3]
-                el[j] = (1.0 + (double) bv.get(j)) / 3.0;
+                el[j] = (1.0 + bv.get(j)) / 3.0;
             }
             centroids.set(centroidIdx, new Centroid(el, l, 0));
             centroidIdx++;
@@ -227,7 +231,7 @@ public final class CentroidInitializer {
         // Initialize all elements to low probability
         for (int i = 0; i < k; i++) {
             double[] el = new double[l];
-            java.util.Arrays.fill(el, 0.05);
+            Arrays.fill(el, 0.05);
             centroids.set(i, new Centroid(el, l, 0));
         }
 
@@ -249,7 +253,7 @@ public final class CentroidInitializer {
      * weighting, inferring length from a VectorSet.
      */
     public static InfiniteCentroids semiRandomInit(VectorSet vectors, int k) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         if (k <= 0) {
             throw new IllegalArgumentException("k must be positive");
         }
@@ -292,7 +296,7 @@ public final class CentroidInitializer {
      * @return a new InfiniteCentroids array initialized via PNN algorithm
      */
     public static InfiniteCentroids pnnInit(int k, int l, VectorSet vectors) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
 
         if (k <= 0 || l <= 0) {
             throw new IllegalArgumentException("k and l must be positive");
@@ -312,7 +316,7 @@ public final class CentroidInitializer {
         double[][] centroidMatrix = new double[n][l];
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < l; j++) {
-                centroidMatrix[i][j] = (double) vectorArray[i].get(j);
+                centroidMatrix[i][j] = vectorArray[i].get(j);
             }
         }
 
@@ -322,7 +326,8 @@ public final class CentroidInitializer {
         while (currentSize > k) {
             // Find the closest pair using L2 distance
             double minDist = Double.MAX_VALUE;
-            int bestI = 0, bestJ = 1;
+            int bestI = 0;
+            int bestJ = 1;
 
             for (int i = 0; i < currentSize - 1; i++) {
                 for (int j = i + 1; j < currentSize; j++) {

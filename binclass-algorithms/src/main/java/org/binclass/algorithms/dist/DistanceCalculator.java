@@ -38,6 +38,11 @@ import org.binclass.algorithms.util.MathUtils;
  */
 public final class DistanceCalculator {
 
+    private static final String INFINITE_CENTROIDS_MUST_NOT_BE_NULL = "InfiniteCentroids must not be null";
+    private static final String CENTROID_MUST_NOT_BE_NULL = "Centroid must not be null";
+    private static final String BINARY_VECTOR_MUST_NOT_BE_NULL = "BinaryVector must not be null";
+    private static final String PARTITION_MUST_NOT_BE_NULL = "Partition must not be null";
+
     private DistanceCalculator() {
         // Utility class — prevent instantiation
     }
@@ -57,8 +62,8 @@ public final class DistanceCalculator {
      * @return the Hamming distance (number of differing positions)
      */
     public static int hammingDistance(BinaryVector vector, Centroid centroid) {
-        Objects.requireNonNull(vector, "BinaryVector must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(vector, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         int dist = 0;
         for (int i = 0; i < vector.getLength(); i++) {
@@ -86,12 +91,12 @@ public final class DistanceCalculator {
      * @return the L1 distance (sum of absolute differences)
      */
     public static double l1Distance(BinaryVector vector, Centroid centroid) {
-        Objects.requireNonNull(vector, "BinaryVector must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(vector, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         double dist = 0.0;
         for (int i = 0; i < vector.getLength(); i++) {
-            dist += Math.abs((double) vector.get(i) - centroid.get(i));
+            dist += Math.abs(vector.get(i) - centroid.get(i));
         }
         return dist;
     }
@@ -111,12 +116,12 @@ public final class DistanceCalculator {
      * @return the L2 distance (sum of squared differences)
      */
     public static double l2Distance(BinaryVector vector, Centroid centroid) {
-        Objects.requireNonNull(vector, "BinaryVector must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(vector, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         double dist = 0.0;
         for (int i = 0; i < vector.getLength(); i++) {
-            double diff = (double) vector.get(i) - centroid.get(i);
+            double diff = vector.get(i) - centroid.get(i);
             dist += diff * diff;
         }
         return dist;
@@ -138,8 +143,8 @@ public final class DistanceCalculator {
      * @return the Shannon codelength (information content in bits)
      */
     public static double codeLength(BinaryVector vector, Centroid centroid) {
-        Objects.requireNonNull(vector, "BinaryVector must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(vector, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         double h = 0.0;
         for (int i = 0; i < vector.getLength(); i++) {
@@ -171,8 +176,8 @@ public final class DistanceCalculator {
      * @return the weighted Shannon codelength
      */
     public static double codeLength2(BinaryVector vector, Centroid centroid) {
-        Objects.requireNonNull(vector, "BinaryVector must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(vector, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         return codeLength(vector, centroid)
                 - MathUtils.log2(centroid.getWeight());
@@ -199,8 +204,8 @@ public final class DistanceCalculator {
     public static double classCodeLength(Partition partition,
             InfiniteCentroids centroids,
             int classIndex, int totalVectors) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         VectorSet classVectors = partition.getElements(classIndex);
         Centroid centroid = centroids.get(classIndex - 1); // Convert to 0-based
@@ -214,7 +219,7 @@ public final class DistanceCalculator {
             count++;
         }
 
-        if (count < 1) {
+        if (count == 0) {
             throw new ArithmeticException(
                     "Division by zero in classCodeLength");
         }
@@ -237,8 +242,8 @@ public final class DistanceCalculator {
      */
     public static double averageCodelength(Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         double totalLength = 0.0;
@@ -253,7 +258,7 @@ public final class DistanceCalculator {
             }
         }
 
-        if (totalCount < 1) {
+        if (totalCount == 0) {
             throw new ArithmeticException(
                     "Division by zero in averageCodelength");
         }
@@ -277,7 +282,7 @@ public final class DistanceCalculator {
     public static double classDistortion(VectorSet classVectors,
             Centroid centroid) {
         Objects.requireNonNull(classVectors, "VectorSet must not be null");
-        Objects.requireNonNull(centroid, "Centroid must not be null");
+        Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         int totalDist = 0;
         int count = 0;
@@ -287,7 +292,7 @@ public final class DistanceCalculator {
             count++;
         }
 
-        if (count < 1) {
+        if (count == 0) {
             throw new ArithmeticException(
                     "Division by zero in classDistortion");
         }
@@ -311,8 +316,8 @@ public final class DistanceCalculator {
      */
     public static double overallDistortion(Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         int totalDist = 0;
@@ -327,7 +332,7 @@ public final class DistanceCalculator {
             }
         }
 
-        if (totalCount < 1) {
+        if (totalCount == 0) {
             throw new ArithmeticException(
                     "Division by zero in overallDistortion");
         }
@@ -352,8 +357,8 @@ public final class DistanceCalculator {
      */
     public static double classMae(Partition partition,
             InfiniteCentroids centroids, int classIndex) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         VectorSet classVectors = partition.getElements(classIndex);
         Centroid centroid = centroids.get(classIndex - 1); // Convert to 0-based
@@ -365,7 +370,7 @@ public final class DistanceCalculator {
             count++;
         }
 
-        if (count < 1) {
+        if (count == 0) {
             throw new ArithmeticException("Division by zero in classMae");
         }
         return totalDist / count;
@@ -387,8 +392,8 @@ public final class DistanceCalculator {
      */
     public static double overallMae(Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         double totalDist = 0.0;
@@ -403,7 +408,7 @@ public final class DistanceCalculator {
             }
         }
 
-        if (totalCount < 1) {
+        if (totalCount == 0) {
             throw new ArithmeticException("Division by zero in overallMae");
         }
         return totalDist / totalCount;
@@ -427,8 +432,8 @@ public final class DistanceCalculator {
      */
     public static double classMse(Partition partition,
             InfiniteCentroids centroids, int classIndex) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         VectorSet classVectors = partition.getElements(classIndex);
         Centroid centroid = centroids.get(classIndex - 1); // Convert to 0-based
@@ -440,7 +445,7 @@ public final class DistanceCalculator {
             count++;
         }
 
-        if (count < 1) {
+        if (count == 0) {
             throw new ArithmeticException("Division by zero in classMse");
         }
         return totalDist / count;
@@ -462,8 +467,8 @@ public final class DistanceCalculator {
      */
     public static double overallMse(Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         double totalDist = 0.0;
@@ -478,7 +483,7 @@ public final class DistanceCalculator {
             }
         }
 
-        if (totalCount < 1) {
+        if (totalCount == 0) {
             throw new ArithmeticException("Division by zero in overallMse");
         }
         return totalDist / totalCount;

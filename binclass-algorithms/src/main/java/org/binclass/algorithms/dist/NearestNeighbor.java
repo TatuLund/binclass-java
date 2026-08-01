@@ -22,6 +22,10 @@ import org.binclass.algorithms.core.VectorSet;
  */
 public final class NearestNeighbor {
 
+    private static final String INFINITE_CENTROIDS_MUST_NOT_BE_NULL = "InfiniteCentroids must not be null";
+    private static final String PARTITION_MUST_NOT_BE_NULL = "Partition must not be null";
+    private static final String VECTOR_SET_MUST_NOT_BE_NULL = "VectorSet must not be null";
+
     private NearestNeighbor() {
         // Utility class — prevent instantiation
     }
@@ -48,9 +52,9 @@ public final class NearestNeighbor {
     public static void infNearestNeighbor(VectorSet vectors,
             Partition partition,
             InfiniteCentroids centroids, boolean useWeights) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         partition.setSize(k);
@@ -95,9 +99,9 @@ public final class NearestNeighbor {
     public static void fastNearestNeighbor(VectorSet vectors,
             Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         partition.setSize(k);
@@ -138,9 +142,9 @@ public final class NearestNeighbor {
     public static void maeNearestNeighbor(VectorSet vectors,
             Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         partition.setSize(k);
@@ -182,9 +186,9 @@ public final class NearestNeighbor {
     public static void mseNearestNeighbor(VectorSet vectors,
             Partition partition,
             InfiniteCentroids centroids) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
-        Objects.requireNonNull(partition, "Partition must not be null");
-        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         int k = centroids.size(); // 1-based count
         partition.setSize(k);
