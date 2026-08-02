@@ -261,7 +261,9 @@ Because $f^{(t+1)}(y) = 1$ is true only for one $y$:
 $$ \sum_{y=1}^6 p^{(t+1)}(y) = \frac{n_y^* + 1 + \alpha + n^{(t)} - n_y^* + 5\alpha}{n^{(t)} + 1 + 6\alpha} = 1. \quad (14) $$
 
 In this model, the parameter $\alpha$ controls the weight of the underlying uniform distribution. If $\alpha$ is small, adaptation occurs more easily. On the other hand, $\alpha$ should not be too small, because this prevents any $p^{(t)}(y)$ from ever becoming zero. There is one possible drawback in this simple model; it has long memory. Next, we enhance this model to use shorter memory, so that in a situation where a previously successful operator becomes inefficient, the model adapts to the situation. We define a weight $w_y^{(t)}$ for each operator, initially take:
-$$ w_y^{(0)} = 0, \text{ for all } y $$ and denote the sum of the weights by $w^{(t)} = \sum_{y=1}^6 w_y^{(t)}$.
+$$ w_y^{(0)} = 0, \text{ for all } y $$
+
+and denote the sum of the weights by $w^{(t)} = \sum_{y=1}^6 w_y^{(t)}$.
 
 The new up-date of the probabilities for using different operators is given by:
 $$ p^{(t+1)}(y) = p^{(t)}(y) \text{ if } f^{(t+1)}(y) = 0 \text{ for all } y $$
