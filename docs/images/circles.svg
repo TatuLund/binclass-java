@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="150">
   <!-- Circle B (larger) -->
-  <circle cx="80" cy="75" r="50" fill="none" stroke="#000" stroke-width="2"/>
-  <text x="80" y="83" text-anchor="middle" font-family="serif" font-size="40">B</text>
+  <circle cx="80" cy="75" r="50" fill="none" stroke="#00F" stroke-width="2"/>
+  <text x="80" y="83" stroke="#07F" text-anchor="middle" font-family="serif" font-size="40">B</text>
 
   <!-- Circle A (small) -->
-  <circle cx="200" cy="75" r="25" fill="none" stroke="#000" stroke-width="2"/>
-  <text x="200" y="83" text-anchor="middle" font-family="serif" font-size="24">A</text>
+  <circle cx="200" cy="75" r="25" fill="none" stroke="#00F" stroke-width="2"/>
+  <text x="200" y="83" stroke="#07F" text-anchor="middle" font-family="serif" font-size="24">A</text>
 
   <!-- Circle C (small) -->
-  <circle cx="320" cy="75" r="25" fill="none" stroke="#000" stroke-width="2"/>
-  <text x="320" y="83" text-anchor="middle" font-family="serif" font-size="24">C</text>
+  <circle cx="320" cy="75" r="25" fill="none" stroke="#00F" stroke-width="2"/>
+  <text x="320" y="83" stroke="#07F" text-anchor="middle" font-family="serif" font-size="24">C</text>
 </svg>
