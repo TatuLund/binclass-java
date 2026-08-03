@@ -208,42 +208,54 @@ public final class DynamicPartition {
 
     /**
      * Updates Hamming distances between cluster {@code i} and all other
-     * clusters.
+     * clusters using frequency table acceleration.
      */
     private void updateHammingDistances(int i) {
-        // Recalculate Hamming distance for cluster i with all other clusters
-        for (int j = 0; j < k; j++) {
-            if (j != i - 1) { // Skip self-comparison
-                double dist = calculateClusterHammingDistance(i, j);
-                hammingDistances[i - 1][j] = dist;
-                hammingDistances[j][i - 1] = dist; // Symmetric
+        int sizeI = partition.getSize(i);
+        if (sizeI == 0) return; // Skip empty clusters
+
+        for (int j = 1; j <= k; j++) {
+            if (j != i) {
+                double dist = calculateClusterHammingDistanceOptimized(i, j);
+                hammingDistances[i - 1][j - 1] = dist;
+                hammingDistances[j - 1][i - 1] = dist; // Symmetric
             }
         }
     }
 
     /**
-     * Calculates the average Hamming distance between two clusters.
+     * Calculates the average Hamming distance between two clusters using
+     * frequency tables. This is O(l) instead of O(n_i × n_j).
+     * <p>
+     * Uses probability theory: for each bit position, calculates the
+     * probability that two randomly selected vectors from different clusters
+     * differ at that position based on their frequency distributions.
+     * </p>
      */
-    private double calculateClusterHammingDistance(int i, int j) {
-        VectorSet clusterI = partition.getElements(i);
-        VectorSet clusterJ = partition.getElements(j + 1); // Convert to 1-based
-                                                           // index
+    private double calculateClusterHammingDistanceOptimized(int i, int j) {
+        int sizeI = partition.getSize(i);
+        int sizeJ = partition.getSize(j);
 
-        if (clusterI.isEmpty() || clusterJ.isEmpty()) {
-            return 0.0; // No elements to compare
+        if (sizeI == 0 || sizeJ == 0) return 0.0; // No elements to compare
+
+        int[] freqI = freqs[i - 1];
+        int[] freqJ = freqs[j - 1];
+        int l = freqI.length;
+
+        double totalProbDiff = 0.0;
+
+        for (int bit = 0; bit < l; bit++) {
+            // Calculate probability of difference at this bit position
+            double probI1 = (double) freqI[bit] / sizeI; // P(vector from i has bit=1)
+            double probJ1 = (double) freqJ[bit] / sizeJ; // P(vector from j has bit=1)
+
+            // P(differ at this bit) = P(i=0,j=1) + P(i=1,j=0)
+            double pDiff = (1 - probI1) * probJ1 + probI1 * (1 - probJ1);
+            totalProbDiff += pDiff;
         }
 
-        double totalDist = 0.0;
-        int count = 0;
-
-        for (BinaryVector bvI : clusterI) {
-            for (BinaryVector bvJ : clusterJ) {
-                totalDist += BinaryVector.hammingDistance(bvI, bvJ);
-                count++;
-            }
-        }
-
-        return count > 0 ? totalDist / count : 0.0;
+        // Return expected number of differing bits (sum over all positions)
+        return totalProbDiff;
     }
 
 }
