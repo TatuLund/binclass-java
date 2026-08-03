@@ -212,7 +212,8 @@ public final class DynamicPartition {
      */
     private void updateHammingDistances(int i) {
         int sizeI = partition.getSize(i);
-        if (sizeI == 0) return; // Skip empty clusters
+        if (sizeI == 0)
+            return; // Skip empty clusters
 
         for (int j = 1; j <= k; j++) {
             if (j != i) {
@@ -236,7 +237,8 @@ public final class DynamicPartition {
         int sizeI = partition.getSize(i);
         int sizeJ = partition.getSize(j);
 
-        if (sizeI == 0 || sizeJ == 0) return 0.0; // No elements to compare
+        if (sizeI == 0 || sizeJ == 0)
+            return 0.0; // No elements to compare
 
         int[] freqI = freqs[i - 1];
         int[] freqJ = freqs[j - 1];
@@ -246,8 +248,10 @@ public final class DynamicPartition {
 
         for (int bit = 0; bit < l; bit++) {
             // Calculate probability of difference at this bit position
-            double probI1 = (double) freqI[bit] / sizeI; // P(vector from i has bit=1)
-            double probJ1 = (double) freqJ[bit] / sizeJ; // P(vector from j has bit=1)
+            double probI1 = (double) freqI[bit] / sizeI; // P(vector from i has
+                                                         // bit=1)
+            double probJ1 = (double) freqJ[bit] / sizeJ; // P(vector from j has
+                                                         // bit=1)
 
             // P(differ at this bit) = P(i=0,j=1) + P(i=1,j=0)
             double pDiff = (1 - probI1) * probJ1 + probI1 * (1 - probJ1);
