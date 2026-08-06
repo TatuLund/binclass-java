@@ -80,9 +80,6 @@ public final class Classifier {
             int closest = 0;
             double minDist = DistanceCalculator.codeLength(vector,
                     centroids.get(0));
-            int minHdist = DistanceCalculator.hammingDistance(
-                    vector,
-                    centroids.get(0));
 
             for (int i = 1; i < k; i++) {
                 double dist = DistanceCalculator.codeLength(
@@ -91,9 +88,6 @@ public final class Classifier {
                 if (dist < minDist) {
                     closest = i;
                     minDist = dist;
-                    minHdist = DistanceCalculator
-                            .hammingDistance(vector,
-                                    centroids.get(i));
                 }
             }
 
@@ -182,8 +176,7 @@ public final class Classifier {
      *            path to header file with vector length information
      */
     public static void classifyVectors(String datfile, String outfile,
-            String parfile,
-            String ctrfile, String misfile, String hdrfile) {
+            String parfile) {
         Objects.requireNonNull(datfile, "Data file must not be null");
         Objects.requireNonNull(outfile, "Output file must not be null");
         Objects.requireNonNull(parfile,
@@ -192,10 +185,8 @@ public final class Classifier {
         logger.info("Starting classification pipeline: dat={}, out={}, par={}",
                 datfile, outfile, parfile);
 
-        // TODO: Implement full I/O pipeline when io/ package is
-        // complete (Phase
-        // 4)
-        // For now, this method serves as the API entry point
+        // TODO: Implement full I/O pipeline when io/ package is complete (Phase 4)
+        // For now, this method serves as the API entry point with basic validation
         logger.debug("Classification pipeline ready for {} vectors", 0);
     }
 

@@ -153,7 +153,7 @@ public class ClassifierTest {
     public void testClassifyVectorsPipeline() {
         // Test the full classification pipeline method (stub)
         assertDoesNotThrow(() -> Classifier.classifyVectors("data.dat",
-                "out.txt", "par.par", "ctr.ctr", null, "hdr.hdr"));
+                "out.txt", "par.par"));
     }
 
     @Test
