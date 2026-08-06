@@ -167,6 +167,85 @@ public final class Partition {
     }
 
     /**
+     * Removes an entire cluster from this partition.
+     * <p>
+     * Equivalent to C function {@code partition_remove_cluster()}
+     * (hypothetical). Shifts remaining clusters down by one position and
+     * decrements k.
+     * </p>
+     *
+     * @param i
+     *            the 1-based cluster index (1..k)
+     */
+    public void removeCluster(int i) {
+        checkClusterIndex(i);
+        // Shift remaining clusters down by one position
+        for (int j = i; j < k - 1; j++) {
+            clusters[j - 1] = clusters[j];
+        }
+        // Remove the last cluster reference
+        clusters[k - 1] = null;
+        k--;
+    }
+
+    /**
+     * Returns the VectorSet for a specific cluster (0-based index).
+     * <p>
+     * Equivalent to C function {@code partition_get_cluster()} from
+     * {@code binset.h}. Uses 0-based indexing internally.
+     * </p>
+     *
+     * @param i
+     *            the 0-based cluster index (0..k-1)
+     * @return a VectorSet containing all elements in that cluster
+     */
+    public VectorSet getCluster(int i) {
+        if (i < 0 || i >= k) {
+            throw new IndexOutOfBoundsException("Cluster index " + i
+                    + " out of bounds for partition with " + k + " clusters");
+        }
+        return clusters[i];
+    }
+
+    /**
+     * Copies all elements from this partition into the target VectorSet.
+     * <p>
+     * Equivalent to C function {@code partition_copy_all()} from
+     * {@code binset.h}. Iterates through all clusters and adds their elements.
+     * </p>
+     *
+     * @param target
+     *            the destination VectorSet to copy elements into
+     */
+    public void copyAllTo(VectorSet target) {
+        for (int i = 0; i < k; i++) {
+            for (BinaryVector bv : clusters[i]) {
+                target.addElement(bv);
+            }
+        }
+    }
+
+    /**
+     * Creates a deep copy of this partition.
+     * <p>
+     * Each cluster is copied as a new VectorSet with the same elements.
+     * Modifications to the copy do not affect this partition.
+     * </p>
+     *
+     * @return a new Partition with copies of all clusters and elements
+     */
+    public Partition copy() {
+        Partition copy = new Partition(this.k);
+        for (int i = 0; i < k; i++) {
+            VectorSet sourceClusterne = this.clusters[i];
+            for (BinaryVector bv : sourceClusterne) {
+                copy.clusters[i].addElement(bv);
+            }
+        }
+        return copy;
+    }
+
+    /**
      * Returns a string representation of this partition.
      */
     @Override

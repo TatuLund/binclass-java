@@ -52,9 +52,9 @@ public final class MathUtils {
      *             if {@code val <= 0} or {@code val >= 1}
      */
     public static double log2Complement(double val) {
-        if (val <= 0.0 || val >= 1.0) {
+        if (val < 0.0 || val > 1.0) {
             throw new IllegalArgumentException(
-                    "log2Complement requires value in (0, 1), got: " + val);
+                    "log2Complement requires value in [0, 1], got: " + val);
         }
         return StrictMath.log(1.0 - val) * ILOGOF2;
     }

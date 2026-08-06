@@ -181,6 +181,21 @@ public final class VectorSet implements Iterable<BinaryVector> {
     }
 
     /**
+     * Copies all vectors from this set into the target set.
+     * <p>
+     * Equivalent to C function {@code st_copy()} from {@code binset.h}.
+     * </p>
+     *
+     * @param target
+     *            the destination VectorSet to copy elements into
+     */
+    public void copyTo(VectorSet target) {
+        for (BinaryVector bv : this) {
+            target.addElement(bv);
+        }
+    }
+
+    /**
      * Returns a string representation of this VectorSet.
      */
     @Override

@@ -76,6 +76,32 @@ public final class DistanceCalculator {
     }
 
     /**
+     * Computes the Hamming distance between two binary vectors.
+     * <p>
+     * Counts the number of positions where the bits differ. Used for finding
+     * worst-matching vector pairs in clustering algorithms.
+     * </p>
+     *
+     * @param v1
+     *            first binary vector
+     * @param v2
+     *            second binary vector
+     * @return the Hamming distance (number of differing positions)
+     */
+    public static int hammingDistanceVectors(BinaryVector v1, BinaryVector v2) {
+        Objects.requireNonNull(v1, BINARY_VECTOR_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(v2, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        int dist = 0;
+        for (int i = 0; i < v1.getLength(); i++) {
+            if ((v1.get(i) == 1) != (v2.get(i) == 1)) {
+                dist++;
+            }
+        }
+        return dist;
+    }
+
+    /**
      * Computes the L1 (Manhattan) distance between a binary vector and a
      * centroid.
      * <p>
@@ -307,8 +333,8 @@ public final class DistanceCalculator {
         }
 
         if (count == 0) {
-            throw new ArithmeticException(
-                    "Division by zero in classDistortion");
+            // Empty cluster has zero distortion
+            return 0.0;
         }
         return (double) totalDist / count;
     }
@@ -463,6 +489,126 @@ public final class DistanceCalculator {
             throw new ArithmeticException("Division by zero in classMse");
         }
         return totalDist / count;
+    }
+
+    /**
+     * Computes the Stochastic Complexity for a partition.
+     * <p>
+     * Equivalent to C function {@code stochastic_complexity()} from
+     * {@code distmin.c}. Measures the information content of a partition using
+     * Shannon entropy and class frequencies — used as model selection criterion
+     * in GLA algorithms.
+     * </p>
+     *
+     * @param partition
+     *            the partition to evaluate
+     * @param k
+     *            number of clusters (1-based)
+     * @param l
+     *            length of binary vectors
+     * @return stochastic complexity value (lower is better for model selection)
+     */
+    public static double stochasticComplexity(Partition partition, int k,
+            int l) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+
+        if (k <= 0 || k > partition.size()) {
+            throw new IllegalArgumentException(
+                    "Invalid number of clusters: " + k);
+        }
+
+        double sc = 0.0;
+        int totalElements = 0;
+
+        // Calculate total elements across all classes
+        for (int i = 1; i <= k; i++) {
+            totalElements += partition.getSize(i);
+        }
+
+        if (totalElements == 0) {
+            return 0.0;
+        }
+
+        // Calculate SC using Shannon entropy formula
+        for (int i = 1; i <= k; i++) {
+            int classSize = partition.getSize(i);
+            if (classSize > 0) {
+                double freq = (double) classSize / totalElements;
+                sc -= freq * MathUtils.log2(freq);
+            }
+        }
+
+        // Add complexity penalty for number of clusters
+        sc += k * MathUtils.log2(l);
+
+        return sc;
+    }
+
+    /**
+     * Computes stochastic complexity with distortion term for MDL-based model
+     * selection.
+     * <p>
+     * Uses the Minimum Description Length (MDL) principle: SC = (n/2) *
+     * log2(D/n) + k * log2(n) + entropy_term
+     * 
+     * Where D is the total average distortion (average distance to centroid per
+     * vector).
+     * </p>
+     *
+     * @param partition
+     *            the partition containing cluster assignments
+     * @param k
+     *            number of clusters (1-based)
+     * @param l
+     *            length of binary vectors
+     * @param averageDistortion
+     *            average distortion per vector (for all clusters combined)
+     * @return stochastic complexity value including distortion term (lower is
+     *         better)
+     */
+    public static double stochasticComplexity(Partition partition, int k,
+            int l, double averageDistortion) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+
+        if (k <= 0 || k > partition.size()) {
+            throw new IllegalArgumentException(
+                    "Invalid number of clusters: " + k);
+        }
+
+        int totalElements = 0;
+
+        // Calculate total elements across all classes
+        for (int i = 1; i <= k; i++) {
+            totalElements += partition.getSize(i);
+        }
+
+        if (totalElements == 0) {
+            return 0.0;
+        }
+
+        // Start with entropy-based cost for cluster assignments
+        double sc = 0.0;
+        for (int i = 1; i <= k; i++) {
+            int classSize = partition.getSize(i);
+            if (classSize > 0) {
+                double freq = (double) classSize / totalElements;
+                sc -= freq * MathUtils.log2(freq);
+            }
+        }
+
+        // Add MDL cost: data encoding cost based on distortion
+        // Use small epsilon to avoid log(0) when distortion is very small
+        double D = Math.max(averageDistortion, 1e-10);
+        double dataCost = (totalElements / 2.0)
+                * MathUtils.log2(D / (double) totalElements);
+        sc += dataCost;
+
+        // Add complexity penalty: model encoding cost for k clusters and l
+        // dimensions
+        double modelCost = k * MathUtils.log2(l);
+        sc += modelCost;
+
+        return sc;
     }
 
     /**

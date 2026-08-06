@@ -64,6 +64,29 @@ public final class InfiniteCentroids {
     }
 
     /**
+     * Creates a new {@code InfiniteCentroids} with centroids initialized from
+     * the given data.
+     * <p>
+     * Each row in the data array represents one centroid's values across all
+     * bit positions.
+     * </p>
+     *
+     * @param data
+     *            2D array where each row is a centroid's values
+     * @param k
+     *            number of centroids (should match data.length)
+     */
+    public InfiniteCentroids(double[][] data, int k) {
+        this.k = k;
+        this.centroids = new Centroid[k];
+        this.scValues = new double[k][data[0].length];
+
+        for (int i = 0; i < k; i++) {
+            centroids[i] = new Centroid(data[i], data[i].length, 1.0);
+        }
+    }
+
+    /**
      * Returns the centroid at the given index.
      * <p>
      * Equivalent to C function {@code infinite_centroids_get()} from
@@ -182,6 +205,27 @@ public final class InfiniteCentroids {
     public double getSC(int i) {
         checkIndex(i);
         return scValues[i][0]; // Return first column value
+    }
+
+    /**
+     * Removes the centroid at index i by shifting subsequent centroids left.
+     * <p>
+     * Equivalent to C function {@code infinite_centroids_remove()} from
+     * {@code binset.h}. Used during GLA merging operations.
+     * </p>
+     *
+     * @param i
+     *            zero-based index of centroid to remove (0..k-2)
+     */
+    public void remove(int i) {
+        checkIndex(i);
+        // Shift all centroids after i one position left
+        for (int j = i; j < k - 1; j++) {
+            centroids[j] = centroids[j + 1];
+        }
+        // Clear the last slot to avoid memory leak
+        centroids[k - 1] = null;
+        k--;
     }
 
     /**

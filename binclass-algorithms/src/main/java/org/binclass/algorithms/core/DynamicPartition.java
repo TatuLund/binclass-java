@@ -184,6 +184,22 @@ public final class DynamicPartition {
     }
 
     /**
+     * Returns the VectorSet for a specific cluster (1-based index).
+     * <p>
+     * Equivalent to C function {@code dyn_partition_get_cluster()} from
+     * {@code binset.h}. Uses 1-based indexing.
+     * </p>
+     *
+     * @param i
+     *            the 1-based cluster index (1..k)
+     * @return a VectorSet containing all elements in that cluster
+     */
+    public VectorSet getCluster(int i) {
+        checkClusterIndex(i);
+        return partition.getCluster(i - 1);
+    }
+
+    /**
      * Returns a string representation of this DynamicPartition.
      */
     @Override

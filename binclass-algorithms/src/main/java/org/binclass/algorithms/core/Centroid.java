@@ -137,6 +137,20 @@ public final class Centroid {
     }
 
     /**
+     * Returns the centroid value at index i. Alias for {@link #get(int)}.
+     * <p>
+     * Used by GLA algorithms that expect getElement() naming convention.
+     * </p>
+     *
+     * @param i
+     *            zero-based index
+     * @return the centroid value at position i
+     */
+    public double getElement(int i) {
+        return get(i);
+    }
+
+    /**
      * Returns the value at index i as a log-probability for bit=1.
      * <p>
      * Equivalent to C function {@code centroid_log1()} from {@code binset.h}.

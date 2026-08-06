@@ -103,6 +103,26 @@ public final class BinaryVector {
     }
 
     /**
+     * Returns the element at the given index. Alias for {@link #get(int)}.
+     *
+     * @param i
+     *            zero-based index
+     * @return the bit value (0 or 1), or -1 if missing
+     */
+    public int getElement(int i) {
+        return el[i];
+    }
+
+    /**
+     * Returns the length of this vector. Alias for {@link #getLength()}.
+     *
+     * @return length of the vector
+     */
+    public int length() {
+        return length;
+    }
+
+    /**
      * Returns the element at the given index, accounting for missing values.
      * <p>
      * Equivalent to C function {@code bv_get()} from {@code binset.h}.
