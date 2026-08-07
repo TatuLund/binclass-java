@@ -10,16 +10,16 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link DoubleVector}.
  */
-public class DoubleVectorTest {
+class DoubleVectorTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         DoubleVector v = new DoubleVector(5);
         assertEquals(5, v.getLength());
     }
 
     @Test
-    public void testSetAndGet() {
+    void testSetAndGet() {
         DoubleVector v = new DoubleVector(3);
         v.set(0, 1.5);
         v.set(1, 2.5);
@@ -31,7 +31,7 @@ public class DoubleVectorTest {
     }
 
     @Test
-    public void testOneBasedAccess() {
+    void testOneBasedAccess() {
         DoubleVector v = new DoubleVector(3);
         v.setOneBased(1, 10.0);
         v.setOneBased(2, 20.0);
@@ -43,7 +43,7 @@ public class DoubleVectorTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         DoubleVector v = new DoubleVector(3);
 
         assertThrows(IndexOutOfBoundsException.class, () -> v.get(-1));
@@ -53,7 +53,7 @@ public class DoubleVectorTest {
     }
 
     @Test
-    public void testGetArray() {
+    void testGetArray() {
         DoubleVector v = new DoubleVector(2);
         v.set(0, 1.0);
         v.set(1, 2.0);
@@ -65,7 +65,7 @@ public class DoubleVectorTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         DoubleVector v = new DoubleVector(2);
         v.set(0, 1.5);
         v.set(1, 2.5);
@@ -76,7 +76,7 @@ public class DoubleVectorTest {
     }
 
     @Test
-    public void testNegativeSize() {
+    void testNegativeSize() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DoubleVector(-1));
     }

@@ -10,16 +10,16 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link IntVector}.
  */
-public class IntVectorTest {
+class IntVectorTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         IntVector v = new IntVector(5);
         assertEquals(5, v.getLength());
     }
 
     @Test
-    public void testSetAndGet() {
+    void testSetAndGet() {
         IntVector v = new IntVector(3);
         v.set(0, 10);
         v.set(1, 20);
@@ -31,7 +31,7 @@ public class IntVectorTest {
     }
 
     @Test
-    public void testOneBasedAccess() {
+    void testOneBasedAccess() {
         IntVector v = new IntVector(3);
         v.setOneBased(1, 100);
         v.setOneBased(2, 200);
@@ -43,7 +43,7 @@ public class IntVectorTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         IntVector v = new IntVector(3);
 
         assertThrows(IndexOutOfBoundsException.class, () -> v.get(-1));
@@ -53,7 +53,7 @@ public class IntVectorTest {
     }
 
     @Test
-    public void testGetArray() {
+    void testGetArray() {
         IntVector v = new IntVector(2);
         v.set(0, 5);
         v.set(1, 10);
@@ -65,7 +65,7 @@ public class IntVectorTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         IntVector v = new IntVector(2);
         v.set(0, 1);
         v.set(1, 2);
@@ -76,7 +76,7 @@ public class IntVectorTest {
     }
 
     @Test
-    public void testNegativeSize() {
+    void testNegativeSize() {
         assertThrows(IllegalArgumentException.class, () -> new IntVector(-1));
     }
 }

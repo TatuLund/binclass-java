@@ -20,10 +20,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link CentroidInitializer}.
  */
-public class CentroidInitializerTest {
+class CentroidInitializerTest {
 
     @Test
-    public void testRandomInit() {
+    void testRandomInit() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -50,7 +50,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testRandomInitInvalidK() {
+    void testRandomInitInvalidK() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -61,7 +61,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testRandomInitInsufficientVectors() {
+    void testRandomInitInsufficientVectors() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -72,7 +72,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPickInit() {
+    void testPickInit() {
         // Create a partition with 2 clusters
         Partition partition = new Partition(2);
 
@@ -98,7 +98,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPickInitEmptyPartition() {
+    void testPickInitEmptyPartition() {
         VectorSet vectors = new VectorSet();
 
         assertThrows(IllegalArgumentException.class,
@@ -106,7 +106,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testSemiRandomInit() {
+    void testSemiRandomInit() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -132,7 +132,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testSemiRandomInitInvalidK() {
+    void testSemiRandomInitInvalidK() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -143,7 +143,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testSemiRandomInitInsufficientVectors() {
+    void testSemiRandomInitInsufficientVectors() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -154,7 +154,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPnnInit() {
+    void testPnnInit() {
         // Create a VectorSet with diverse vectors
         VectorSet vectors = new VectorSet();
 
@@ -184,7 +184,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPnnInitInvalidK() {
+    void testPnnInitInvalidK() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -195,7 +195,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPnnInitInsufficientVectors() {
+    void testPnnInitInsufficientVectors() {
         VectorSet vectors = new VectorSet();
 
         BinaryVector v1 = new BinaryVector(new int[] { 1, 0 }, 2);
@@ -209,7 +209,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testPnnInitSelectsDiverseVectors() {
+    void testPnnInitSelectsDiverseVectors() {
         // Create a VectorSet with clearly separable vectors
         VectorSet vectors = new VectorSet();
 
@@ -253,7 +253,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testAllInitializationMethods() {
+    void testAllInitializationMethods() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -279,7 +279,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsPreserveVectorValues() {
+    void testInitializationMethodsPreserveVectorValues() {
         // Create a VectorSet with specific values
         VectorSet vectors = new VectorSet();
 
@@ -305,7 +305,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleSingleCluster() {
+    void testInitializationMethodsHandleSingleCluster() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -330,7 +330,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleLargeK() {
+    void testInitializationMethodsHandleLargeK() {
         // Create a VectorSet with many vectors
         VectorSet vectors = new VectorSet();
 
@@ -356,7 +356,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleLargeVectors() {
+    void testInitializationMethodsHandleLargeVectors() {
         // Create a VectorSet with high-dimensional vectors
         int dim = 100;
         VectorSet vectors = new VectorSet();
@@ -381,7 +381,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleEdgeCases() {
+    void testInitializationMethodsHandleEdgeCases() {
         // Create a VectorSet with minimal vectors (exactly k)
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -408,7 +408,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleSingleVector() {
+    void testInitializationMethodsHandleSingleVector() {
         // Create a VectorSet with exactly one vector
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -435,7 +435,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleEmptyVectors() {
+    void testInitializationMethodsHandleEmptyVectors() {
         // Create a VectorSet with zero-length vectors
         int dim = 0;
         VectorSet vectors = new VectorSet();
@@ -459,7 +459,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleLargeDimension() {
+    void testInitializationMethodsHandleLargeDimension() {
         // Create a VectorSet with very high-dimensional vectors
         int dim = 1000;
         VectorSet vectors = new VectorSet();
@@ -484,7 +484,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleMixedDimensions() {
+    void testInitializationMethodsHandleMixedDimensions() {
         // Create a VectorSet with vectors of different dimensions (edge case)
         int dim1 = 3;
         int dim2 = 5;
@@ -516,7 +516,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleAllOnes() {
+    void testInitializationMethodsHandleAllOnes() {
         // Create a VectorSet with all-ones vectors
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -550,7 +550,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleAllZeros() {
+    void testInitializationMethodsHandleAllZeros() {
         // Create a VectorSet with all-zeros vectors
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -582,7 +582,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleSparseVectors() {
+    void testInitializationMethodsHandleSparseVectors() {
         // Create a VectorSet with sparse vectors (mostly zeros)
         int dim = 10;
         VectorSet vectors = new VectorSet();
@@ -614,7 +614,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleDenseVectors() {
+    void testInitializationMethodsHandleDenseVectors() {
         // Create a VectorSet with dense vectors (mostly ones)
         int dim = 10;
         VectorSet vectors = new VectorSet();
@@ -649,7 +649,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleRandomVectors() {
+    void testInitializationMethodsHandleRandomVectors() {
         // Create a VectorSet with random vectors
         int dim = 20;
         Random rand = new Random(42); // Fixed seed for reproducibility
@@ -684,7 +684,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleDuplicateVectors() {
+    void testInitializationMethodsHandleDuplicateVectors() {
         // Create a VectorSet with duplicate vectors
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -717,7 +717,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleSingleDimension() {
+    void testInitializationMethodsHandleSingleDimension() {
         // Create a VectorSet with single-dimensional vectors
         int dim = 1;
         VectorSet vectors = new VectorSet();
@@ -747,7 +747,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleLargeNumberOfClusters() {
+    void testInitializationMethodsHandleLargeNumberOfClusters() {
         // Create a VectorSet with many vectors for large cluster count
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -779,7 +779,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimension() {
+    void testInitializationMethodsHandleVeryLargeDimension() {
         // Create a VectorSet with very high-dimensional vectors
         int dim = 100;
         VectorSet vectors = new VectorSet();
@@ -811,7 +811,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleMixedBinaryValues() {
+    void testInitializationMethodsHandleMixedBinaryValues() {
         // Create a VectorSet with mixed binary values (not just 0s and 1s)
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -846,7 +846,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleEdgeCaseDimensions() {
+    void testInitializationMethodsHandleEdgeCaseDimensions() {
         // Create a VectorSet with edge case dimensions (dim=1)
         int dim = 1;
         VectorSet vectors = new VectorSet();
@@ -876,7 +876,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleLargeNumberOfVectors() {
+    void testInitializationMethodsHandleLargeNumberOfVectors() {
         // Create a VectorSet with many vectors for large dataset testing
         int dim = 10;
         VectorSet vectors = new VectorSet();
@@ -911,7 +911,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeNumberOfVectors() {
+    void testInitializationMethodsHandleVeryLargeNumberOfVectors() {
         // Create a VectorSet with very many vectors for stress testing
         int dim = 5;
         VectorSet vectors = new VectorSet();
@@ -943,7 +943,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndVectors() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndVectors() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors
         int dim = 50;
@@ -979,7 +979,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectors() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectors() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 100;
@@ -1015,7 +1015,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 200;
@@ -1051,7 +1051,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress2() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress2() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 500;
@@ -1087,7 +1087,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress3() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress3() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 1000;
@@ -1123,7 +1123,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress4() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress4() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 2000;
@@ -1159,7 +1159,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress5() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress5() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 5000;
@@ -1195,7 +1195,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress6() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress6() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 10000;
@@ -1231,7 +1231,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress7() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress7() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 20000;
@@ -1267,7 +1267,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress8() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress8() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing
         int dim = 50000;
@@ -1303,7 +1303,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress9() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress9() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing (relaxed from 100000/20000 to avoid OOM)
         int dim = 1000;
@@ -1339,7 +1339,7 @@ public class CentroidInitializerTest {
     }
 
     @Test
-    public void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress10() {
+    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress10() {
         // Create a VectorSet with very high-dimensional vectors and many
         // vectors for stress testing (relaxed from 200000/50000 to avoid OOM)
         int dim = 1000;

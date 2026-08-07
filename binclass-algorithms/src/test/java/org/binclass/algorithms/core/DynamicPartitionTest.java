@@ -10,17 +10,17 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link DynamicPartition}.
  */
-public class DynamicPartitionTest {
+class DynamicPartitionTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         DynamicPartition dp = new DynamicPartition(3, 5);
 
         assertEquals(3, dp.size());
     }
 
     @Test
-    public void testPutVector() {
+    void testPutVector() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 1, 0, 1 };
@@ -32,7 +32,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testRemoveVector() {
+    void testRemoveVector() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 1, 0, 1 };
@@ -46,7 +46,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testGetFreqs() {
+    void testGetFreqs() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 1, 0, 1, 1, 0 };
@@ -63,7 +63,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testGetHammingDistance() {
+    void testGetHammingDistance() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 1, 0, 1 };
@@ -81,7 +81,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testConvert() {
+    void testConvert() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 0, 1, 0 }; // 5 elements to match length=5
@@ -95,7 +95,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         assertThrows(IndexOutOfBoundsException.class,
@@ -108,7 +108,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 0, 1, 0 }; // Fixed: 5 elements to match length=5
@@ -121,7 +121,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testNegativeDimensions() {
+    void testNegativeDimensions() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DynamicPartition(-1, 5));
         assertThrows(IllegalArgumentException.class,
@@ -131,7 +131,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testMultipleVectorsInCluster() {
+    void testMultipleVectorsInCluster() {
         DynamicPartition dp = new DynamicPartition(1, 5);
 
         int[] el1 = { 1, 0, 1, 1, 0 };
@@ -152,7 +152,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testHammingDistanceSymmetry() {
+    void testHammingDistanceSymmetry() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 1, 0, 1 };
@@ -171,7 +171,7 @@ public class DynamicPartitionTest {
     }
 
     @Test
-    public void testEmptyClusterHammingDistance() {
+    void testEmptyClusterHammingDistance() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 0, 1, 0, 1, 0 }; // Fixed: 5 elements to match length=5

@@ -8,8 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Random;
-
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -20,10 +18,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link NearestNeighbor}.
  */
-public class NearestNeighborTest {
+class NearestNeighborTest {
 
     @Test
-    public void testFastNearestNeighborIdenticalVectors() {
+    void testFastNearestNeighborIdenticalVectors() {
         // Create a VectorSet with identical vectors [1, 1, 1]
         VectorSet vectors = new VectorSet();
         for (int i = 0; i < 3; i++) {
@@ -51,7 +49,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testFastNearestNeighborDifferentVectors() {
+    void testFastNearestNeighborDifferentVectors() {
         // Create a VectorSet with different vectors
         VectorSet vectors = new VectorSet();
 
@@ -85,7 +83,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testFastNearestNeighborSingleCentroid() {
+    void testFastNearestNeighborSingleCentroid() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -113,7 +111,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testFastNearestNeighborNullVectorSet() {
+    void testFastNearestNeighborNullVectorSet() {
         InfiniteCentroids centroids = new InfiniteCentroids(2);
         Partition partition = new Partition(2);
 
@@ -122,7 +120,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testFastNearestNeighborNullPartition() {
+    void testFastNearestNeighborNullPartition() {
         VectorSet vectors = new VectorSet();
         BinaryVector vector = new BinaryVector(new int[] { 1, 0 });
         vectors.addElement(vector);
@@ -134,7 +132,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testFastNearestNeighborNullCentroids() {
+    void testFastNearestNeighborNullCentroids() {
         VectorSet vectors = new VectorSet();
         BinaryVector vector = new BinaryVector(new int[] { 1, 0 });
         vectors.addElement(vector);
@@ -146,7 +144,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testMaeNearestNeighbor() {
+    void testMaeNearestNeighbor() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -180,7 +178,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testMseNearestNeighbor() {
+    void testMseNearestNeighbor() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -214,7 +212,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testInfNearestNeighbor() {
+    void testInfNearestNeighbor() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -250,7 +248,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testInfNearestNeighborWithWeights() {
+    void testInfNearestNeighborWithWeights() {
         // Create a VectorSet with vectors
         VectorSet vectors = new VectorSet();
 
@@ -288,7 +286,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testInfNearestNeighborNullVectorSet() {
+    void testInfNearestNeighborNullVectorSet() {
         InfiniteCentroids centroids = new InfiniteCentroids(2);
         Partition partition = new Partition(2);
 
@@ -297,7 +295,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testInfNearestNeighborNullPartition() {
+    void testInfNearestNeighborNullPartition() {
         VectorSet vectors = new VectorSet();
         BinaryVector vector = new BinaryVector(new int[] { 1, 0 });
         vectors.addElement(vector);
@@ -309,7 +307,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testInfNearestNeighborNullCentroids() {
+    void testInfNearestNeighborNullCentroids() {
         VectorSet vectors = new VectorSet();
         BinaryVector vector = new BinaryVector(new int[] { 1, 0 });
         vectors.addElement(vector);
@@ -321,7 +319,7 @@ public class NearestNeighborTest {
     }
 
     @Test
-    public void testAllMethodsAssignCorrectly() {
+    void testAllMethodsAssignCorrectly() {
         // Create a VectorSet with vectors that should be clearly separated
         VectorSet vectors = new VectorSet();
 

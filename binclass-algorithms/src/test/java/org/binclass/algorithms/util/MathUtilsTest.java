@@ -11,10 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link MathUtils}.
  */
-public class MathUtilsTest {
+class MathUtilsTest {
 
     @BeforeEach
-    public void resetLog2Factorials() throws Exception {
+    void resetLog2Factorials() throws Exception {
         // Reset LOG2_FACTORIALS to ensure clean state (static field)
         java.lang.reflect.Field field = MathUtils.class
                 .getDeclaredField("LOG2_FACTORIALS");
@@ -23,26 +23,26 @@ public class MathUtilsTest {
     }
 
     @Test
-    public void testLog2() {
+    void testLog2() {
         assertEquals(3.0, MathUtils.log2(8), 1e-10);
         assertEquals(0.0, MathUtils.log2(1), 1e-10);
         assertEquals(1.0, MathUtils.log2(2), 1e-10);
     }
 
     @Test
-    public void testLog2Negative() {
+    void testLog2Negative() {
         assertThrows(IllegalArgumentException.class, () -> MathUtils.log2(-1));
     }
 
     @Test
-    public void testLog2e() {
+    void testLog2e() {
         assertEquals(MathUtils.log2(MathUtils.EPSILON), MathUtils.log2e(0.0001),
                 1e-10);
         assertEquals(MathUtils.log2(8), MathUtils.log2e(8), 1e-10);
     }
 
     @Test
-    public void testLog2Factorial() {
+    void testLog2Factorial() {
         assertEquals(0.0, MathUtils.log2Factorial(0), 1e-10);
         assertEquals(0.0, MathUtils.log2Factorial(1), 1e-10);
         assertEquals(1.0, MathUtils.log2Factorial(2), 1e-10);
@@ -50,19 +50,19 @@ public class MathUtilsTest {
     }
 
     @Test
-    public void testLog2FactorialNegative() {
+    void testLog2FactorialNegative() {
         assertThrows(IllegalArgumentException.class,
                 () -> MathUtils.log2Factorial(-1));
     }
 
     @Test
-    public void testLog2Gamma() {
+    void testLog2Gamma() {
         assertEquals(MathUtils.log2(24), MathUtils.log2Gamma(5), 1e-6);
         assertEquals(MathUtils.log2(1), MathUtils.log2Gamma(1), 1e-10);
     }
 
     @Test
-    public void testLog2GammaNegative() {
+    void testLog2GammaNegative() {
         assertThrows(IllegalArgumentException.class,
                 () -> MathUtils.log2Gamma(-1));
         assertThrows(IllegalArgumentException.class,
@@ -70,7 +70,7 @@ public class MathUtilsTest {
     }
 
     @Test
-    public void testPrepareLog2Factorials() throws Exception {
+    void testPrepareLog2Factorials() throws Exception {
         // Reset LOG2_FACTORIALS to ensure clean state (static field)
         java.lang.reflect.Field field = MathUtils.class
                 .getDeclaredField("LOG2_FACTORIALS");
@@ -88,7 +88,7 @@ public class MathUtilsTest {
     }
 
     @Test
-    public void testPrepareLog2FactorialsSmall() throws Exception {
+    void testPrepareLog2FactorialsSmall() throws Exception {
         // Reset LOG2_FACTORIALS to ensure clean state (static field)
         java.lang.reflect.Field field = MathUtils.class
                 .getDeclaredField("LOG2_FACTORIALS");
@@ -103,13 +103,13 @@ public class MathUtilsTest {
     }
 
     @Test
-    public void testPrepareLog2FactorialsNegative() {
+    void testPrepareLog2FactorialsNegative() {
         assertThrows(IllegalArgumentException.class,
                 () -> MathUtils.prepareLog2Factorials(-1));
     }
 
     @Test
-    public void testPrepareLog2FactorialsIdempotent() {
+    void testPrepareLog2FactorialsIdempotent() {
         // Verify that calling prepareLog2Factorials multiple times produces
         // consistent results regardless of previous calls (static field reset)
         double[] small = MathUtils.prepareLog2Factorials(3);

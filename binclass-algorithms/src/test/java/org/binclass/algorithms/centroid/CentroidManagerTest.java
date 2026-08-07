@@ -5,10 +5,9 @@
 package org.binclass.algorithms.centroid;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.util.Random;
 
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -17,10 +16,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link CentroidManager}.
  */
-public class CentroidManagerTest {
+class CentroidManagerTest {
 
     @Test
-    public void testAllocateCentroid() {
+    void testAllocateCentroid() {
         Centroid centroid = CentroidManager.allocateCentroid(5);
 
         assertEquals(5, centroid.getLength());
@@ -29,7 +28,7 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testAllocateCentroidInvalidLength() {
+    void testAllocateCentroidInvalidLength() {
         assertThrows(IllegalArgumentException.class,
                 () -> CentroidManager.allocateCentroid(0));
 
@@ -38,7 +37,7 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testAllocateCentroids() {
+    void testAllocateCentroids() {
         InfiniteCentroids centroids = CentroidManager.allocateCentroids(3, 5);
 
         assertEquals(3, centroids.size()); // Should have 3 centroids
@@ -51,7 +50,7 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testAllocateCentroidsInvalidDimensions() {
+    void testAllocateCentroidsInvalidDimensions() {
         assertThrows(IllegalArgumentException.class,
                 () -> CentroidManager.allocateCentroids(0, 5));
 
@@ -60,23 +59,27 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testDeallocateCentroid() {
+    void testDeallocateCentroid() {
         Centroid centroid = CentroidManager.allocateCentroid(5);
+
+        assertNotNull(centroid, "Allocated centroid should not be null");
 
         // Should not throw - just marks for GC in Java
         CentroidManager.deallocateCentroid(centroid);
     }
 
     @Test
-    public void testDeallocateCentroids() {
+    void testDeallocateCentroids() {
         InfiniteCentroids centroids = CentroidManager.allocateCentroids(3, 5);
+
+        assertNotNull(centroids, "Allocated centroids should not be null");
 
         // Should not throw - just marks for GC in Java
         CentroidManager.deallocateCentroids(centroids);
     }
 
     @Test
-    public void testCopyCentroids() {
+    void testCopyCentroids() {
         // Create source centroids with specific values
         InfiniteCentroids source = new InfiniteCentroids(2, 3);
 
@@ -105,13 +108,13 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testCopyCentroidsNullSource() {
+    void testCopyCentroidsNullSource() {
         assertThrows(NullPointerException.class,
                 () -> CentroidManager.copyCentroids(null));
     }
 
     @Test
-    public void testCalculateLogs() {
+    void testCalculateLogs() {
         // Create centroids with values that need log calculation
         InfiniteCentroids centroids = new InfiniteCentroids(2, 3);
 
@@ -135,22 +138,22 @@ public class CentroidManagerTest {
         // The exact values depend on the implementation, but we can verify they
         // exist
         for (int i = 0; i < 3; i++) {
-            double log0_i = centroid0.getLog0(i);
-            double log1_i = centroid0.getLog1(i);
+            double log0I = centroid0.getLog0(i);
+            double log1I = centroid0.getLog1(i);
 
-            assertTrue(!Double.isNaN(log0_i), "Log0 should not be NaN");
-            assertTrue(!Double.isNaN(log1_i), "Log1 should not be NaN");
+            assertTrue(!Double.isNaN(log0I), "Log0 should not be NaN");
+            assertTrue(!Double.isNaN(log1I), "Log1 should not be NaN");
         }
     }
 
     @Test
-    public void testCalculateLogsNullCentroids() {
+    void testCalculateLogsNullCentroids() {
         assertThrows(NullPointerException.class,
                 () -> CentroidManager.calculateLogs(null));
     }
 
     @Test
-    public void testAllocateAndCopyWorkflow() {
+    void testAllocateAndCopyWorkflow() {
         // Test a typical workflow: allocate, populate, copy
 
         // Allocate centroids
@@ -179,7 +182,7 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testCalculateLogsClamping() {
+    void testCalculateLogsClamping() {
         // Create centroids with values at boundaries that need clamping
         InfiniteCentroids centroids = new InfiniteCentroids(1, 2);
 
@@ -194,18 +197,18 @@ public class CentroidManagerTest {
 
         // Verify that values were clamped and logs are valid
         for (int i = 0; i < 2; i++) {
-            double log0_i = centroid0.getLog0(i);
-            double log1_i = centroid0.getLog1(i);
+            double log0I = centroid0.getLog0(i);
+            double log1I = centroid0.getLog1(i);
 
-            assertTrue(!Double.isNaN(log0_i),
+            assertTrue(!Double.isNaN(log0I),
                     "Log0 should not be NaN after clamping");
-            assertTrue(!Double.isNaN(log1_i),
+            assertTrue(!Double.isNaN(log1I),
                     "Log1 should not be NaN after clamping");
         }
     }
 
     @Test
-    public void testMultipleAllocateDeallocate() {
+    void testMultipleAllocateDeallocate() {
         // Test multiple allocation and deallocation cycles
 
         for (int i = 0; i < 5; i++) {
@@ -222,7 +225,7 @@ public class CentroidManagerTest {
     }
 
     @Test
-    public void testCopyCentroidsPreservesWeights() {
+    void testCopyCentroidsPreservesWeights() {
         // Create source centroids with specific weights
         InfiniteCentroids source = new InfiniteCentroids(2, 3);
 

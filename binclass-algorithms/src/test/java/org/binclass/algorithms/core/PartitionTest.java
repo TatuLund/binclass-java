@@ -10,17 +10,17 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link Partition}.
  */
-public class PartitionTest {
+class PartitionTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         Partition p = new Partition(3);
 
         assertEquals(3, p.size());
     }
 
     @Test
-    public void testAddElement() {
+    void testAddElement() {
         Partition p = new Partition(2);
 
         int[] el1 = { 0, 1 };
@@ -33,7 +33,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testRemoveElement() {
+    void testRemoveElement() {
         Partition p = new Partition(2);
 
         int[] el1 = { 0, 1 };
@@ -47,7 +47,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testGetElements() {
+    void testGetElements() {
         Partition p = new Partition(2);
 
         int[] el1 = { 0, 1 };
@@ -61,7 +61,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testContains() {
+    void testContains() {
         Partition p = new Partition(2);
 
         int[] el1 = { 0, 1 };
@@ -74,7 +74,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testMultipleClusters() {
+    void testMultipleClusters() {
         Partition p = new Partition(3);
 
         int[] el1 = { 0, 1 };
@@ -92,7 +92,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         Partition p = new Partition(2);
 
         assertThrows(IndexOutOfBoundsException.class,
@@ -104,7 +104,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         Partition p = new Partition(2);
 
         int[] el1 = { 0, 1 };
@@ -117,7 +117,7 @@ public class PartitionTest {
     }
 
     @Test
-    public void testNegativeK() {
+    void testNegativeK() {
         assertThrows(IllegalArgumentException.class, () -> new Partition(-1));
         assertThrows(IllegalArgumentException.class, () -> new Partition(0));
     }

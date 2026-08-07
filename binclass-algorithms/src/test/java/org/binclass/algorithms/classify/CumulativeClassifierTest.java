@@ -17,10 +17,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link CumulativeClassifier}.
  */
-public class CumulativeClassifierTest {
+class CumulativeClassifierTest {
 
     @Test
-    public void testDoCumulativeClassificationSingleVector() {
+    void testDoCumulativeClassificationSingleVector() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 1, 1 };
@@ -40,8 +40,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testDoCumulativeClassificationMultipleVectors() {
-        Random random = new Random(42);
+    void testDoCumulativeClassificationMultipleVectors() {
         VectorSet vectors = new VectorSet();
 
         // Create 10 similar vectors (all zeros)
@@ -62,7 +61,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testDoCumulativeClassificationDistinctClusters() {
+    void testDoCumulativeClassificationDistinctClusters() {
         VectorSet vectors = new VectorSet();
 
         // Cluster A: all zeros
@@ -85,7 +84,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testInitializeFromVector() {
+    void testInitializeFromVector() {
         int[] el = { 1, 0, 1 };
         BinaryVector v = new BinaryVector(el, 3);
 
@@ -101,7 +100,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testExtendWithNewClass() {
+    void testExtendWithNewClass() {
         int[] el1 = { 0, 1 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
@@ -130,7 +129,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testFindBestClassExisting() {
+    void testFindBestClassExisting() {
         // Create a partition with one class containing similar vectors
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
@@ -143,17 +142,17 @@ public class CumulativeClassifierTest {
         BinaryVector v2 = new BinaryVector(el2, 2);
         CumulativeClassifier.assignToClass(dynPart, v2, 1);
 
-        // Now try to classify a third similar vector
-        int[] el3 = { 0, 1 };
+        // Now try to classify a vector that fits well in the existing class
+        int[] el3 = { 0, 0 };
         BinaryVector v3 = new BinaryVector(el3, 2);
 
         int bestClass = CumulativeClassifier.findBestClass(dynPart, v3, 0);
 
-        assertNotNull(bestClass >= 1, "Should find a suitable class");
+        assertTrue(bestClass >= 1, "Should find a suitable class");
     }
 
     @Test
-    public void testFindBestClassNewClass() {
+    void testFindBestClassNewClass() {
         // Create a partition with one class containing very different vectors
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
@@ -182,7 +181,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testAssignToClass() {
+    void testAssignToClass() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -202,7 +201,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testCalculateSCIncrease() {
+    void testCalculateSCIncrease() {
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
@@ -221,11 +220,11 @@ public class CumulativeClassifierTest {
         double scIncrease = CumulativeClassifier.calculateSCIncrease(dynPart,
                 v3, 1);
 
-        assertNotNull(scIncrease >= 0.0, "SC increase should be non-negative");
+        assertTrue(scIncrease >= 0.0, "SC increase should be non-negative");
     }
 
     @Test
-    public void testCalculateNewClassSC() {
+    void testCalculateNewClassSC() {
         int[] el = { 1, 0, 1 };
         BinaryVector v = new BinaryVector(el, 3);
 
@@ -235,11 +234,11 @@ public class CumulativeClassifierTest {
         // Calculate SC for creating a new class with this vector
         double sc = CumulativeClassifier.calculateNewClassSC(dynPart, v);
 
-        assertNotNull(sc >= 0.0, "SC should be non-negative");
+        assertTrue(sc >= 0.0, "SC should be non-negative");
     }
 
     @Test
-    public void testCalculateVectorComplexity() {
+    void testCalculateVectorComplexity() {
         int[] el1 = { 0, 0 }; // All zeros - deterministic
         BinaryVector v1 = new BinaryVector(el1, 2);
 
@@ -261,22 +260,19 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testDoCumulativeClassificationNullVectorSet() {
+    void testDoCumulativeClassificationNullVectorSet() {
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.doCumulativeClassification(null, 0));
     }
 
     @Test
-    public void testInitializeFromVectorNull() {
-        int[] el = { 1, 0 };
-        BinaryVector v = new BinaryVector(el, 2);
-
+    void testInitializeFromVectorNull() {
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.initializeFromVector(null, 0));
     }
 
     @Test
-    public void testExtendWithNewClassNull() {
+    void testExtendWithNewClassNull() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -290,7 +286,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testFindBestClassNull() {
+    void testFindBestClassNull() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -305,7 +301,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testAssignToClassNull() {
+    void testAssignToClassNull() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -320,7 +316,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testCalculateSCIncreaseNull() {
+    void testCalculateSCIncreaseNull() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -335,7 +331,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testCalculateNewClassSCNull() {
+    void testCalculateNewClassSCNull() {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
@@ -350,16 +346,13 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testCalculateVectorComplexityNull() {
-        int[] el = { 1, 0 };
-        BinaryVector v = new BinaryVector(el, 2);
-
+    void testCalculateVectorComplexityNull() {
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.calculateVectorComplexity(null, 2));
     }
 
     @Test
-    public void testDoCumulativeClassificationLargeDataset() {
+    void testDoCumulativeClassificationLargeDataset() {
         Random random = new Random(123);
         VectorSet vectors = new VectorSet();
 
@@ -378,7 +371,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testDoCumulativeClassificationWithDelta() {
+    void testDoCumulativeClassificationWithDelta() {
         VectorSet vectors = new VectorSet();
 
         // Create some similar vectors
@@ -403,7 +396,7 @@ public class CumulativeClassifierTest {
     }
 
     @Test
-    public void testConvertToPartition() {
+    void testConvertToPartition() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };

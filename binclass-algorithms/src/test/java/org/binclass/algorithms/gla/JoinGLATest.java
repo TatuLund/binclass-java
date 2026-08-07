@@ -18,12 +18,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link JoinGLA}.
  */
-public class JoinGLATest {
+class JoinGLATest {
 
     @Test
-    public void testJoinGLAFindsReasonableK() {
+    void testJoinGLAFindsReasonableK() {
         // Create synthetic data with 2 clear clusters
-        Random random = new Random(42);
         VectorSet vectors = new VectorSet();
 
         // Cluster A: all zeros
@@ -52,7 +51,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLASingleCluster() {
+    void testJoinGLASingleCluster() {
         VectorSet vectors = new VectorSet();
 
         // All identical vectors - should create single cluster
@@ -72,7 +71,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLATwoClusters() {
+    void testJoinGLATwoClusters() {
         VectorSet vectors = new VectorSet();
 
         // Two distinct clusters
@@ -99,7 +98,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLAThreeClusters() {
+    void testJoinGLAThreeClusters() {
         VectorSet vectors = new VectorSet();
 
         // Three distinct clusters in 3D space - maximally separated to avoid
@@ -134,7 +133,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinTwoClasses() {
+    void testJoinTwoClasses() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -163,7 +162,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testPartitionToSet() {
+    void testPartitionToSet() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -186,7 +185,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testEdistance2DoubleArrays() {
+    void testEdistance2DoubleArrays() {
         double[] a = { 0.1, 0.1 };
         double[] b = { 0.9, 0.9 };
 
@@ -197,7 +196,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testEdistance2Centroids() {
+    void testEdistance2Centroids() {
         double[][] centroidsData = {
                 { 0.1, 0.1 },
                 { 0.9, 0.9 }
@@ -214,7 +213,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsPNN() {
+    void testSetFirstCentroidsPNN() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(42);
@@ -247,7 +246,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsPNN2() {
+    void testSetFirstCentroidsPNN2() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(99);
@@ -280,7 +279,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLANullVectorSet() {
+    void testJoinGLANullVectorSet() {
         double[] scmin = new double[1];
         double[] scs = new double[2];
 
@@ -289,7 +288,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinTwoClassesNullCentroids() {
+    void testJoinTwoClassesNullCentroids() {
         Partition partition = new Partition(2);
 
         assertThrows(NullPointerException.class,
@@ -297,7 +296,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testPartitionToSetNull() {
+    void testPartitionToSetNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -312,7 +311,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testEdistance2Null() {
+    void testEdistance2Null() {
         double[][] centroidsData = { { 0.5, 0.5 } };
         InfiniteCentroids centroids = new InfiniteCentroids(centroidsData, 1);
 
@@ -323,7 +322,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsPNNNull() {
+    void testSetFirstCentroidsPNNNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -335,7 +334,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsPNN2Null() {
+    void testSetFirstCentroidsPNN2Null() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -347,7 +346,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLALargeDataset() {
+    void testJoinGLALargeDataset() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(101);
@@ -367,7 +366,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLAThreeDistinctClusters() {
+    void testJoinGLAThreeDistinctClusters() {
         VectorSet vectors = new VectorSet();
 
         // Three very distinct clusters in 3D space
@@ -401,7 +400,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLAWithDifferentVectorLengths() {
+    void testJoinGLAWithDifferentVectorLengths() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(101);
@@ -423,7 +422,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinTwoClassesMultipleMerges() {
+    void testJoinTwoClassesMultipleMerges() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(202);
@@ -457,7 +456,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testPartitionToSetEmpty() {
+    void testPartitionToSetEmpty() {
         Partition partition = new Partition(2);
 
         VectorSet result = JoinGLA.partitionToSet(partition);
@@ -467,7 +466,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testEdistance2SingleCluster() {
+    void testEdistance2SingleCluster() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(303);
@@ -492,11 +491,11 @@ public class JoinGLATest {
 
         double distance = JoinGLA.edistance2(c0, c1, 2);
 
-        assertNotNull(distance >= 0.0, "Distance should be non-negative");
+        assertTrue(distance >= 0.0, "Distance should be non-negative");
     }
 
     @Test
-    public void testSetFirstCentroidsPNNWithThreshold() {
+    void testSetFirstCentroidsPNNWithThreshold() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(404);
@@ -530,7 +529,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsPNN2WithThreshold() {
+    void testSetFirstCentroidsPNN2WithThreshold() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(505);
@@ -564,7 +563,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLAWithRandomSeed() {
+    void testJoinGLAWithRandomSeed() {
         // Test that different random seeds produce different results (but still
         // valid)
         VectorSet vectors = new VectorSet();
@@ -603,7 +602,7 @@ public class JoinGLATest {
     }
 
     @Test
-    public void testJoinGLAWithHighDimensionalData() {
+    void testJoinGLAWithHighDimensionalData() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(606);

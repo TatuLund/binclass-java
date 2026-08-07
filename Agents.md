@@ -40,5 +40,7 @@ This file is the compact Copilot entrypoint for the workspace.
 ## Workflow
 
 - Run `mvn spotless:apply` when formatting is needed.
+- Improve code quality using /sonarqube skill.
+- Run tests using /run-tests skill.
 - Use `mvn verify -Pit` for the full verification path when a change affects integration-tested behavior.
 - Check `AGENTS.md` for the preferred dev commands, mock-data caveats, and ArchUnit-enforced boundaries before making larger changes.

@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link IntMatrix}.
  */
-public class IntMatrixTest {
+class IntMatrixTest {
 
     @Test
-    public void testConstructorAndAccess() {
+    void testConstructorAndAccess() {
         IntMatrix m = new IntMatrix(2, 3);
 
         assertEquals(2, m.getRows());
@@ -27,7 +27,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testSetAndGet() {
+    void testSetAndGet() {
         IntMatrix m = new IntMatrix(3, 3);
 
         m.set(0, 0, 1);
@@ -46,7 +46,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testJaggedArray() {
+    void testJaggedArray() {
         IntMatrix jagged = new IntMatrix(3, 0); // Initialize with 0 cols
 
         jagged.el[0] = new int[] { 1, 2 };
@@ -59,7 +59,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         IntMatrix m = new IntMatrix(2, 3);
         m.set(0, 0, 1);
         m.set(0, 1, 2);
@@ -74,7 +74,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testGetRow() {
+    void testGetRow() {
         IntMatrix m = new IntMatrix(2, 3);
         m.set(0, 0, 1);
         m.set(0, 1, 2);
@@ -85,7 +85,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testGetColumn() {
+    void testGetColumn() {
         IntMatrix m = new IntMatrix(2, 3);
         m.set(0, 0, 1);
         m.set(0, 1, 2);
@@ -99,7 +99,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testSetRow() {
+    void testSetRow() {
         IntMatrix m = new IntMatrix(2, 3);
         int[] newRow = { 7, 8, 9 };
 
@@ -111,7 +111,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testSetColumn() {
+    void testSetColumn() {
         IntMatrix m = new IntMatrix(2, 3);
         int[] newCol = { 7, 8 };
 
@@ -122,7 +122,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         IntMatrix m1 = new IntMatrix(2, 3);
         IntMatrix m2 = new IntMatrix(2, 3);
 
@@ -133,7 +133,7 @@ public class IntMatrixTest {
     }
 
     @Test
-    public void testHashCode() {
+    void testHashCode() {
         IntMatrix m1 = new IntMatrix(2, 3);
         IntMatrix m2 = new IntMatrix(2, 3);
 

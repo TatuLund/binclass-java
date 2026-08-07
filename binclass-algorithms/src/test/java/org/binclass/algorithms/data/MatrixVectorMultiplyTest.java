@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for
  * {@link DoubleMatrix#matrixVectorMultiply(DoubleMatrix, DoubleVector)}.
  */
-public class MatrixVectorMultiplyTest {
+class MatrixVectorMultiplyTest {
 
     @Test
-    public void testBasicMultiplication() {
+    void testBasicMultiplication() {
         // Create a 2x3 matrix: [[1, 2], [3, 4]]
         double[][] data = { { 1.0, 2.0 }, { 3.0, 4.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -28,7 +28,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testIdentityMatrixMultiplication() {
+    void testIdentityMatrixMultiplication() {
         // Create a 2x2 identity matrix: [[1, 0], [0, 1]]
         double[][] data = { { 1.0, 0.0 }, { 0.0, 1.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -45,7 +45,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testZeroMatrixMultiplication() {
+    void testZeroMatrixMultiplication() {
         // Create a zero matrix: [[0, 0], [0, 0]]
         double[][] data = { { 0.0, 0.0 }, { 0.0, 0.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -62,7 +62,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testSingleRowMatrix() {
+    void testSingleRowMatrix() {
         // Create a single row matrix: [[2, 3]]
         double[][] data = { { 2.0, 3.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -79,7 +79,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testSingleColumnMatrix() {
+    void testSingleColumnMatrix() {
         // Create a single column matrix: [[5], [6]]
         double[][] data = { { 5.0 }, { 6.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -96,7 +96,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @org.junit.jupiter.api.Test
-    public void testDimensionMismatch() {
+    void testDimensionMismatch() {
         // Create a 2x3 matrix: [[1, 2], [3, 4]] (only needs first row for this
         // example)
         double[][] data = { { 1.0, 2.0 }, { 3.0, 4.0 } };
@@ -112,7 +112,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testNegativeValues() {
+    void testNegativeValues() {
         // Create a matrix with negative values: [[-1, 2], [3, -4]]
         double[][] data = { { -1.0, 2.0 }, { 3.0, -4.0 } };
         DoubleMatrix m = new DoubleMatrix(data);
@@ -129,7 +129,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testLargeMatrix() {
+    void testLargeMatrix() {
         // Create a larger matrix (4x4) with known values
         double[][] data = { { 1.0, 2.0, 3.0, 4.0 },
                 { 5.0, 6.0, 7.0, 8.0 },
@@ -152,7 +152,7 @@ public class MatrixVectorMultiplyTest {
     }
 
     @Test
-    public void testResultLength() {
+    void testResultLength() {
         // Create a matrix with different row/column dimensions
         double[][] data = { { 1.0, 2.0 }, { 3.0, 4.0 } };
         DoubleMatrix m = new DoubleMatrix(data);

@@ -10,17 +10,17 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link VectorSet}.
  */
-public class VectorSetTest {
+class VectorSetTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         VectorSet set = new VectorSet();
         assertEquals(0, set.size());
         assertTrue(set.isEmpty());
     }
 
     @Test
-    public void testAddElement() {
+    void testAddElement() {
         VectorSet set = new VectorSet();
 
         int[] el1 = { 0, 1 };
@@ -31,7 +31,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testAddDuplicate() {
+    void testAddDuplicate() {
         VectorSet set = new VectorSet();
 
         int[] el = { 0, 1 };
@@ -46,7 +46,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testRemoveElement() {
+    void testRemoveElement() {
         VectorSet set = new VectorSet();
 
         int[] el = { 0, 1 };
@@ -58,7 +58,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testRemoveNonExistent() {
+    void testRemoveNonExistent() {
         VectorSet set = new VectorSet();
 
         int[] el = { 0, 1 };
@@ -69,7 +69,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testContains() {
+    void testContains() {
         VectorSet set = new VectorSet();
 
         int[] el = { 0, 1 };
@@ -82,7 +82,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testIterator() {
+    void testIterator() {
         VectorSet set = new VectorSet();
 
         int[] el1 = { 0, 1 };
@@ -103,7 +103,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testClear() {
+    void testClear() {
         VectorSet set = new VectorSet();
 
         int[] el1 = { 0, 1 };
@@ -122,7 +122,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         VectorSet set = new VectorSet();
 
         int[] el = { 0, 1 };
@@ -135,7 +135,7 @@ public class VectorSetTest {
     }
 
     @Test
-    public void testInitialCapacity() {
+    void testInitialCapacity() {
         VectorSet set = new VectorSet(100); // Initial capacity hint
 
         assertEquals(0, set.size());

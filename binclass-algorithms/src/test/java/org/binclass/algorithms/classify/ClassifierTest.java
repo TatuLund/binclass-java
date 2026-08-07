@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link Classifier}.
  */
-public class ClassifierTest {
+class ClassifierTest {
 
     @Test
-    public void testIdentifyVectorsSingleCluster() {
+    void testIdentifyVectorsSingleCluster() {
         // Create a single cluster with all vectors
         VectorSet vectors = new VectorSet();
         int[] el1 = { 0, 1, 1 };
@@ -45,7 +45,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsTwoClusters() {
+    void testIdentifyVectorsTwoClusters() {
         // Create two distinct clusters
         VectorSet vectors = new VectorSet();
 
@@ -88,7 +88,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsFast() {
+    void testIdentifyVectorsFast() {
         // Test fast Hamming distance variant
         VectorSet vectors = new VectorSet();
 
@@ -121,7 +121,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsNullVectorSet() {
+    void testIdentifyVectorsNullVectorSet() {
         Partition partition = new Partition(1);
         InfiniteCentroids centroids = new InfiniteCentroids(
                 new double[][] { { 0.5 } }, 1);
@@ -131,7 +131,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsNullPartition() {
+    void testIdentifyVectorsNullPartition() {
         VectorSet vectors = new VectorSet();
         InfiniteCentroids centroids = new InfiniteCentroids(
                 new double[][] { { 0.5 } }, 1);
@@ -141,7 +141,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsNullCentroids() {
+    void testIdentifyVectorsNullCentroids() {
         VectorSet vectors = new VectorSet();
         Partition partition = new Partition(1);
 
@@ -150,14 +150,14 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testClassifyVectorsPipeline() {
+    void testClassifyVectorsPipeline() {
         // Test the full classification pipeline method (stub)
         assertDoesNotThrow(() -> Classifier.classifyVectors("data.dat",
                 "out.txt", "par.par"));
     }
 
     @Test
-    public void testIdentifyVectorsEmptyVectorSet() {
+    void testIdentifyVectorsEmptyVectorSet() {
         VectorSet vectors = new VectorSet();
 
         double[][] centroidsData = { { 0.5, 0.5 } };
@@ -172,7 +172,7 @@ public class ClassifierTest {
     }
 
     @Test
-    public void testIdentifyVectorsMultipleClusters() {
+    void testIdentifyVectorsMultipleClusters() {
         // Test with 3 clusters
         VectorSet vectors = new VectorSet();
 

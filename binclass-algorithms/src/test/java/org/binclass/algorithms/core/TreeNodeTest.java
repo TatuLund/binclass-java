@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link TreeNode}.
  */
-public class TreeNodeTest {
+class TreeNodeTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         TreeNode node = new TreeNode(1.5, "cluster_A");
 
         assertEquals(1.5, node.getSC(), 1e-10);
@@ -21,7 +21,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testLeafNode() {
+    void testLeafNode() {
         TreeNode leaf = new TreeNode(0.5, "leaf_1");
 
         assertTrue(leaf.isLeaf());
@@ -30,7 +30,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testInternalNode() {
+    void testInternalNode() {
         TreeNode left = new TreeNode(0.3, "left_child");
         TreeNode right = new TreeNode(0.7, "right_child");
 
@@ -44,14 +44,14 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testNullName() {
+    void testNullName() {
         TreeNode node = new TreeNode(1.0, null);
 
         assertEquals("", node.getName()); // Null becomes empty string
     }
 
     @Test
-    public void testToString_Leaf() {
+    void testToString_Leaf() {
         TreeNode leaf = new TreeNode(0.5, "leaf");
 
         String str = leaf.toString();
@@ -60,7 +60,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testToString_Internal() {
+    void testToString_Internal() {
         TreeNode left = new TreeNode(0.3, "left");
         TreeNode right = new TreeNode(0.7, "right");
 
@@ -72,7 +72,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         TreeNode node1 = new TreeNode(1.0, "test");
         TreeNode node2 = new TreeNode(1.0, "test");
 
@@ -81,7 +81,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testNotEquals() {
+    void testNotEquals() {
         TreeNode node1 = new TreeNode(1.0, "test");
         TreeNode node2 = new TreeNode(2.0, "test"); // Different SC
 
@@ -89,7 +89,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testTreeNavigation() {
+    void testTreeNavigation() {
         // Create a simple binary tree: root -> [left, right]
         TreeNode leaf1 = new TreeNode(0.3, "A");
         TreeNode leaf2 = new TreeNode(0.5, "B");
@@ -104,14 +104,14 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testSCValue() {
+    void testSCValue() {
         TreeNode node = new TreeNode(3.14159, "test");
 
         assertEquals(3.14159, node.getSC(), 1e-10);
     }
 
     @Test
-    public void testComplexTreeStructure() {
+    void testComplexTreeStructure() {
         // Create a more complex tree structure
         TreeNode leaf1 = new TreeNode(0.1, "L1");
         TreeNode leaf2 = new TreeNode(0.2, "L2");
@@ -126,7 +126,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testHashCodeConsistency() {
+    void testHashCodeConsistency() {
         TreeNode node = new TreeNode(1.0, "test");
 
         int hash1 = node.hashCode();
@@ -136,7 +136,7 @@ public class TreeNodeTest {
     }
 
     @Test
-    public void testNullChildren() {
+    void testNullChildren() {
         TreeNode internal = new TreeNode(1.0, "internal", null, null);
 
         assertTrue(internal.isLeaf()); // Both children null means leaf

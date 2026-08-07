@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.Random;
 
 import org.binclass.algorithms.core.BinaryVector;
-import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link GLAEngine}.
  */
-public class GLAEngineTest {
+class GLAEngineTest {
 
     private VectorSet createRandomVectorSet(int count, int length) {
         Random random = new Random(42);
@@ -39,7 +38,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaStandard() {
+    void testGlaStandard() {
         VectorSet vectors = createRandomVectorSet(20, 2);
         double[][] centroidsData = {
                 { 0.1, 0.1 }, // Centroid for cluster 0
@@ -68,7 +67,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaSr() {
+    void testGlaSr() {
         VectorSet vectors = createRandomVectorSet(15, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -86,7 +85,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaSa() {
+    void testGlaSa() {
         VectorSet vectors = createRandomVectorSet(20, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -104,7 +103,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testHybridGlaL1() {
+    void testHybridGlaL1() {
         VectorSet vectors = createRandomVectorSet(25, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -122,7 +121,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testHybridGlaL2() {
+    void testHybridGlaL2() {
         VectorSet vectors = createRandomVectorSet(30, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -140,7 +139,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testMaeGla() {
+    void testMaeGla() {
         VectorSet vectors = createRandomVectorSet(18, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -158,7 +157,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testMseGla() {
+    void testMseGla() {
         VectorSet vectors = createRandomVectorSet(22, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -176,7 +175,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testFastGla() {
+    void testFastGla() {
         VectorSet vectors = createRandomVectorSet(16, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -194,7 +193,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaSingleCluster() {
+    void testGlaSingleCluster() {
         VectorSet vectors = createRandomVectorSet(10, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.5, 0.5 } });
@@ -213,7 +212,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaThreeClusters() {
+    void testGlaThreeClusters() {
         VectorSet vectors = createRandomVectorSet(30, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.0, 0.0 }, { 0.5, 0.5 }, { 1.0, 1.0 } });
@@ -237,7 +236,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaNullVectorSet() {
+    void testGlaNullVectorSet() {
         Partition partition = new Partition(2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.5, 0.5 } });
@@ -248,7 +247,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaNullPartition() {
+    void testGlaNullPartition() {
         VectorSet vectors = createRandomVectorSet(5, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.5, 0.5 } });
@@ -259,7 +258,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaNullCentroids() {
+    void testGlaNullCentroids() {
         VectorSet vectors = createRandomVectorSet(5, 2);
         Partition partition = new Partition(2);
         double[] dmin = new double[1];
@@ -269,7 +268,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaZeroCentroids() {
+    void testGlaZeroCentroids() {
         VectorSet vectors = createRandomVectorSet(5, 2);
         double[] dmin = new double[1];
 
@@ -280,7 +279,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaConvergenceBehavior() {
+    void testGlaConvergenceBehavior() {
         VectorSet vectors = createRandomVectorSet(50, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -298,7 +297,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testAllVariantsProduceValidPartitions() {
+    void testAllVariantsProduceValidPartitions() {
         VectorSet vectors = createRandomVectorSet(25, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });
@@ -351,7 +350,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaWithDifferentVectorLengths() {
+    void testGlaWithDifferentVectorLengths() {
         VectorSet vectors = createRandomVectorSet(20, 4);
         InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
                 { 0.1, 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9, 0.9 } });
@@ -368,7 +367,7 @@ public class GLAEngineTest {
     }
 
     @Test
-    public void testGlaLargeDataset() {
+    void testGlaLargeDataset() {
         VectorSet vectors = createRandomVectorSet(100, 2);
         InfiniteCentroids centroids = createInfiniteCentroids(
                 new double[][] { { 0.1, 0.1 }, { 0.9, 0.9 } });

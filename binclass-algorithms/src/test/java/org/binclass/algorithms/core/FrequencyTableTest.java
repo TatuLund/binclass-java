@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link FrequencyTable}.
  */
-public class FrequencyTableTest {
+class FrequencyTableTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         int[] freq = { 5, 3, 7 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -22,7 +22,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testGet() {
+    void testGet() {
         int[] freq = { 5, 3, 7 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -32,7 +32,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testGetSize() {
+    void testGetSize() {
         int[] freq = { 5, 3 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -40,7 +40,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testIsLinked() {
+    void testIsLinked() {
         int[] freq = { 5 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -48,7 +48,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testGetLinkage() {
+    void testGetLinkage() {
         int[] freq = { 5 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -56,7 +56,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testCopy() {
+    void testCopy() {
         int[] freq = { 5, 3 };
         FrequencyTable original = new FrequencyTable(freq, 10);
 
@@ -73,7 +73,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testGetArray() {
+    void testGetArray() {
         int[] freq = { 5, 3 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -84,7 +84,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         int[] freq = { 5 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -93,7 +93,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         int[] freq = { 5, 3 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -103,7 +103,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         int[] freq1 = { 5, 3 };
         int[] freq2 = { 5, 3 };
 
@@ -115,7 +115,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testNotEquals() {
+    void testNotEquals() {
         int[] freq1 = { 5, 3 };
         int[] freq2 = { 5, 4 }; // Different frequency
 
@@ -126,7 +126,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testLinkedFrequencyTable() {
+    void testLinkedFrequencyTable() {
         int[] freq = { 5 };
         FrequencyTable linkedFt = new FrequencyTable(freq, 10, true,
                 "partition_ref");
@@ -136,7 +136,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testHashCodeConsistency() {
+    void testHashCodeConsistency() {
         int[] freq = { 5, 3 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -147,7 +147,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testLinkedFrequencyTableEquality() {
+    void testLinkedFrequencyTableEquality() {
         int[] freq = { 5 };
 
         FrequencyTable linkedFt1 = new FrequencyTable(freq, 10, true, "ref");
@@ -158,7 +158,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testLinkedFrequencyTableNotEquals() {
+    void testLinkedFrequencyTableNotEquals() {
         int[] freq = { 5 };
 
         FrequencyTable linkedFt1 = new FrequencyTable(freq, 10, true, "ref");
@@ -168,7 +168,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testLargeFrequencyValues() {
+    void testLargeFrequencyValues() {
         int[] freq = { Integer.MAX_VALUE / 2, Integer.MIN_VALUE + 1 };
         FrequencyTable ft = new FrequencyTable(freq, 10);
 
@@ -177,7 +177,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testZeroSize() {
+    void testZeroSize() {
         int[] freq = { 5 };
         FrequencyTable ft = new FrequencyTable(freq, 0); // Size 0
 
@@ -186,7 +186,7 @@ public class FrequencyTableTest {
     }
 
     @Test
-    public void testSingleElement() {
+    void testSingleElement() {
         int[] freq = { 42 };
         FrequencyTable ft = new FrequencyTable(freq, 1);
 

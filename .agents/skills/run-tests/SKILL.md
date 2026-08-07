@@ -1,5 +1,5 @@
 ---
-name: runTests
+name: run-tests
 description: 'Run unit tests using the VS Code test runner tool'
 ---
 

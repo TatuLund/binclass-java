@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link BinaryVector}.
  */
-public class BinaryVectorTest {
+class BinaryVectorTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         int[] el = { 0, 1, 1, 0 };
         BinaryVector bv = new BinaryVector(el, 4);
 
@@ -23,7 +23,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testGet() {
+    void testGet() {
         int[] el = { 0, 1, 1, 0 };
         BinaryVector bv = new BinaryVector(el, 4);
 
@@ -34,7 +34,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testMissingValues() {
+    void testMissingValues() {
         int[] el = { 0, 1, 1 };
         int miss = (1 << 1); // Position 1 is missing
 
@@ -50,7 +50,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testClassname() {
+    void testClassname() {
         BinaryVector bv = new BinaryVector(new int[] { 0, 1 }, 2);
 
         assertEquals(0, bv.getClassname());
@@ -60,7 +60,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testStrain() {
+    void testStrain() {
         BinaryVector bv = new BinaryVector(new int[] { 0, 1 }, 0, 2, 0,
                 "strain_A");
 
@@ -71,7 +71,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testCopy() {
+    void testCopy() {
         int[] el = { 0, 1, 1 };
         BinaryVector original = new BinaryVector(el, 3);
 
@@ -87,7 +87,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testHammingDistance() {
+    void testHammingDistance() {
         int[] el1 = { 0, 1, 1, 0 };
         int[] el2 = { 0, 1, 0, 1 };
 
@@ -99,7 +99,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testHammingDistanceWithMissing() {
+    void testHammingDistanceWithMissing() {
         int[] el1 = { 0, 1, 1 };
         int miss1 = (1 << 1); // Position 1 missing in v1
 
@@ -114,7 +114,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         int[] el = { 0, 1, 1 };
         BinaryVector v1 = new BinaryVector(el, 3);
         BinaryVector v2 = new BinaryVector(el, 3);
@@ -124,7 +124,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         int[] el = { 0, 1, 1 };
         int miss = (1 << 1); // Position 1 missing
 
@@ -136,7 +136,7 @@ public class BinaryVectorTest {
     }
 
     @Test
-    public void testNullStrain() {
+    void testNullStrain() {
         BinaryVector bv = new BinaryVector(new int[] { 0, 1 }, 2, 0, 0, null);
 
         assertEquals("", bv.getStrain());

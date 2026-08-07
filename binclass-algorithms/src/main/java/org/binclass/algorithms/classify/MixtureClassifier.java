@@ -5,7 +5,7 @@
 package org.binclass.algorithms.classify;
 
 import java.util.Objects;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
@@ -176,7 +176,8 @@ public final class MixtureClassifier {
             for (int j = 0; j < m; j++) {
                 double likelihood = computeBernoulliLikelihood(bv,
                         centroids.get(j), d);
-                probMatrix[i][j] = (weights.get(j) * likelihood) / marginalProb;
+                probMatrix[i][j] = (weights.get(j) * likelihood)
+                        / marginalProb;
             }
         }
 
@@ -279,7 +280,7 @@ public final class MixtureClassifier {
                 for (int k = 0; k < d; k++) {
                     double val = numerator[k] / denominator;
                     // Clamp to [epsilon, 1-epsilon] for numerical stability
-                    val = Math.max(EPSILON, Math.min(1.0 - EPSILON, val));
+                    val = Math.clamp(val, EPSILON, 1.0 - EPSILON);
                     centroid.set(k, val);
                 }
             }
@@ -311,7 +312,7 @@ public final class MixtureClassifier {
         for (int k = 0; k < d && k < vector.getLength(); k++) {
             double prob = centroid.get(k);
             // Clamp to avoid log(0) in downstream computations
-            prob = Math.max(EPSILON, Math.min(1.0 - EPSILON, prob));
+            prob = Math.clamp(prob, EPSILON, 1.0 - EPSILON);
 
             if (vector.get(k) == 1) {
                 likelihood *= prob;
@@ -415,12 +416,11 @@ public final class MixtureClassifier {
         }
 
         DoubleVector weights = new DoubleVector(m);
-        Random random = new Random();
 
         // Generate random weights in [0.05, 1.05] and normalize
         double sum = 0.0;
         for (int j = 0; j < m; j++) {
-            double w = random.nextDouble() + 0.05;
+            double w = ThreadLocalRandom.current().nextDouble() + 0.05;
             weights.set(j, w);
             sum += w;
         }

@@ -18,12 +18,11 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link SplitGLA}.
  */
-public class SplitGLATest {
+class SplitGLATest {
 
     @Test
-    public void testSplitGLAFindsReasonableK() {
+    void testSplitGLAFindsReasonableK() {
         // Create synthetic data with 2 clear clusters
-        Random random = new Random(42);
         VectorSet vectors = new VectorSet();
 
         // Cluster A: all zeros
@@ -52,7 +51,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLASingleCluster() {
+    void testSplitGLASingleCluster() {
         VectorSet vectors = new VectorSet();
 
         // All identical vectors - should create single cluster
@@ -72,7 +71,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLATwoClusters() {
+    void testSplitGLATwoClusters() {
         VectorSet vectors = new VectorSet();
 
         // Two distinct clusters
@@ -99,7 +98,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLAThreeClusters() {
+    void testSplitGLAThreeClusters() {
         VectorSet vectors = new VectorSet();
 
         // Three distinct clusters in 3D space
@@ -133,7 +132,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testWorstMatchingVectors() {
+    void testWorstMatchingVectors() {
         VectorSet vectors = new VectorSet();
 
         // Create two very different vectors
@@ -159,7 +158,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testAbsWorstMatchingVectors() {
+    void testAbsWorstMatchingVectors() {
         VectorSet vectors = new VectorSet();
 
         // Create multiple vectors with varying distances
@@ -186,7 +185,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSetFirstCentroids() {
+    void testSetFirstCentroids() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -198,7 +197,7 @@ public class SplitGLATest {
         vectors.addElement(v2);
 
         // Create initial centroids from the two vectors
-        org.binclass.algorithms.core.InfiniteCentroids centroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids centroids = new InfiniteCentroids(
                 2, 2);
         SplitGLA.setFirstCentroids(centroids, v1, v2);
         assertEquals(2, centroids.size()); // Should create 2 initial centroids
@@ -217,7 +216,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testPointWorstClass() {
+    void testPointWorstClass() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -228,22 +227,22 @@ public class SplitGLATest {
         vectors.addElement(v1);
         vectors.addElement(v2);
 
-        org.binclass.algorithms.core.InfiniteCentroids centroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids centroids = new InfiniteCentroids(
                 2, 2);
         SplitGLA.setFirstCentroids(centroids, v1, v2);
 
         // Find worst-matching vector and its class
-        BinaryVector[] worstPair = SplitGLA.worstMatchingVectors(vectors,
+        SplitGLA.worstMatchingVectors(vectors,
                 new Random(42));
-        Partition partition = new org.binclass.algorithms.core.Partition(2);
+        Partition partition = new Partition(2);
         int worstClass = SplitGLA.pointWorstClass(partition, centroids);
 
-        assertNotNull(worstClass >= 1 && worstClass <= centroids.size(),
+        assertTrue(worstClass >= 1 && worstClass <= centroids.size(),
                 "Should return a valid class index");
     }
 
     @Test
-    public void testSetNewCentroids() {
+    void testSetNewCentroids() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -254,15 +253,15 @@ public class SplitGLATest {
         vectors.addElement(v1);
         vectors.addElement(v2);
 
-        org.binclass.algorithms.core.InfiniteCentroids centroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids centroids = new InfiniteCentroids(
                 2, 2);
         SplitGLA.setFirstCentroids(centroids, v1, v2);
 
         // Modify one centroid and verify update
         Centroid c0 = centroids.get(0);
-        double originalVal = c0.get(0);
+        c0.get(0);
 
-        org.binclass.algorithms.core.InfiniteCentroids newCentroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids newCentroids = new InfiniteCentroids(
                 3, 2);
         SplitGLA.setNewCentroids(newCentroids, centroids, v1, v2, 2);
 
@@ -279,7 +278,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLANullVectorSet() {
+    void testSplitGLANullVectorSet() {
         double[] scmin = new double[1];
         double[] scs = new double[2];
         assertThrows(NullPointerException.class,
@@ -287,7 +286,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testWorstMatchingVectorsNull() {
+    void testWorstMatchingVectorsNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -299,7 +298,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testAbsWorstMatchingVectorsNull() {
+    void testAbsWorstMatchingVectorsNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -311,7 +310,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSetFirstCentroidsNull() {
+    void testSetFirstCentroidsNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -323,14 +322,14 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testPointWorstClassNull() {
+    void testPointWorstClassNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
         vectors.addElement(v1);
 
-        org.binclass.algorithms.core.InfiniteCentroids centroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids centroids = new InfiniteCentroids(
                 2, 2);
 
         assertThrows(NullPointerException.class,
@@ -338,14 +337,14 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSetNewCentroidsNull() {
+    void testSetNewCentroidsNull() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
         vectors.addElement(v1);
 
-        org.binclass.algorithms.core.InfiniteCentroids centroids = new org.binclass.algorithms.core.InfiniteCentroids(
+        InfiniteCentroids centroids = new InfiniteCentroids(
                 2, 2);
 
         assertThrows(NullPointerException.class,
@@ -353,7 +352,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLALargeDataset() {
+    void testSplitGLALargeDataset() {
         VectorSet vectors = new VectorSet();
 
         Random random = new Random(101);
@@ -372,7 +371,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLAWithRandomSeed() {
+    void testSplitGLAWithRandomSeed() {
         // Test that different random seeds produce different results (but still
         // valid)
         VectorSet vectors = new VectorSet();
@@ -411,7 +410,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLAWithDifferentVectorLengths() {
+    void testSplitGLAWithDifferentVectorLengths() {
         // Test with longer vectors (5 dimensions)
         VectorSet vectors = new VectorSet();
 
@@ -440,7 +439,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testWorstMatchingVectorsSingleVector() {
+    void testWorstMatchingVectorsSingleVector() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -453,7 +452,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testAbsWorstMatchingVectorsSingleVector() {
+    void testAbsWorstMatchingVectorsSingleVector() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -466,7 +465,7 @@ public class SplitGLATest {
     }
 
     @Test
-    public void testSplitGLAThreeDistinctClusters() {
+    void testSplitGLAThreeDistinctClusters() {
         VectorSet vectors = new VectorSet();
 
         // Three very distinct clusters in 3D space

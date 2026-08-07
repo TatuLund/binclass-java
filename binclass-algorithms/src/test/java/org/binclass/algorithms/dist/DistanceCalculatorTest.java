@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link DistanceCalculator}.
  */
-public class DistanceCalculatorTest {
+class DistanceCalculatorTest {
 
     @Test
-    public void testHammingDistanceIdenticalVectors() {
+    void testHammingDistanceIdenticalVectors() {
         // Create a centroid with all 1s (probability = 1.0)
         double[] el = { 1.0, 1.0, 1.0, 1.0, 1.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -34,7 +34,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testHammingDistanceCompletelyDifferentVectors() {
+    void testHammingDistanceCompletelyDifferentVectors() {
         // Create a centroid with all 0s (probability = 0.0)
         double[] el = { 0.0, 0.0, 0.0, 0.0, 0.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -47,7 +47,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testHammingDistancePartialMatch() {
+    void testHammingDistancePartialMatch() {
         // Create a centroid with mixed probabilities
         double[] probs = { 0.9, 0.1, 0.8, 0.2, 0.7 };
         Centroid centroid = new Centroid(probs, 5, 0);
@@ -66,7 +66,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testL1DistanceIdenticalVectors() {
+    void testL1DistanceIdenticalVectors() {
         // Create a centroid with all 1s (probability = 1.0)
         double[] el = { 1.0, 1.0, 1.0, 1.0, 1.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -79,7 +79,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testL1DistanceCompletelyDifferentVectors() {
+    void testL1DistanceCompletelyDifferentVectors() {
         // Create a centroid with all 0s (probability = 0.0)
         double[] el = { 0.0, 0.0, 0.0, 0.0, 0.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -92,7 +92,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testL2DistanceIdenticalVectors() {
+    void testL2DistanceIdenticalVectors() {
         // Create a centroid with all 1s (probability = 1.0)
         double[] el = { 1.0, 1.0, 1.0, 1.0, 1.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -105,7 +105,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testL2DistanceCompletelyDifferentVectors() {
+    void testL2DistanceCompletelyDifferentVectors() {
         // Create a centroid with all 0s (probability = 0.0)
         double[] el = { 0.0, 0.0, 0.0, 0.0, 0.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -118,7 +118,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testCodeLength() {
+    void testCodeLength() {
         // Create a centroid with all 1s (probability = 1.0)
         double[] el = { 1.0, 1.0, 1.0, 1.0, 1.0 };
         Centroid centroid = new Centroid(el, 5, 0);
@@ -132,7 +132,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testCodeLength2() {
+    void testCodeLength2() {
         // Create a centroid with weight > 0
         double[] el = { 1.0, 1.0, 1.0, 1.0, 1.0 };
         Centroid centroid = new Centroid(el, 5, 1);
@@ -146,7 +146,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testClassCodeLength() {
+    void testClassCodeLength() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -185,7 +185,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testAverageCodelength() {
+    void testAverageCodelength() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -224,7 +224,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testClassDistortion() {
+    void testClassDistortion() {
         // Create a VectorSet with identical vectors
         VectorSet classVectors = new VectorSet();
         for (int i = 0; i < 5; i++) {
@@ -243,7 +243,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testOverallDistortion() {
+    void testOverallDistortion() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -281,7 +281,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testClassMae() {
+    void testClassMae() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -305,7 +305,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testOverallMae() {
+    void testOverallMae() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -342,7 +342,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testClassMse() {
+    void testClassMse() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10);
 
@@ -366,7 +366,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testOverallMse() {
+    void testOverallMse() {
         // Create a partition with 2 classes
         Partition partition = new Partition(10, 2);
 
@@ -401,13 +401,13 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testUseClassWeights() {
+    void testUseClassWeights() {
         boolean useWeights = DistanceCalculator.useClassWeights();
         assertTrue(!useWeights); // Default should be false
     }
 
     @Test
-    public void testNullVectorThrowsException() {
+    void testNullVectorThrowsException() {
         Centroid centroid = new Centroid(new double[5], 5, 0);
 
         assertThrows(NullPointerException.class,
@@ -415,7 +415,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testNullCentroidThrowsException() {
+    void testNullCentroidThrowsException() {
         BinaryVector vector = new BinaryVector(new int[] { 1, 0, 1, 0, 1 });
 
         assertThrows(NullPointerException.class,
@@ -423,7 +423,7 @@ public class DistanceCalculatorTest {
     }
 
     @Test
-    public void testDivisionByZeroThrowsException() {
+    void testDivisionByZeroThrowsException() {
         // Create a valid partition with 1 class but no vectors in it
         Partition partition = new Partition(1);
 

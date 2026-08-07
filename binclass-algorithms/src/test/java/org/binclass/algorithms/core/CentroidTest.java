@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link Centroid}.
  */
-public class CentroidTest {
+class CentroidTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         double[] el = { 0.5, 0.3, 0.8 };
         Centroid c = new Centroid(el, 3, 10);
 
@@ -22,7 +22,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testGet() {
+    void testGet() {
         double[] el = { 0.5, 0.3, 0.8 };
         Centroid c = new Centroid(el, 3, 10);
 
@@ -32,7 +32,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testGetLog1() {
+    void testGetLog1() {
         double[] el = { 0.5 };
         Centroid c = new Centroid(el, 1, 10);
 
@@ -41,7 +41,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testGetLog0() {
+    void testGetLog0() {
         double[] el = { 0.5 };
         Centroid c = new Centroid(el, 1, 10);
 
@@ -51,7 +51,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testCopy() {
+    void testCopy() {
         double[] el = { 0.5, 0.3 };
         Centroid original = new Centroid(el, 2, 10);
 
@@ -68,7 +68,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testGetArray() {
+    void testGetArray() {
         double[] el = { 0.5, 0.3 };
         Centroid c = new Centroid(el, 2, 10);
 
@@ -79,7 +79,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         double[] el = { 0.5 };
         Centroid c = new Centroid(el, 1, 10);
 
@@ -88,7 +88,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testZeroLengthCentroid() {
+    void testZeroLengthCentroid() {
         Centroid c = new Centroid(5); // Length 5, weight 0 (default)
 
         assertEquals(5, c.getLength());
@@ -96,7 +96,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         double[] el1 = { 0.5, 0.3 };
         double[] el2 = { 0.5, 0.3 };
 
@@ -108,7 +108,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         double[] el = { 0.5, 0.3 };
         Centroid c = new Centroid(el, 2, 10);
 
@@ -118,7 +118,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testLogProbabilities() {
+    void testLogProbabilities() {
         // Test with probability values that have known log probabilities
         double[] el = { 0.25, 0.75 };
         Centroid c = new Centroid(el, 2, 10);
@@ -132,7 +132,7 @@ public class CentroidTest {
     }
 
     @Test
-    public void testEdgeCaseProbabilityOne() {
+    void testEdgeCaseProbabilityOne() {
         // Edge case: probability of 1.0 should give -log2(1) = 0
         double[] el = { 1.0 };
         Centroid c = new Centroid(el, 1, 10);

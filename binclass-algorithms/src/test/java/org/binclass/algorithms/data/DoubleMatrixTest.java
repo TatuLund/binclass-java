@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link DoubleMatrix}.
  */
-public class DoubleMatrixTest {
+class DoubleMatrixTest {
 
     @Test
-    public void testConstructorAndAccess() {
+    void testConstructorAndAccess() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
 
         assertEquals(2, m.getRows());
@@ -26,7 +26,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testSetAndGet() {
+    void testSetAndGet() {
         DoubleMatrix m = new DoubleMatrix(3, 3);
 
         m.set(0, 0, 1.0);
@@ -45,7 +45,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testJaggedArray() {
+    void testJaggedArray() {
         DoubleMatrix jagged = new DoubleMatrix(3, 0); // Initialize with 0 cols
 
         jagged.el[0] = new double[] { 1.0, 2.0 };
@@ -58,7 +58,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -73,7 +73,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testTranspose() {
+    void testTranspose() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -93,7 +93,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMultiply() {
+    void testMultiply() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -121,7 +121,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testInverse() {
+    void testInverse() {
         DoubleMatrix square = new DoubleMatrix(2, 2);
         square.set(0, 0, 4.0);
         square.set(0, 1, 7.0);
@@ -142,7 +142,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testEquals() {
+    void testEquals() {
         DoubleMatrix m1 = new DoubleMatrix(2, 3);
         DoubleMatrix m2 = new DoubleMatrix(2, 3);
 
@@ -153,7 +153,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testHashCode() {
+    void testHashCode() {
         DoubleMatrix m1 = new DoubleMatrix(2, 3);
         DoubleMatrix m2 = new DoubleMatrix(2, 3);
 
@@ -163,7 +163,7 @@ public class DoubleMatrixTest {
     // --- matrixVectorMultiply tests ---
 
     @Test
-    public void testMatrixVectorMultiply_basic() {
+    void testMatrixVectorMultiply_basic() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -180,7 +180,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_singleRow() {
+    void testMatrixVectorMultiply_singleRow() {
         DoubleMatrix m = new DoubleMatrix(1, 3);
         m.set(0, 0, 2.0);
         m.set(0, 1, 3.0);
@@ -193,7 +193,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_singleColumn() {
+    void testMatrixVectorMultiply_singleColumn() {
         DoubleMatrix m = new DoubleMatrix(3, 1);
         m.set(0, 0, 2.0);
         m.set(1, 0, 3.0);
@@ -208,7 +208,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_zeroVector() {
+    void testMatrixVectorMultiply_zeroVector() {
         DoubleMatrix m = new DoubleMatrix(2, 2);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -223,7 +223,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_negativeValues() {
+    void testMatrixVectorMultiply_negativeValues() {
         DoubleMatrix m = new DoubleMatrix(2, 2);
         m.set(0, 0, -1.0);
         m.set(0, 1, 3.0);
@@ -238,7 +238,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_dimensionMismatch() {
+    void testMatrixVectorMultiply_dimensionMismatch() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -255,7 +255,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_nullVector() {
+    void testMatrixVectorMultiply_nullVector() {
         DoubleMatrix m = new DoubleMatrix(2, 3);
         assertThrows(NullPointerException.class, () -> {
             m.matrixVectorMultiply(null);
@@ -263,7 +263,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testMatrixVectorMultiply_identityLikeResult() {
+    void testMatrixVectorMultiply_identityLikeResult() {
         // Multiplying by identity matrix should return the same vector
         DoubleMatrix I = new DoubleMatrix(3, 3);
         I.set(0, 0, 1.0);
@@ -281,7 +281,7 @@ public class DoubleMatrixTest {
     // --- pseudoInverse tests ---
 
     @Test
-    public void testPseudoInverse_squareMatrix() {
+    void testPseudoInverse_squareMatrix() {
         // For a square invertible matrix, pseudo-inverse should equal inverse
         DoubleMatrix m = new DoubleMatrix(3, 3);
         m.set(0, 0, 1.0);
@@ -313,7 +313,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_tallMatrix() {
+    void testPseudoInverse_tallMatrix() {
         // Tall matrix (more rows than columns): A is 4×3, full column-rank
         DoubleMatrix m = new DoubleMatrix(4, 3);
         m.set(0, 0, 1.0);
@@ -348,7 +348,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_wideMatrix() {
+    void testPseudoInverse_wideMatrix() {
         // Wide matrix (more columns than rows): A is 3×4, full row-rank
         DoubleMatrix m = new DoubleMatrix(3, 4);
         m.set(0, 0, 1.0);
@@ -370,7 +370,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_identityMatrix() {
+    void testPseudoInverse_identityMatrix() {
         // Pseudo-inverse of identity should be identity itself
         DoubleMatrix I = new DoubleMatrix(3, 3);
         I.set(0, 0, 1.0);
@@ -393,7 +393,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_2x2Matrix() {
+    void testPseudoInverse_2x2Matrix() {
         DoubleMatrix m = new DoubleMatrix(2, 2);
         m.set(0, 0, 1.0);
         m.set(0, 1, 2.0);
@@ -413,7 +413,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_rectangularTall() {
+    void testPseudoInverse_rectangularTall() {
         // Another tall matrix (5×2) to further validate the implementation
         DoubleMatrix m = new DoubleMatrix(5, 2);
         m.set(0, 0, 1.0);
@@ -441,7 +441,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_negativeValues() {
+    void testPseudoInverse_negativeValues() {
         // Matrix with negative values to ensure correctness
         DoubleMatrix m = new DoubleMatrix(3, 3);
         m.set(0, 0, -1.0);
@@ -473,7 +473,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_largeMatrix() {
+    void testPseudoInverse_largeMatrix() {
         // Larger matrix (4×4) to stress-test the implementation
         DoubleMatrix m = new DoubleMatrix(4, 4);
         m.set(0, 0, 2.0);
@@ -509,7 +509,7 @@ public class DoubleMatrixTest {
     }
 
     @Test
-    public void testPseudoInverse_singularMatrix() {
+    void testPseudoInverse_singularMatrix() {
         // Singular matrix should throw an exception since (AᵀA) will be
         // singular
         DoubleMatrix m = new DoubleMatrix(3, 3);

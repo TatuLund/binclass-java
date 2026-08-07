@@ -185,8 +185,10 @@ public final class Classifier {
         logger.info("Starting classification pipeline: dat={}, out={}, par={}",
                 datfile, outfile, parfile);
 
-        // TODO: Implement full I/O pipeline when io/ package is complete (Phase 4)
-        // For now, this method serves as the API entry point with basic validation
+        // TODO: Implement full I/O pipeline when io/ package is complete (Phase
+        // 4)
+        // For now, this method serves as the API entry point with basic
+        // validation
         logger.debug("Classification pipeline ready for {} vectors", 0);
     }
 

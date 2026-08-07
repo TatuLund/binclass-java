@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link MixtureClassifier}.
  */
-public class MixtureClassifierTest {
+class MixtureClassifierTest {
 
     @Test
-    public void testApplyMixtureClassifierConvergence() {
+    void testApplyMixtureClassifierConvergence() {
         // Create synthetic data with two clear clusters
         Random random = new Random(42);
 
@@ -77,7 +77,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testApplyMixtureClassifierSingleComponent() {
+    void testApplyMixtureClassifierSingleComponent() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 1 };
@@ -102,7 +102,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testCalculateMatrix() {
+    void testCalculateMatrix() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 0 };
@@ -144,7 +144,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testUpdateWeights() {
+    void testUpdateWeights() {
         DoubleVector weights = new DoubleVector(new double[] { 0.5, 0.5 });
 
         // Create probability matrix where all vectors belong to component 0
@@ -164,7 +164,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testUpdateCentroids() {
+    void testUpdateCentroids() {
         double[][] centroidsData = {
                 { 0.5, 0.5 }, // Initial centroid
                 { 0.5, 0.5 }
@@ -202,7 +202,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testApplyMixtureClassifierNullVectorSet() {
+    void testApplyMixtureClassifierNullVectorSet() {
         double[][] centroidsData = { { 0.5, 0.5 } };
         InfiniteCentroids centroids = new InfiniteCentroids(centroidsData, 1);
 
@@ -211,7 +211,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testApplyMixtureClassifierNullCentroids() {
+    void testApplyMixtureClassifierNullCentroids() {
         VectorSet vectors = new VectorSet();
 
         int[] el1 = { 0, 1 };
@@ -223,7 +223,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testCalculateMatrixNullParameters() {
+    void testCalculateMatrixNullParameters() {
         VectorSet vectors = new VectorSet();
         DoubleVector weights = new DoubleVector(new double[] { 0.5 });
 
@@ -242,7 +242,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testUpdateWeightsNullParameters() {
+    void testUpdateWeightsNullParameters() {
         int n = 2;
         int m = 2;
         double[][] probMatrix = new double[n][m];
@@ -256,7 +256,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testUpdateCentroidsNullParameters() {
+    void testUpdateCentroidsNullParameters() {
         VectorSet vectors = new VectorSet();
         int n = 1;
         int m = 1;
@@ -277,7 +277,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testEMAlgorithmConvergenceBehavior() {
+    void testEMAlgorithmConvergenceBehavior() {
         // Test that EM algorithm converges (log-likelihood increases)
         VectorSet vectors = new VectorSet();
 
@@ -314,7 +314,7 @@ public class MixtureClassifierTest {
     }
 
     @Test
-    public void testApplyMixtureClassifierLargeDataset() {
+    void testApplyMixtureClassifierLargeDataset() {
         // Test with larger dataset to verify scalability
         VectorSet vectors = new VectorSet();
 

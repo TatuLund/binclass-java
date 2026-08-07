@@ -10,17 +10,17 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for {@link InfiniteCentroids}.
  */
-public class InfiniteCentroidsTest {
+class InfiniteCentroidsTest {
 
     @Test
-    public void testCreation() {
+    void testCreation() {
         InfiniteCentroids ic = new InfiniteCentroids(3, 5);
 
         assertEquals(3, ic.size());
     }
 
     @Test
-    public void testGetSet() {
+    void testGetSet() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 
         double[] el1 = { 0.8, 0.2, 0.9, 0.1, 0.7 };
@@ -33,7 +33,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testCopyFrom() {
+    void testCopyFrom() {
         InfiniteCentroids source = new InfiniteCentroids(2, 5); // length 5
 
         double[] el1 = { 0.0, 1.0, 0.5, 0.3, 0.7 }; // 5 elements to match
@@ -56,7 +56,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testCalculateSC() {
+    void testCalculateSC() {
         DynamicPartition dp = new DynamicPartition(2, 5);
 
         int[] el1 = { 1, 0, 1, 1, 0 };
@@ -82,7 +82,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testGetSC() {
+    void testGetSC() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 
         double[] el1 = { 0.8 };
@@ -95,7 +95,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testBoundsChecking() {
+    void testBoundsChecking() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 
         assertThrows(IndexOutOfBoundsException.class, () -> ic.get(-1));
@@ -104,7 +104,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testToString() {
+    void testToString() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 
         String str = ic.toString();
@@ -112,7 +112,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testNegativeDimensions() {
+    void testNegativeDimensions() {
         assertThrows(IllegalArgumentException.class,
                 () -> new InfiniteCentroids(-1, 5));
         assertThrows(IllegalArgumentException.class,
@@ -120,7 +120,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testInitialZeroLengthCentroids() {
+    void testInitialZeroLengthCentroids() {
         InfiniteCentroids ic = new InfiniteCentroids(3, 5);
 
         // All centroids should be initialized with weight 0 (uninitialized
@@ -134,7 +134,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testCopyFromIncompatibleDimensions() {
+    void testCopyFromIncompatibleDimensions() {
         InfiniteCentroids source = new InfiniteCentroids(2, 5);
 
         double[] el1 = { 0.8 }; // Length 1
@@ -154,7 +154,7 @@ public class InfiniteCentroidsTest {
     }
 
     @Test
-    public void testCopyFromNull() {
+    void testCopyFromNull() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 
         assertThrows(NullPointerException.class, () -> ic.copyFrom(null));
