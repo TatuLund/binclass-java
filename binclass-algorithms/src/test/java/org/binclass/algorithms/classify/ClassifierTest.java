@@ -6,10 +6,7 @@ package org.binclass.algorithms.classify;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.Random;
-
 import org.binclass.algorithms.core.BinaryVector;
-import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;

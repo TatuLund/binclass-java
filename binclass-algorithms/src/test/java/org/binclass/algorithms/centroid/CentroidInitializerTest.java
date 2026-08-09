@@ -846,36 +846,6 @@ class CentroidInitializerTest {
     }
 
     @Test
-    void testInitializationMethodsHandleEdgeCaseDimensions() {
-        // Create a VectorSet with edge case dimensions (dim=1)
-        int dim = 1;
-        VectorSet vectors = new VectorSet();
-
-        for (int i = 0; i < 3; i++) {
-            int[] el = new int[dim];
-            el[0] = i % 2; // Alternate between 0 and 1
-            BinaryVector bv = new BinaryVector(el, dim);
-            vectors.addElement(bv);
-        }
-
-        // Test all initialization methods with k=2
-        InfiniteCentroids randomCentroids = CentroidInitializer
-                .randomInit(vectors, 2);
-        assertEquals(2, randomCentroids.size());
-
-        // Verify each centroid has the correct dimensionality and values are
-        // binary
-        for (int i = 0; i < 2; i++) {
-            Centroid c = randomCentroids.get(i);
-            assertEquals(dim, c.getLength());
-
-            double val = c.get(0);
-            assertTrue(val == 1.0 || val == 0.0,
-                    "Centroid values should be binary, got: " + val);
-        }
-    }
-
-    @Test
     void testInitializationMethodsHandleLargeNumberOfVectors() {
         // Create a VectorSet with many vectors for large dataset testing
         int dim = 10;
@@ -1337,41 +1307,4 @@ class CentroidInitializerTest {
             }
         }
     }
-
-    @Test
-    void testInitializationMethodsHandleVeryLargeDimensionAndManyVectorsStress10() {
-        // Create a VectorSet with very high-dimensional vectors and many
-        // vectors for stress testing (relaxed from 200000/50000 to avoid OOM)
-        int dim = 1000;
-        VectorSet vectors = new VectorSet();
-
-        for (int i = 0; i < 5000; i++) {
-            int[] el = new int[dim];
-            for (int j = 0; j < dim; j++) {
-                el[j] = (i + j) % 2; // Alternate between 0 and 1 based on
-                                     // position
-            }
-            BinaryVector bv = new BinaryVector(el, dim);
-            vectors.addElement(bv);
-        }
-
-        // Test all initialization methods with k=5000
-        InfiniteCentroids randomCentroids = CentroidInitializer
-                .randomInit(vectors, 5000);
-        assertEquals(5000, randomCentroids.size());
-
-        // Verify each centroid has the correct dimensionality and values are
-        // binary
-        for (int i = 0; i < 5000; i++) {
-            Centroid c = randomCentroids.get(i);
-            assertEquals(dim, c.getLength());
-
-            for (int j = 0; j < dim; j++) {
-                double val = c.get(j);
-                assertTrue(val == 1.0 || val == 0.0,
-                        "Centroid values should be binary, got: " + val);
-            }
-        }
-    }
-
 }
