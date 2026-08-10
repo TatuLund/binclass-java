@@ -160,4 +160,56 @@ final class InfoFunctionsTest {
 
         assertEquals(0.0, result); // Zero length has zero maximum information
     }
+
+    @Test
+    void isValidProbabilityDistributionValid() {
+        double[] probabilities = { 0.25, 0.25, 0.25, 0.25 };
+
+        assertTrue(InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
+
+    @Test
+    void isValidProbabilityDistributionInvalidSum() {
+        double[] probabilities = { 0.3, 0.3, 0.3 }; // Sum = 0.9
+
+        assertFalse(
+                InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
+
+    @Test
+    void isValidProbabilityDistributionOutOfRange() {
+        double[] probabilities = { 0.5, -0.1, 0.6 }; // Negative value
+
+        assertFalse(
+                InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
+
+    @Test
+    void isValidProbabilityDistributionGreaterThanOne() {
+        double[] probabilities = { 0.5, 1.2, 0.3 }; // Value > 1
+
+        assertFalse(
+                InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
+
+    @Test
+    void isValidProbabilityDistributionNullInput() {
+        assertThrows(NullPointerException.class,
+                () -> InfoFunctions.isValidProbabilityDistribution(null));
+    }
+
+    @Test
+    void isValidProbabilityDistributionSingleElement() {
+        double[] probabilities = { 1.0 };
+
+        assertTrue(InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
+
+    @Test
+    void isValidProbabilityDistributionEdgeCaseZeroSum() {
+        double[] probabilities = { 0.0, 0.0, 0.0 }; // Sum = 0.0
+
+        assertFalse(
+                InfoFunctions.isValidProbabilityDistribution(probabilities));
+    }
 }
