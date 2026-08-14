@@ -6,6 +6,7 @@ package org.binclass.algorithms.gla;
 
 import java.util.Objects;
 
+import org.binclass.algorithms.core.AlgorithmConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -26,21 +27,21 @@ import org.binclass.algorithms.dist.NearestNeighbor;
  * <p>
  * Supported variants:
  * <ul>
- * <li>{@link #gla(VectorSet, Partition, InfiniteCentroids, double[], int)} —
- * standard GLA with Shannon codelength</li>
- * <li>{@link #glaSr(VectorSet, Partition, InfiniteCentroids, double[], int)} —
- * stochastic relaxation variant</li>
- * <li>{@link #glaSa(VectorSet, Partition, InfiniteCentroids, double[], int)} —
- * simulated annealing variant</li>
- * <li>{@link #hybridGlaL1(VectorSet, Partition, InfiniteCentroids, double[], int)}
+ * <li>{@link #gla(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
+ * — standard GLA with Shannon codelength</li>
+ * <li>{@link #glaSr(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
+ * — stochastic relaxation variant</li>
+ * <li>{@link #glaSa(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
+ * — simulated annealing variant</li>
+ * <li>{@link #hybridGlaL1(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
  * — L1-initialized hybrid GLA</li>
- * <li>{@link #hybridGlaL2(VectorSet, Partition, InfiniteCentroids, double[], int)}
+ * <li>{@link #hybridGlaL2(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
  * — L2-initialized hybrid GLA</li>
- * <li>{@link #maeGla(VectorSet, Partition, InfiniteCentroids, double[], int)} —
- * MAE (Manhattan) variant</li>
- * <li>{@link #mseGla(VectorSet, Partition, InfiniteCentroids, double[], int)} —
- * MSE (Euclidean squared) variant</li>
- * <li>{@link #fastGla(VectorSet, Partition, InfiniteCentroids, double[], int)}
+ * <li>{@link #maeGla(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
+ * — MAE (Manhattan) variant</li>
+ * <li>{@link #mseGla(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
+ * — MSE (Euclidean squared) variant</li>
+ * <li>{@link #fastGla(VectorSet, Partition, InfiniteCentroids, double[], GLAConfig)}
  * — fast Hamming-based GLA</li>
  * </ul>
  * </p>
@@ -54,17 +55,189 @@ public final class GLAEngine {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
             .getLogger(GLAEngine.class);
 
-    /** Epsilon for convergence checking */
-    private static final double EPSILON = 1e-6;
-
     /** Maximum iterations before forced termination */
     private static final int MAX_ITERATIONS = 50;
 
     /** Phase 1 iteration count threshold for L1 minimization */
     private static final int PHASE1_THRESHOLD = 6;
 
+    /** Outlier threshold multiplier for trashcan mode (3x epsilon) */
+    private static final double TRASHCAN_OUTLIER_MULTIPLIER = 3.0;
+
+    /** Threshold for firstD initialization hint */
+    private static final double FIRST_D_THRESHOLD = 1e-6;
+
+    /** Phase 1 iteration count for iterBase strategy */
+    private static final int ITER_BASE_DEFAULT = 5;
+
     private GLAEngine() {
         // Utility class — prevent instantiation
+    }
+
+    /**
+     * Calculates the maximum number of iterations based on config and algorithm
+     * mode.
+     * <p>
+     * If {@code maxIter} is explicitly set in config, uses that value.
+     * Otherwise, falls back to MAX_ITERATIONS constant or iterBase strategy if
+     * enabled.
+     * </p>
+     *
+     * @param config
+     *            GLA configuration parameters
+     * @return maximum iteration count
+     */
+    private static int calculateMaxIter(GLAConfig config) {
+        if (config.maxIter() > 0) {
+            return config.maxIter();
+        }
+
+        // Use iterBase strategy if enabled and no explicit maxIter
+        if (config.iterBase() > 0 && config.heuristic() == 1) {
+            int base = Math.min(ITER_BASE_DEFAULT, MAX_ITERATIONS);
+            return base * config.n();
+        }
+
+        return MAX_ITERATIONS;
+    }
+
+    /**
+     * Marks outlier vectors when trashcan mode is enabled.
+     * <p>
+     * Vectors with distance greater than
+     * {@code epsilon * TRASHCAN_OUTLIER_MULTIPLIER} to their nearest centroid
+     * are marked as trashcan candidates and excluded from centroid computation.
+     * </p>
+     *
+     * @param vectors
+     *            the vector set to analyze
+     * @param centroids
+     *            the current centroids for distance calculation
+     * @param config
+     *            GLA configuration with trashcan flag
+     */
+    private static void applyTrashcan(VectorSet vectors,
+            InfiniteCentroids centroids,
+            GLAConfig config) {
+        if (!config.trashcan()) {
+            return;
+        }
+
+        double outlierThreshold = config.epsilon()
+                * TRASHCAN_OUTLIER_MULTIPLIER;
+        logger.debug("Applying trashcan mode with threshold {}",
+                outlierThreshold);
+
+        for (BinaryVector bv : vectors) {
+            // Find minimum distance to any centroid
+            double minDist = Double.MAX_VALUE;
+            int k = centroids.size();
+            for (int i = 0; i < k; i++) {
+                Centroid centroid = centroids.get(i);
+                double dist = DistanceCalculator.hammingDistance(bv, centroid);
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+
+            // Mark as trashcan if distance exceeds threshold
+            if (minDist > outlierThreshold) {
+                bv.setTrashcan(true);
+                logger.debug("Vector {} marked as trashcan (distance={})",
+                        bv.getStrain(), minDist);
+            } else {
+                bv.setTrashcan(false);
+            }
+        }
+    }
+
+    /**
+     * Checks if firstD initialization hint indicates already converged state.
+     * <p>
+     * If the current distortion is below {@code firstD}, the algorithm can skip
+     * optimization iterations as it's already in a good state.
+     * </p>
+     *
+     * @param dmin
+     *            output array with current minimum distortion [0]
+     * @param config
+     *            GLA configuration with firstD hint
+     * @return true if initialization hint indicates convergence
+     */
+    private static boolean checkFirstD(double[] dmin, GLAConfig config) {
+        double firstD = config.firstD();
+        if (firstD > FIRST_D_THRESHOLD && dmin[0] < firstD) {
+            logger.debug(
+                    "Initial distortion {} below firstD {}, skipping optimization",
+                    dmin[0], firstD);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Logs centroid information when logCentroids mode is enabled.
+     * <p>
+     * Outputs cluster sizes, entropy, and other diagnostic information for each
+     * centroid to aid debugging and analysis.
+     * </p>
+     *
+     * @param partition
+     *            the current partition with cluster assignments
+     * @param centroids
+     *            the centroid array
+     * @param config
+     *            GLA configuration with logCentroids flag
+     */
+    private static void logCentroids(Partition partition,
+            InfiniteCentroids centroids,
+            GLAConfig config) {
+        if (!config.logCentroids()) {
+            return;
+        }
+
+        logger.info("=== Centroid Information ===");
+        for (int i = 1; i <= partition.size(); i++) {
+            int size = partition.getSize(i);
+            Centroid centroid = centroids.get(i - 1);
+            double entropy = calculateEntropy(centroid, config.rounded());
+
+            logger.info("Cluster {}: size={}, entropy={:.4f}",
+                    i, size, entropy);
+        }
+    }
+
+    /**
+     * Calculates Shannon entropy for a centroid.
+     * <p>
+     * Entropy measures the uncertainty in bit predictions — higher values
+     * indicate more uniform distributions (less informative centroids).
+     * </p>
+     *
+     * @param centroid
+     *            the centroid to analyze
+     * @param rounded
+     *            if true, uses binary 0/1 values; otherwise uses probabilities
+     * @return Shannon entropy value
+     */
+    private static double calculateEntropy(Centroid centroid, boolean rounded) {
+        double[] el = centroid.getArray();
+        double entropy = 0.0;
+
+        for (double val : el) {
+            if (rounded) {
+                // Binary case: p=0 or p=1 → entropy=0
+                continue;
+            } else {
+                // Probabilistic case: use binary entropy formula
+                double p = val;
+                if (p > 0 && p < 1) {
+                    entropy -= p * Math.log(p) + (1 - p) * Math.log(1 - p);
+                }
+            }
+        }
+
+        return entropy / el.length; // Normalize by vector length
     }
 
     /**
@@ -72,7 +245,9 @@ public final class GLAEngine {
      * <p>
      * Equivalent to C function {@code gla()} from {@code glainf.c}. Uses
      * information-theoretic distance (code_length) for both initialization and
-     * refinement. Iterates until convergence or max iterations reached.
+     * refinement. Iterates until convergence or max iterations reached. When
+     * trashcan mode is enabled, outlier vectors are excluded from centroid
+     * computation.
      * </p>
      *
      * @param vectors
@@ -84,19 +259,24 @@ public final class GLAEngine {
      *            initial centroid array (will be updated in-place)
      * @param dmin
      *            output array for minimum distortion value [0]
-     * @param n
-     *            total number of vectors (for weighted codelength)
+     * @param config
+     *            GLA configuration parameters
      * @return the final partition with cluster assignments
      */
     public static Partition gla(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running standard GLA with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -109,34 +289,49 @@ public final class GLAEngine {
                 false);
         removeEmpty(partition, centroids);
 
-        // Recompute centroids from assignments
-        recomputeCentroids(partition, centroids, false, n);
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
 
-        double d = averageCodelength(partition, centroids, true);
+        // Recompute centroids from assignments (excludes trashcan vectors)
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
+
+        double d = averageCodelength(partition, centroids, config.weights());
 
         // Phase 2: Iterative refinement with weighted codelength
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = config.maxIter() > 0 ? config.maxIter() : MAX_ITERATIONS;
+        while (improvement && iter < maxIter) {
             iter++;
-            removeEmpty(partition, centroids);
+
+            // Don't remove empty clusters during Phase 2 - keep them for
+            // potential recovery
             k = centroids.size();
 
-            recomputeCentroids(partition, centroids, false, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
 
             // Preserve current assignments before clearing for the next pass.
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
+            // Use unweighted assignment to avoid bias toward larger clusters
             NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
-                    true);
+                    false);
 
-            double nd = averageCodelength(partition, centroids, true);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
             }
         }
+
+        // Final cleanup: remove empty clusters after convergence
+        removeEmpty(partition, centroids);
 
         dmin[0] = d;
         logger.debug("Standard GLA converged after {} iterations with d={}",
@@ -168,13 +363,13 @@ public final class GLAEngine {
      *            initial centroid array (will be updated in-place)
      * @param dmin
      *            output array for minimum distortion value [0]
-     * @param n
-     *            total number of vectors
+     * @param config
+     *            GLA configuration parameters
      * @return the final partition with cluster assignments
      */
     public static Partition glaSr(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
@@ -184,7 +379,7 @@ public final class GLAEngine {
                 vectors.size(), centroids.size());
 
         // Use standard GLA as base (stochastic relaxation is an enhancement)
-        Partition result = gla(vectors, partition, centroids, dmin, n);
+        Partition result = gla(vectors, partition, centroids, dmin, config);
 
         logger.debug("Stochastic relaxation GLA complete");
         return result;
@@ -206,13 +401,13 @@ public final class GLAEngine {
      *            initial centroid array (will be updated in-place)
      * @param dmin
      *            output array for minimum distortion value [0]
-     * @param n
-     *            total number of vectors
+     * @param config
+     *            GLA configuration parameters
      * @return the final partition with cluster assignments
      */
     public static Partition glaSa(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
@@ -222,7 +417,7 @@ public final class GLAEngine {
                 vectors.size(), centroids.size());
 
         // Use standard GLA as base (simulated annealing is an enhancement)
-        Partition result = gla(vectors, partition, centroids, dmin, n);
+        Partition result = gla(vectors, partition, centroids, dmin, config);
 
         logger.debug("Simulated annealing GLA complete");
         return result;
@@ -251,13 +446,18 @@ public final class GLAEngine {
      */
     public static Partition hybridGlaL1(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running hybrid GLA-L1 with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -272,35 +472,48 @@ public final class GLAEngine {
 
         int phase1Iters = Math.min(PHASE1_THRESHOLD, MAX_ITERATIONS / 2);
         for (int s = 0; s < phase1Iters; s++) {
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.maeNearestNeighbor(vectors, partition, centroids);
         }
 
         removeEmpty(partition, centroids);
-        recomputeCentroids(partition, centroids, true, n);
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, false);
-        d = averageCodelength(partition, centroids, false); // Double
-                                                            // computation for
-                                                            // stability
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
+
+        double d = averageCodelength(partition, centroids, config.weights());
+        d = averageCodelength(partition, centroids, config.weights()); // Double
+                                                                       // computation
+                                                                       // for
+                                                                       // stability
+        // computation for
+        // stability
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = calculateMaxIter(config);
+        while (improvement && iter < maxIter) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
                     true);
 
-            double nd = averageCodelength(partition, centroids, true);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
@@ -336,13 +549,18 @@ public final class GLAEngine {
      */
     public static Partition hybridGlaL2(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running hybrid GLA-L2 with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -357,35 +575,48 @@ public final class GLAEngine {
 
         int phase1Iters = Math.min(PHASE1_THRESHOLD, MAX_ITERATIONS / 2);
         for (int s = 0; s < phase1Iters; s++) {
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.mseNearestNeighbor(vectors, partition, centroids);
         }
 
         removeEmpty(partition, centroids);
-        recomputeCentroids(partition, centroids, true, n);
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, false);
-        d = averageCodelength(partition, centroids, false); // Double
-                                                            // computation for
-                                                            // stability
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
+
+        double d = averageCodelength(partition, centroids, config.weights());
+        d = averageCodelength(partition, centroids, config.weights()); // Double
+                                                                       // computation
+                                                                       // for
+                                                                       // stability
+        // computation for
+        // stability
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = calculateMaxIter(config);
+        while (improvement && iter < maxIter) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
                     true);
 
-            double nd = averageCodelength(partition, centroids, true);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
@@ -420,13 +651,18 @@ public final class GLAEngine {
      */
     public static Partition maeGla(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running MAE GLA with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -438,24 +674,33 @@ public final class GLAEngine {
         NearestNeighbor.maeNearestNeighbor(vectors, partition, centroids);
         removeEmpty(partition, centroids);
 
-        recomputeCentroids(partition, centroids, true, n);
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, false);
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
+
+        double d = averageCodelength(partition, centroids, config.weights());
 
         // Iterate with MAE assignment
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = calculateMaxIter(config);
+        while (improvement && iter < maxIter) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.maeNearestNeighbor(vectors, partition, centroids);
 
-            double nd = averageCodelength(partition, centroids, false);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
@@ -491,13 +736,18 @@ public final class GLAEngine {
      */
     public static Partition mseGla(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running MSE GLA with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -509,29 +759,41 @@ public final class GLAEngine {
         NearestNeighbor.mseNearestNeighbor(vectors, partition, centroids);
         removeEmpty(partition, centroids);
 
-        recomputeCentroids(partition, centroids, true, n);
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, false);
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
+
+        double d = averageCodelength(partition, centroids, config.weights());
 
         // Iterate with MSE assignment
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = calculateMaxIter(config);
+        while (improvement && iter < maxIter) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.mseNearestNeighbor(vectors, partition, centroids);
 
-            double nd = averageCodelength(partition, centroids, false);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
             }
         }
+
+        // Log centroid information if enabled
+        logCentroids(partition, centroids, config);
 
         dmin[0] = d;
         logger.debug("MSE GLA converged after {} iterations with d={}", iter,
@@ -562,13 +824,18 @@ public final class GLAEngine {
      */
     public static Partition fastGla(VectorSet vectors, Partition partition,
             InfiniteCentroids centroids,
-            double[] dmin, int n) {
+            double[] dmin, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
         logger.debug("Running fast GLA with {} vectors and {} clusters",
                 vectors.size(), centroids.size());
+
+        // Check firstD initialization hint
+        if (checkFirstD(dmin, config)) {
+            return partition;
+        }
 
         int k = centroids.size();
         if (k == 0) {
@@ -580,29 +847,41 @@ public final class GLAEngine {
         NearestNeighbor.fastNearestNeighbor(vectors, partition, centroids);
         removeEmpty(partition, centroids);
 
-        recomputeCentroids(partition, centroids, true, n);
+        recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, false);
+        // Apply trashcan outlier detection if enabled
+        applyTrashcan(vectors, centroids, config);
+
+        double d = averageCodelength(partition, centroids, config.weights());
 
         // Iterate with Hamming assignment
         boolean improvement = true;
         int iter = 0;
-        while (improvement && iter < MAX_ITERATIONS) {
+        int maxIter = calculateMaxIter(config);
+        while (improvement && iter < maxIter) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
-            recomputeCentroids(partition, centroids, true, n);
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
             NearestNeighbor.fastNearestNeighbor(vectors, partition, centroids);
 
-            double nd = averageCodelength(partition, centroids, false);
-            if (Math.abs(nd - d) > EPSILON) {
+            // Re-apply trashcan detection each iteration
+            applyTrashcan(vectors, centroids, config);
+
+            double nd = averageCodelength(partition, centroids,
+                    config.weights());
+            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
                 d = nd;
             } else {
                 improvement = false;
             }
         }
+
+        // Log centroid information if enabled
+        logCentroids(partition, centroids, config);
 
         dmin[0] = d;
         logger.debug("Fast GLA converged after {} iterations with d={}", iter,
@@ -654,6 +933,25 @@ public final class GLAEngine {
                 centroids.remove(centroids.size() - 1);
             }
         }
+
+        // Update partition size to match actual non-empty clusters
+        if (partition.size() != newK) {
+            logger.debug("Updating partition size from {} to {}",
+                    partition.size(), newK);
+            partition.setSize(newK);
+        } else {
+            logger.debug("Partition size already matches: {}", newK);
+        }
+
+        // Log cluster sizes for debugging
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= partition.size(); i++) {
+            if (i > 1)
+                sb.append(", ");
+            sb.append("C").append(i).append("=").append(partition.getSize(i));
+        }
+        logger.debug("Cluster sizes: [{}]", sb);
+
         logger.debug("Partition now has {} non-empty clusters", newK);
     }
 
@@ -662,7 +960,8 @@ public final class GLAEngine {
      * <p>
      * Equivalent to C function {@code inf_average()} from {@code glainf.c}. For
      * each cluster, computes the frequency-weighted average of all vectors in
-     * that cluster to produce new centroid values.
+     * that cluster to produce new centroid values. When trashcan mode is
+     * enabled, outlier vectors are excluded from this computation.
      * </p>
      *
      * @param partition
@@ -696,12 +995,23 @@ public final class GLAEngine {
             double[] el = centroid.getArray();
             for (int bit = 0; bit < l && bit < el.length; bit++) {
                 int count1 = 0;
+                int missingCount = 0;
                 for (BinaryVector bv : cluster) {
-                    if (!bv.isMissing(bit)) {
-                        count1 += bv.get(bit);
+                    // Skip trashcan vectors when mode is enabled
+                    if (!bv.isTrashcan()) {
+                        if (!bv.isMissing(bit)) {
+                            count1 += bv.get(bit);
+                        } else {
+                            missingCount++;
+                        }
                     }
                 }
-                double avg = (double) count1 / classSize;
+
+                // Effective count excludes missing values
+                int effectiveCount = classSize - missingCount;
+                double avg = (effectiveCount > 0)
+                        ? (double) count1 / effectiveCount
+                        : 0.5;
 
                 if (rounded) {
                     // Round to nearest binary value

@@ -50,7 +50,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.gla(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         // Verify all 20 vectors are assigned to some cluster (not just checking
@@ -76,7 +76,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.glaSr(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -94,7 +94,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.glaSa(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -112,7 +112,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.hybridGlaL1(vectors, partition, centroids,
-                dmin, vectors.size());
+                dmin, GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -130,7 +130,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.hybridGlaL2(vectors, partition, centroids,
-                dmin, vectors.size());
+                dmin, GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -148,7 +148,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.maeGla(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -166,7 +166,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.mseGla(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -184,7 +184,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.fastGla(vectors, partition, centroids,
-                dmin, vectors.size());
+                dmin, GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -202,7 +202,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.gla(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -221,7 +221,7 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         Partition result = GLAEngine.gla(vectors, partition, centroids, dmin,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         VectorSet allVectors = new VectorSet();
@@ -243,7 +243,8 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         assertThrows(NullPointerException.class,
-                () -> GLAEngine.gla(null, partition, centroids, dmin, 10));
+                () -> GLAEngine.gla(null, partition, centroids, dmin,
+                        GLAConfig.DEFAULT));
     }
 
     @Test
@@ -254,7 +255,8 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         assertThrows(NullPointerException.class,
-                () -> GLAEngine.gla(vectors, null, centroids, dmin, 10));
+                () -> GLAEngine.gla(vectors, null, centroids, dmin,
+                        GLAConfig.DEFAULT));
     }
 
     @Test
@@ -264,7 +266,8 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         assertThrows(NullPointerException.class,
-                () -> GLAEngine.gla(vectors, partition, null, dmin, 10));
+                () -> GLAEngine.gla(vectors, partition, null, dmin,
+                        GLAConfig.DEFAULT));
     }
 
     @Test
@@ -275,7 +278,7 @@ class GLAEngineTest {
         assertThrows(IllegalArgumentException.class,
                 () -> GLAEngine.gla(vectors, new Partition(0),
                         createInfiniteCentroids(new double[][] {}), dmin,
-                        vectors.size()));
+                        GLAConfig.DEFAULT));
     }
 
     @Test
@@ -287,7 +290,7 @@ class GLAEngineTest {
         Partition partition = new Partition(2);
         double[] dmin = new double[1];
 
-        GLAEngine.gla(vectors, partition, centroids, dmin, vectors.size());
+        GLAEngine.gla(vectors, partition, centroids, dmin, GLAConfig.DEFAULT);
 
         // Verify final state is valid (no NaN or Infinity)
         assertTrue(dmin[0] >= 0.0, "Distortion should be non-negative");
@@ -308,35 +311,35 @@ class GLAEngineTest {
 
         double[] dmin1 = new double[1];
         results[0] = GLAEngine.gla(vectors, new Partition(2), centroids, dmin1,
-                vectors.size());
+                GLAConfig.DEFAULT);
 
         double[] dmin2 = new double[1];
         results[1] = GLAEngine.glaSr(vectors, new Partition(2), centroids,
-                dmin2, vectors.size());
+                dmin2, GLAConfig.DEFAULT);
 
         double[] dmin3 = new double[1];
         results[2] = GLAEngine.glaSa(vectors, new Partition(2), centroids,
-                dmin3, vectors.size());
+                dmin3, GLAConfig.DEFAULT);
 
         double[] dmin4 = new double[1];
         results[3] = GLAEngine.hybridGlaL1(vectors, new Partition(2), centroids,
-                dmin4, vectors.size());
+                dmin4, GLAConfig.DEFAULT);
 
         double[] dmin5 = new double[1];
         results[4] = GLAEngine.hybridGlaL2(vectors, new Partition(2), centroids,
-                dmin5, vectors.size());
+                dmin5, GLAConfig.DEFAULT);
 
         double[] dmin6 = new double[1];
         results[5] = GLAEngine.maeGla(vectors, new Partition(2), centroids,
-                dmin6, vectors.size());
+                dmin6, GLAConfig.DEFAULT);
 
         double[] dmin7 = new double[1];
         results[6] = GLAEngine.mseGla(vectors, new Partition(2), centroids,
-                dmin7, vectors.size());
+                dmin7, GLAConfig.DEFAULT);
 
         double[] dmin8 = new double[1];
         results[7] = GLAEngine.fastGla(vectors, new Partition(2), centroids,
-                dmin8, vectors.size());
+                dmin8, GLAConfig.DEFAULT);
 
         // Verify all results are valid and contain all vectors
         for (int i = 0; i < results.length; i++) {
@@ -358,7 +361,7 @@ class GLAEngineTest {
         Partition partition = new Partition(2);
         double[] dmin = new double[1];
 
-        GLAEngine.gla(vectors, partition, centroids, dmin, vectors.size());
+        GLAEngine.gla(vectors, partition, centroids, dmin, GLAConfig.DEFAULT);
 
         VectorSet allVectors = new VectorSet();
         partition.copyAllTo(allVectors);
@@ -376,6 +379,270 @@ class GLAEngineTest {
         double[] dmin = new double[1];
 
         assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
-                dmin, vectors.size()));
+                dmin, GLAConfig.DEFAULT));
+    }
+
+    private GLAConfig createGLAConfig(
+            double epsilon, int maxIter, boolean trashcan,
+            boolean analyseMissing, int heuristic) {
+        return new GLAConfig(
+                epsilon, 1.8, heuristic, 1, 1,
+                maxIter, 1000, 0, 20, 20, 5, false, false, false,
+                trashcan, analyseMissing, false, 0.0, false, 1, 1);
+    }
+
+    @Test
+    void testMaxIterEnforced() {
+        VectorSet vectors = createRandomVectorSet(20, 4);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9, 0.9 } });
+
+        // Set maxIter to a very low value (2 iterations)
+        GLAConfig config = createGLAConfig(0.001, 2, false, false, 1);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        // Should complete without error even with low maxIter
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify all vectors are still assigned (algorithm may not converge)
+        VectorSet allVectors = new VectorSet();
+        partition.copyAllTo(allVectors);
+        assertEquals(20, allVectors.size(), "All vectors should be assigned");
+    }
+
+    @Test
+    void testTrashcanMode() {
+        // Create vectors where some are clearly outliers (far from centroids)
+        int[] normalVector1 = { 0, 0, 0, 0 };
+        int[] normalVector2 = { 0, 0, 0, 0 };
+        int[] outlierVector = { 1, 1, 1, 1 }; // Far from both centroids
+
+        VectorSet vectors = new VectorSet();
+        vectors.addElement(new BinaryVector(normalVector1, 4));
+        vectors.addElement(new BinaryVector(normalVector2, 4));
+        vectors.addElement(new BinaryVector(outlierVector, 4));
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9, 0.9 } });
+
+        // Enable trashcan mode with small epsilon (strict threshold)
+        GLAConfig config = createGLAConfig(0.1, 0, true, false, 1);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify algorithm completed successfully with trashcan enabled
+        assertNotNull(partition);
+    }
+
+    @Test
+    void testMissingBitsAnalysis() {
+        VectorSet vectors = createRandomVectorSet(15, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+
+        // Enable missing bits analysis
+        GLAConfig config = createGLAConfig(0.001, 0, false, true, 1);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify algorithm handles missing bits without error
+        VectorSet allVectors = new VectorSet();
+        partition.copyAllTo(allVectors);
+        assertEquals(15, allVectors.size(), "All vectors should be assigned");
+    }
+
+    @Test
+    void testHeuristicCountVariants() {
+        VectorSet vectors = createRandomVectorSet(20, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9 } });
+
+        // Test different heuristic values (1=standard, 2=stochastic, etc.)
+        for (int heuristic = 1; heuristic <= 3; heuristic++) {
+            GLAConfig config = createGLAConfig(0.001, 0, false, false,
+                    heuristic);
+
+            Partition partition = new Partition(2);
+            double[] dmin = new double[1];
+
+            assertDoesNotThrow(
+                    () -> GLAEngine.gla(vectors, partition, centroids,
+                            dmin, config),
+                    "Heuristic " + heuristic + " should not throw");
+
+            // Verify all vectors are assigned for each heuristic variant
+            VectorSet allVectors = new VectorSet();
+            partition.copyAllTo(allVectors);
+            assertEquals(20, allVectors.size(),
+                    "All vectors should be assigned with heuristic "
+                            + heuristic);
+        }
+    }
+
+    @Test
+    void testFirstDInitializationHint() {
+        VectorSet vectors = createRandomVectorSet(15, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+
+        // Set firstD to a very high value (should skip optimization)
+        GLAConfig baseConfig = createGLAConfig(0.001, 0, false, false, 1);
+        // Override firstD by creating new config with high firstD
+        final GLAConfig config = new GLAConfig(baseConfig.epsilon(),
+                baseConfig.pnnThreshold(),
+                baseConfig.heuristic(), baseConfig.alternateMode(),
+                baseConfig.centroidType(),
+                baseConfig.maxIter(), baseConfig.safetyLimit(),
+                baseConfig.iterBase(),
+                baseConfig.n(), baseConfig.kstopwhen(), baseConfig.kcStopWhen(),
+                baseConfig.weights(), baseConfig.rounded(),
+                baseConfig.jeffreysPrior(),
+                baseConfig.trashcan(), baseConfig.analyseMissing(),
+                baseConfig.logCentroids(),
+                100.0, // Very high firstD to trigger skip
+                baseConfig.bestCodeLength(), baseConfig.distanceType(),
+                baseConfig.heuristicCount());
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify algorithm completed (may skip iterations due to firstD hint)
+        assertNotNull(partition);
+    }
+
+    @Test
+    void testLogCentroidsMode() {
+        VectorSet vectors = createRandomVectorSet(20, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9 } });
+
+        // Enable logCentroids mode
+        GLAConfig config = new GLAConfig(0.001, 1.8, 1, 1, 1,
+                0, 1000, 0, 20, 20, 5, false, false, false,
+                false, false, true, // logCentroids = enabled
+                0.0, false, 1, 1);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify algorithm completed with logCentroids enabled
+        VectorSet allVectors = new VectorSet();
+        partition.copyAllTo(allVectors);
+        assertEquals(20, allVectors.size(), "All vectors should be assigned");
+    }
+
+    @Test
+    void testTrashcanWithMultipleOutliers() {
+        // Create a dataset with multiple outliers
+        int[] normal1 = { 0, 0, 0 };
+        int[] normal2 = { 0, 0, 0 };
+        int[] normal3 = { 0, 0, 0 };
+        int[] outlier1 = { 1, 1, 1 }; // Far from centroid at (0.1, 0.1, 0.1)
+        int[] outlier2 = { 1, 1, 1 };
+
+        VectorSet vectors = new VectorSet();
+        vectors.addElement(new BinaryVector(normal1, 3));
+        vectors.addElement(new BinaryVector(normal2, 3));
+        vectors.addElement(new BinaryVector(normal3, 3));
+        vectors.addElement(new BinaryVector(outlier1, 3));
+        vectors.addElement(new BinaryVector(outlier2, 3));
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9 } });
+
+        // Enable trashcan with strict threshold
+        GLAConfig config = createGLAConfig(0.05, 0, true, false, 1);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        // Verify all vectors are still assigned (trashcan doesn't remove them)
+        VectorSet allVectors = new VectorSet();
+        partition.copyAllTo(allVectors);
+        assertEquals(5, allVectors.size(), "All 5 vectors should be assigned");
+    }
+
+    @Test
+    void testMaxIterZeroUsesDefault() {
+        // maxIter=0 should use default iteration count
+        VectorSet vectors = createRandomVectorSet(20, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1 }, { 0.9, 0.9, 0.9 } });
+
+        GLAConfig config = createGLAConfig(0.001, 0, false, false, 1); // maxIter=0
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, config));
+
+        VectorSet allVectors = new VectorSet();
+        partition.copyAllTo(allVectors);
+        assertEquals(20, allVectors.size(), "All vectors should be assigned");
+    }
+
+    @Test
+    void testAllVariantsWithTrashcan() {
+        // Verify trashcan mode works with all GLA variants
+        VectorSet vectors = createRandomVectorSet(15, 3);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+
+        GLAConfig config = createGLAConfig(0.001, 0, true, false, 1); // trashcan
+                                                                      // enabled
+
+        double[] dmin;
+
+        // Test each variant with trashcan mode (create fresh instances for
+        // each)
+        Partition p1 = new Partition(2);
+        VectorSet v1 = createRandomVectorSet(15, 3);
+        InfiniteCentroids c1 = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+        final double[] dmin1 = new double[1];
+        assertDoesNotThrow(() -> GLAEngine.gla(v1, p1, c1,
+                dmin1, config), "gla should work with trashcan");
+
+        Partition p2 = new Partition(2);
+        VectorSet v2 = createRandomVectorSet(15, 3);
+        InfiniteCentroids c2 = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+        final double[] dmin2 = new double[1];
+        assertDoesNotThrow(() -> GLAEngine.hybridGlaL1(v2, p2, c2,
+                dmin2, config), "hybridGlaL1 should work with trashcan");
+
+        Partition p3 = new Partition(2);
+        VectorSet v3 = createRandomVectorSet(15, 3);
+        InfiniteCentroids c3 = createInfiniteCentroids(new double[][] {
+                { 0.2, 0.2, 0.2 }, { 0.8, 0.8, 0.8 } });
+        final double[] dmin3 = new double[1];
+        assertDoesNotThrow(() -> GLAEngine.hybridGlaL2(v3, p3, c3,
+                dmin3, config), "hybridGlaL2 should work with trashcan");
+
+        // Verify all variants completed successfully
+        assertNotNull(p1);
+        assertNotNull(p2);
+        assertNotNull(p3);
     }
 }

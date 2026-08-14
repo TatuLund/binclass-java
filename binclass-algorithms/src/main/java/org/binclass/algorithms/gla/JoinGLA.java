@@ -42,9 +42,6 @@ public final class JoinGLA {
 
     private static final Logger logger = LoggerFactory.getLogger(JoinGLA.class);
 
-    /** Default threshold for PNN merging (squared L2 distance) */
-    private static final double DEFAULT_THRESHOLD = 1.8;
-
     /** Minimum number of clusters to maintain */
     private static final int MIN_CLUSTERS = 1;
 
@@ -80,7 +77,7 @@ public final class JoinGLA {
      * @return the final partition with cluster assignments at optimal k
      */
     public static Partition joinGLA(VectorSet vectors, double[] scmin,
-            double[] scs) {
+            double[] scs, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(scmin, "scmin array must not be null");
         Objects.requireNonNull(scs, "scs array must not be null");
@@ -100,7 +97,8 @@ public final class JoinGLA {
         }
 
         // Step 1: Initialize centroids using PNN2 (weighted merging)
-        InfiniteCentroids C = setFirstCentroidsPNN2(vectors, DEFAULT_THRESHOLD);
+        InfiniteCentroids C = setFirstCentroidsPNN2(vectors,
+                config.pnnThreshold());
         int k = C.size();
 
         logger.debug("Initial clusters after PNN2: {}", k);
@@ -109,14 +107,29 @@ public final class JoinGLA {
         Partition P = new Partition(k);
         VectorSet cluster0 = P.getElements(1);
         vectors.copyTo(cluster0);
+
+        System.out.println("DEBUG JoinGLA: Initial k=" + k
+                + ", partition.size()=" + P.size());
+        for (int i = 1; i <= P.size(); i++) {
+            System.out.println("  Cluster " + i + ": size=" + P.getSize(i));
+        }
+
         double[] dmin = new double[1];
-        GLAEngine.gla(vectors, P, C, dmin, s);
+        GLAEngine.gla(vectors, P, C, dmin, config);
 
         // Use L2-based MSE (not codelength) for MDL-based SC calculation
         // Codelength doesn't work well for MDL because uniform centroids have
         // low codelengths
         double mse = DistanceCalculator.overallMse(P, C);
-        double sc = DistanceCalculator.stochasticComplexity(P, k, l, mse);
+        int actualK = P.size();
+        System.out.println(
+                "DEBUG JoinGLA: After GLA - k=" + k + ", partition.size()="
+                        + P.size() + ", centroids.size()=" + C.size());
+        for (int i = 1; i <= P.size(); i++) {
+            System.out.println("  Cluster " + i + ": size=" + P.getSize(i));
+        }
+        double sc = DistanceCalculator.stochasticComplexityWithDistortion(P,
+                actualK, l, mse);
         logger.debug("Initial SC: {}, MSE = {}", sc, mse);
 
         if (sc < scs[k]) {
@@ -143,12 +156,14 @@ public final class JoinGLA {
             Partition Pnew = P;
             VectorSet Vnext = partitionToSet(P);
             double[] dminNew = new double[1];
-            GLAEngine.gla(Vnext, Pnew, C, dminNew, s);
+            GLAEngine.gla(Vnext, Pnew, C, dminNew, config);
 
             // Use L2-based MSE (not codelength) for MDL-based SC calculation
             double mseNew = DistanceCalculator.overallMse(Pnew, C);
-            double scNew = DistanceCalculator.stochasticComplexity(Pnew, k, l,
-                    mseNew);
+            int actualKNew = Pnew.size();
+            double scNew = DistanceCalculator
+                    .stochasticComplexityWithDistortion(Pnew, actualKNew, l,
+                            mseNew);
             logger.debug("k={}: SC = {}, MSE = {}", k, scNew, mseNew);
 
             if (scNew < scs[k]) {

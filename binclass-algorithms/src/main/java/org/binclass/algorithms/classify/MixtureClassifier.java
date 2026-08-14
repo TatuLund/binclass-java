@@ -7,6 +7,7 @@ package org.binclass.algorithms.classify;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.binclass.algorithms.core.AlgorithmConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -48,14 +49,11 @@ public final class MixtureClassifier {
     private static final Logger logger = LoggerFactory
             .getLogger(MixtureClassifier.class);
 
-    /** Epsilon for numerical stability in probability calculations */
-    private static final double EPSILON = 1e-10;
-
     /** Maximum number of EM iterations before convergence check */
     private static final int MAX_ITERATIONS = 100;
 
     /** Convergence threshold for log-likelihood change */
-    private static final double CONVERGENCE_THRESHOLD = 1e-6;
+    private static final double CONVERGENCE_THRESHOLD = AlgorithmConfig.NUMERICAL_STABILITY_EPSILON;
 
     private MixtureClassifier() {
         // Utility class — prevent instantiation
@@ -276,11 +274,13 @@ public final class MixtureClassifier {
             }
 
             // Update centroid values: P(bit=1 | component j) = weighted average
-            if (denominator > EPSILON) {
+            if (denominator > AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 for (int k = 0; k < d; k++) {
                     double val = numerator[k] / denominator;
                     // Clamp to [epsilon, 1-epsilon] for numerical stability
-                    val = Math.clamp(val, EPSILON, 1.0 - EPSILON);
+                    val = Math.clamp(val,
+                            AlgorithmConfig.NUMERICAL_STABILITY_EPSILON,
+                            1.0 - AlgorithmConfig.NUMERICAL_STABILITY_EPSILON);
                     centroid.set(k, val);
                 }
             }
@@ -312,7 +312,8 @@ public final class MixtureClassifier {
         for (int k = 0; k < d && k < vector.getLength(); k++) {
             double prob = centroid.get(k);
             // Clamp to avoid log(0) in downstream computations
-            prob = Math.clamp(prob, EPSILON, 1.0 - EPSILON);
+            prob = Math.clamp(prob, AlgorithmConfig.NUMERICAL_STABILITY_EPSILON,
+                    1.0 - AlgorithmConfig.NUMERICAL_STABILITY_EPSILON);
 
             if (vector.get(k) == 1) {
                 likelihood *= prob;
@@ -389,10 +390,11 @@ public final class MixtureClassifier {
             for (int j = 0; j < m; j++) {
                 marginalProb += weights.get(j) * probMatrix[i][j];
             }
-            if (marginalProb > EPSILON) {
+            if (marginalProb > AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 logLikelihood += Math.log(marginalProb);
             } else {
-                logLikelihood += Math.log(EPSILON);
+                logLikelihood += Math
+                        .log(AlgorithmConfig.NUMERICAL_STABILITY_EPSILON);
             }
         }
         return logLikelihood;

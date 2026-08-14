@@ -200,6 +200,38 @@ public final class Centroid {
     }
 
     /**
+     * Sets all elements from an int array, converting each value to double.
+     * <p>
+     * Useful when initializing a centroid from binary vector data where the
+     * source is {@code int[]} but the centroid stores {@code double[]}.
+     * </p>
+     *
+     * @param values
+     *            the integer array to copy into this centroid (converted to
+     *            doubles)
+     */
+    public void setEl(int[] values) {
+        for (int i = 0; i < l && i < values.length; i++) {
+            el[i] = values[i];
+        }
+    }
+
+    /**
+     * Sets all elements from a double array.
+     * <p>
+     * Useful when initializing or updating centroid values directly.
+     * </p>
+     *
+     * @param values
+     *            the double array to copy into this centroid
+     */
+    public void setEl(double[] values) {
+        for (int i = 0; i < l && i < values.length; i++) {
+            el[i] = values[i];
+        }
+    }
+
+    /**
      * Returns the underlying array. Use with caution — direct mutation bypasses
      * immutability.
      *

@@ -6,6 +6,9 @@ package org.binclass.algorithms.info;
 
 import java.util.Objects;
 
+import org.binclass.algorithms.core.AlgorithmConfig;
+import org.binclass.algorithms.util.MathUtils;
+
 /**
  * Computes information-theoretic functions for data analysis and visualization.
  * <p>
@@ -34,9 +37,6 @@ public final class InfoFunctions {
     private static final String OUTPUT_FILE_MUST_NOT_BE_NULL = "Output file path must not be null";
     private static final String CENTROID_FILE_MUST_NOT_BE_NULL = "Centroid file path must not be null";
     private static final String PROBABILITIES_MUST_NOT_BE_NULL = "Probabilities must not be null";
-
-    /** Epsilon for numerical stability in logarithmic calculations */
-    private static final double EPSILON = 1e-10;
 
     /** Default precision for floating-point output */
     private static final int DEFAULT_PRECISION = 6;
@@ -150,14 +150,14 @@ public final class InfoFunctions {
         for (int i = 0; i < l; i++) {
             double x = probabilities[i];
             // Handle edge cases where probability is exactly 0 or 1
-            if (x <= EPSILON) {
+            if (x <= AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = 0.0;
-            } else if (x >= 1.0 - EPSILON) {
+            } else if (x >= 1.0 - AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = 0.0;
             } else {
                 // Shannon entropy: -x*log2(x) - (1-x)*log2(1-x)
-                double logX = Math.log(x) / Math.log(2);
-                double logOneMinusX = Math.log(1.0 - x) / Math.log(2);
+                double logX = MathUtils.log2(x);
+                double logOneMinusX = MathUtils.log2Complement(x);
                 result[i] = -(x * logX + (1.0 - x) * logOneMinusX);
             }
         }
@@ -200,14 +200,14 @@ public final class InfoFunctions {
         for (int i = 0; i < l; i++) {
             double x = probabilities[i];
             // Handle edge cases where probability is exactly 0 or 1
-            if (x <= EPSILON) {
+            if (x <= AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = 0.0;
-            } else if (x >= 1.0 - EPSILON) {
+            } else if (x >= 1.0 - AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = 0.0;
             } else {
                 // Shannon entropy: -x*log2(x) - (1-x)*log2(1-x)
-                double logX = Math.log(x) / Math.log(2);
-                double logOneMinusX = Math.log(1.0 - x) / Math.log(2);
+                double logX = MathUtils.log2(x);
+                double logOneMinusX = MathUtils.log2Complement(x);
                 result[i] = -(x * logX + (1.0 - x) * logOneMinusX);
             }
         }
@@ -250,7 +250,7 @@ public final class InfoFunctions {
 
         double[] result = new double[l];
         for (int i = 0; i < l; i++) {
-            if (maxEntropy > EPSILON) {
+            if (maxEntropy > AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = a1Values[i] / maxEntropy;
             } else {
                 result[i] = 0.0; // Avoid division by zero for single-bit
@@ -295,7 +295,7 @@ public final class InfoFunctions {
 
         double[] result = new double[l];
         for (int i = 0; i < l; i++) {
-            if (maxEntropy > EPSILON) {
+            if (maxEntropy > AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
                 result[i] = a2Values[i] / maxEntropy;
             } else {
                 result[i] = 0.0; // Avoid division by zero for single-bit
@@ -434,8 +434,8 @@ public final class InfoFunctions {
 
         double entropy = 0.0;
         for (double p : probabilities) {
-            if (p > EPSILON) {
-                entropy -= p * Math.log(p) / Math.log(2);
+            if (p > AlgorithmConfig.NUMERICAL_STABILITY_EPSILON) {
+                entropy -= p * MathUtils.log2(p);
             }
         }
         return entropy;
@@ -464,6 +464,7 @@ public final class InfoFunctions {
             sum += p;
         }
 
-        return Math.abs(sum - 1.0) < EPSILON;
+        return Math
+                .abs(sum - 1.0) < AlgorithmConfig.NUMERICAL_STABILITY_EPSILON;
     }
 }

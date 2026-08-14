@@ -41,7 +41,8 @@ class JoinGLATest {
 
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
-        Partition result = JoinGLA.joinGLA(vectors, scmin, scs);
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
 
@@ -63,7 +64,8 @@ class JoinGLATest {
 
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
-        Partition result = JoinGLA.joinGLA(vectors, scmin, scs);
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
         assertEquals(1, result.size(),
@@ -89,7 +91,8 @@ class JoinGLATest {
 
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
-        Partition result = JoinGLA.joinGLA(vectors, scmin, scs);
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
 
@@ -123,7 +126,8 @@ class JoinGLATest {
 
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
-        Partition result = JoinGLA.joinGLA(vectors, scmin, scs);
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
 
@@ -284,7 +288,7 @@ class JoinGLATest {
         double[] scs = new double[2];
 
         assertThrows(NullPointerException.class,
-                () -> JoinGLA.joinGLA(null, scmin, scs));
+                () -> JoinGLA.joinGLA(null, scmin, scs, GLAConfig.DEFAULT));
     }
 
     @Test
@@ -362,7 +366,8 @@ class JoinGLATest {
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
 
-        assertDoesNotThrow(() -> JoinGLA.joinGLA(vectors, scmin, scs));
+        assertDoesNotThrow(
+                () -> JoinGLA.joinGLA(vectors, scmin, scs, GLAConfig.DEFAULT));
     }
 
     @Test
@@ -390,7 +395,8 @@ class JoinGLATest {
 
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
-        Partition result = JoinGLA.joinGLA(vectors, scmin, scs);
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result);
 
@@ -418,7 +424,8 @@ class JoinGLATest {
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
 
-        assertDoesNotThrow(() -> JoinGLA.joinGLA(vectors, scmin, scs));
+        assertDoesNotThrow(
+                () -> JoinGLA.joinGLA(vectors, scmin, scs, GLAConfig.DEFAULT));
     }
 
     @Test
@@ -585,11 +592,13 @@ class JoinGLATest {
 
         double[] scmin1 = new double[1];
         double[] scs1 = new double[vCopy1.size() + 1];
-        Partition result1 = JoinGLA.joinGLA(vCopy1, scmin1, scs1);
+        Partition result1 = JoinGLA.joinGLA(vCopy1, scmin1, scs1,
+                GLAConfig.DEFAULT);
 
         double[] scmin2 = new double[1];
         double[] scs2 = new double[vCopy2.size() + 1];
-        Partition result2 = JoinGLA.joinGLA(vCopy2, scmin2, scs2);
+        Partition result2 = JoinGLA.joinGLA(vCopy2, scmin2, scs2,
+                GLAConfig.DEFAULT);
 
         assertNotNull(result1);
         assertNotNull(result2);
@@ -621,6 +630,7 @@ class JoinGLATest {
         double[] scmin = new double[1];
         double[] scs = new double[vectors.size() + 1];
 
-        assertDoesNotThrow(() -> JoinGLA.joinGLA(vectors, scmin, scs));
+        assertDoesNotThrow(
+                () -> JoinGLA.joinGLA(vectors, scmin, scs, GLAConfig.DEFAULT));
     }
 }

@@ -35,6 +35,7 @@ public final class BinaryVector {
     private final int length;
     private int classname;
     private String strain;
+    private boolean trashcan;
 
     /**
      * Creates a new {@code BinaryVector} with the given data.
@@ -202,6 +203,33 @@ public final class BinaryVector {
      */
     public void setStrain(String strain) {
         this.strain = strain != null ? strain : "";
+    }
+
+    /**
+     * Returns whether this vector is in the trashcan (outlier) class.
+     * <p>
+     * When {@code trashcan} mode is enabled, vectors that don't fit well in any
+     * cluster are marked as outliers and excluded from centroid computation.
+     * </p>
+     *
+     * @return true if this vector is a trashcan candidate
+     */
+    public boolean isTrashcan() {
+        return trashcan;
+    }
+
+    /**
+     * Sets whether this vector is in the trashcan (outlier) class.
+     * <p>
+     * When {@code trashcan} mode is enabled, vectors that don't fit well in any
+     * cluster are marked as outliers and excluded from centroid computation.
+     * </p>
+     *
+     * @param trashcan
+     *            true to mark this vector as an outlier candidate
+     */
+    public void setTrashcan(boolean trashcan) {
+        this.trashcan = trashcan;
     }
 
     /**

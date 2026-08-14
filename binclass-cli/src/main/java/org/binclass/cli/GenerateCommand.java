@@ -1,0 +1,105 @@
+package org.binclass.cli;
+
+import java.util.Map;
+
+import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.generate.DataGenerator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Generate synthetic data command.
+ */
+public class GenerateCommand implements BaseCommand {
+
+    private static final Logger log = LoggerFactory
+            .getLogger(GenerateCommand.class);
+
+    @Override
+    public String getName() {
+        return "generate";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Generate synthetic binary vectors (Bernoulli, Markov, random)";
+    }
+
+    @Override
+    public int execute(CliParser.CommandArgs args) throws Exception {
+        Map<String, String> opts = args.options();
+
+        int vecsToGen = 100;
+        if (opts.containsKey("-v")) {
+            try {
+                vecsToGen = Integer.parseInt(opts.get("-v"));
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException(
+                        "Invalid vecs_to_gen: " + opts.get("-v"));
+            }
+        }
+
+        boolean verbose = !opts.containsKey("-q");
+        boolean uniqueVectors = opts.containsKey("-u");
+
+        int dataGenType = 1; // RAND by default
+        if (opts.containsKey("-G")) {
+            try {
+                dataGenType = Integer.parseInt(opts.get("-G"));
+                if (dataGenType < 1 || dataGenType > 4)
+                    throw new IllegalArgumentException(
+                            "Data gen type must be 1-4");
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException(
+                        "Invalid data generator type: " + opts.get("-G"));
+            }
+        }
+
+        String filebase = opts.getOrDefault("filebase", args.command());
+
+        log.info("Generate command executed with:");
+        log.info("  Filebase: {}", filebase);
+        log.info("  Vectors to generate: {}", vecsToGen);
+        log.info("  Data generator type: {}", dataGenType);
+        log.info("  Unique vectors: {}", uniqueVectors);
+
+        // Load reference vectors from data files (for Markov/random generation)
+        VectorSet vectorSet = DataLoader.loadVectors(filebase);
+
+        log.info("Generating {} synthetic vectors using method #{}",
+                vecsToGen, dataGenType);
+
+        // Generate synthetic data based on generator type selection
+        VectorSet generated;
+        switch (dataGenType) {
+        case 1:
+            // RAND - random binary vectors from reference set
+            log.info("Using random vector generation");
+            generated = DataGenerator.vectorGen(vectorSet, vecsToGen);
+            break;
+        case 2:
+            // MARKOV - Markov chain sequences
+            log.info("Using Markov chain generation");
+            generated = DataGenerator.markovGen(vectorSet, vecsToGen);
+            break;
+        case 3:
+            // BERN - Bernoulli model from partition
+            log.info("Using Bernoulli model generation");
+            Partition partition = new Partition(1);
+            for (BinaryVector bv : vectorSet) {
+                partition.getElements(1).add(bv);
+            }
+            generated = DataGenerator.bernoulliGen(partition, vecsToGen);
+            break;
+        default:
+            throw new IllegalArgumentException(
+                    "Unsupported data generator type: " + dataGenType);
+        }
+
+        log.info("Generated {} vectors", generated.size());
+
+        return 0;
+    }
+}
