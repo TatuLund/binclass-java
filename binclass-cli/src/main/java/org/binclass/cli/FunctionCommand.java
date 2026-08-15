@@ -33,21 +33,11 @@ public class FunctionCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
         boolean classWeights = opts.containsKey("-w");
 
-        int distanceType = 1; // HAM by default
-        if (opts.containsKey("-f")) {
-            try {
-                distanceType = Integer.parseInt(opts.get("-f"));
-                if (distanceType < 1 || distanceType > 6)
-                    throw new IllegalArgumentException(
-                            "Distance type must be 1-6");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid distance type: " + opts.get("-f"));
-            }
-        }
+        int distanceType = parseOptionInt(opts, "-f",
+                "Invalid distance type: " + opts.get("-f"));
 
         String filebase = opts.getOrDefault("filebase", args.command());
 

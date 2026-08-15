@@ -10,7 +10,6 @@ import static org.mockito.Mockito.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.binclass.algorithms.core.VectorSet;

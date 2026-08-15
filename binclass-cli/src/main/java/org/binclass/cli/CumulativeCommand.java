@@ -31,7 +31,7 @@ public class CumulativeCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
         boolean cumulativeInOrder = opts.containsKey("-O");
         boolean cumulativeInputOrder = opts.containsKey("-I");
         boolean bayesianPredictive = !opts.containsKey("-S"); // -S disables it
@@ -39,59 +39,31 @@ public class CumulativeCommand implements BaseCommand {
         boolean cumSaveByPf = !opts.containsKey("-c"); // -c disables it
         boolean cumNoNewClasses = opts.containsKey("-n");
 
-        double epsilon = 0.001;
-        if (opts.containsKey("-E")) {
-            try {
-                epsilon = Double.parseDouble(opts.get("-E"));
-                if (epsilon >= 0.5)
-                    throw new IllegalArgumentException("Epsilon must be < 0.5");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid epsilon value: " + opts.get("-E"));
-            }
-        }
+        double epsilon = parseOptionDouble(opts, "-E",
+                "Invalid epsilon value: " + opts.get("-E"), 0.001);
 
-        int cumulativeAnalysis = 0;
-        if (opts.containsKey("-N")) {
-            try {
-                cumulativeAnalysis = Integer.parseInt(opts.get("-N"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid cumulative_analysis: " + opts.get("-N"));
-            }
-        }
+        int cumulativeAnalysis = parseOptionInt(opts, "-N",
+                "Invalid cumulative_analysis: " + opts.get("-N"));
 
-        int cumulativeSamples = 0;
-        if (opts.containsKey("-s")) {
-            try {
-                cumulativeSamples = Integer.parseInt(opts.get("-s"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid cumulative_samples: " + opts.get("-s"));
-            }
-        }
+        int cumulativeSamples = parseOptionInt(opts, "-s",
+                "Invalid cumulative_samples: " + opts.get("-s"));
 
-        boolean fixedDelta = false;
-        int realDeltaValue = 0;
-        if (opts.containsKey("-D")) {
-            try {
-                realDeltaValue = Integer.parseInt(opts.get("-D"));
-                if (realDeltaValue < 0)
-                    throw new IllegalArgumentException("Delta must be >= 0");
-                fixedDelta = true;
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid fixed_delta: " + opts.get("-D"));
-            }
-        } else if (opts.containsKey("-d")) {
-            try {
-                realDeltaValue = Integer.parseInt(opts.get("-d"));
-                if (realDeltaValue < 0)
-                    throw new IllegalArgumentException("Delta must be >= 0");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid delta: " + opts.get("-d"));
-            }
+        int realDeltaValue = parseOptionInt(opts, "-D",
+                "Invalid fixed_delta: " + opts.get("-D"));
+        boolean fixedDelta = realDeltaValue > 0;
+
+        // Also check for lowercase -d flag (delta without fixed mode)
+        if (!opts.containsKey("-D") && opts.containsKey("-d")) {
+            int deltaFromLowercase = parseOptionInt(opts, "-d",
+                    "Invalid delta value: " + opts.get("-d"));
+            realDeltaValue = deltaFromLowercase;
+            fixedDelta = false; // -d doesn't set fixed mode
+        } else if (opts.containsKey("-D") && opts.containsKey("-d")) {
+            // If both flags present, lowercase -d overrides for non-fixed delta
+            int deltaFromLowercase = parseOptionInt(opts, "-d",
+                    "Invalid delta value: " + opts.get("-d"));
+            realDeltaValue = deltaFromLowercase;
+            fixedDelta = false;
         }
 
         String filebase = opts.getOrDefault("filebase", args.command());

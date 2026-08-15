@@ -34,31 +34,21 @@ public class FastClassifyCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
         boolean useAbsMatch = opts.containsKey("-A");
 
-        int kstopwhen = 0;
-        if (opts.containsKey("-S")) {
-            try {
-                kstopwhen = Integer.parseInt(opts.get("-S"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid kstopwhen: " + opts.get("-S"));
-            }
-        }
+        int kstopwhen = parseOptionInt(opts, "-S",
+                "Invalid kstopwhen: " + opts.get("-S"));
 
         boolean jeffreysPrior = opts.containsKey("-J");
 
-        double epsilon = 0.001;
-        if (opts.containsKey("-E")) {
-            try {
-                epsilon = Double.parseDouble(opts.get("-E"));
-                if (epsilon >= 0.5)
-                    throw new IllegalArgumentException("Epsilon must be < 0.5");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid epsilon value: " + opts.get("-E"));
-            }
+        double epsilon = parseOptionDouble(opts, "-E",
+                "Invalid epsilon value: " + opts.get("-E"), 0.001);
+
+        // Validate epsilon is within reasonable range (0 < epsilon < 0.5)
+        if (epsilon <= 0 || epsilon >= 0.5) {
+            throw new IllegalArgumentException(
+                    "Invalid epsilon value: " + opts.get("-E"));
         }
 
         String filebase = opts.getOrDefault("filebase", args.command());

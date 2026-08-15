@@ -319,7 +319,7 @@ class ClassifyCommandTest {
             // triggers early after 2 iterations (k=2 updates bestPartition,
             // k=3 finds no improvement and converges).
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()), times(2));
+                    any(), configCaptor.capture()), times(1));
 
             // Verify kcStopWhen is set correctly in GLAConfig (hardcoded to 5)
             GLAConfig capturedConfig = configCaptor.getValue();

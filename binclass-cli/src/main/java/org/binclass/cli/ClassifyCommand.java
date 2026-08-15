@@ -50,146 +50,59 @@ public class ClassifyCommand implements BaseCommand {
             }
         }
 
-        int kstop = 0;
-        if (opts.containsKey("-s")) {
-            try {
-                kstop = Integer.parseInt(opts.get("-s"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid kstop value: " + opts.get("-s"));
-            }
+        int kstop = parseOptionInt(opts, "-s",
+                "Invalid kstop value: " + opts.get("-s"));
+
+        int kstopwhen = parseOptionInt(opts, "-S",
+                "Invalid kstopwhen value: " + opts.get("-S"));
+
+        double epsilon = parseOptionDouble(opts, "-E",
+                "Invalid epsilon value: " + opts.get("-E"), 0.001);
+
+        // Validate epsilon is within reasonable range (0 < epsilon < 0.5)
+        if (epsilon <= 0 || epsilon >= 0.5) {
+            throw new IllegalArgumentException(
+                    "Invalid epsilon value: " + opts.get("-E"));
         }
 
-        int kstopwhen = 0;
-        if (opts.containsKey("-S")) {
-            try {
-                kstopwhen = Integer.parseInt(opts.get("-S"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid kstopwhen value: " + opts.get("-S"));
-            }
-        }
+        setupVerboseMode(opts);
 
-        double epsilon = 0.001;
-        if (opts.containsKey("-E")) {
-            try {
-                epsilon = Double.parseDouble(opts.get("-E"));
-                if (epsilon >= 0.5)
-                    throw new IllegalArgumentException("Epsilon must be < 0.5");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid epsilon value: " + opts.get("-E"));
-            }
-        }
-
-        boolean verbose = !opts.containsKey("-q");
-
-        // Set log level based on verbose mode: quiet mode suppresses INFO/DEBUG
-        // messages
-        if (!verbose) {
-            ((ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory
-                    .getLogger(ClassifyCommand.class))
-                    .setLevel(ch.qos.logback.classic.Level.WARN);
-        }
-
-        int heuristic = 1;
-        if (opts.containsKey("-r")) {
-            try {
-                heuristic = Integer.parseInt(opts.get("-r"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid heuristic type: " + opts.get("-r"));
-            }
-        }
+        int heuristic = parseOptionInt(opts, "-r",
+                "Invalid heuristic type: " + opts.get("-r"), 1);
 
         boolean trashcan = opts.containsKey("-t");
-        int alternateMode = 1;
-        if (opts.containsKey("-e")) {
-            try {
-                alternateMode = Integer.parseInt(opts.get("-e"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid alternate mode: " + opts.get("-e"));
-            }
-        }
+        int alternateMode = parseOptionInt(opts, "-e",
+                "Invalid alternate mode: " + opts.get("-e"));
 
         boolean analyseMissing = opts.containsKey("-m");
-        int centroidType = 1; // CLASSIC
-        if (opts.containsKey("-c")) {
-            try {
-                centroidType = Integer.parseInt(opts.get("-c"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid centroid type: " + opts.get("-c"));
-            }
-        }
+        int centroidType = parseOptionInt(opts, "-c",
+                "Invalid centroid type: " + opts.get("-c"));
 
         boolean logCentroids = opts.containsKey("-l");
         boolean jeffreysPrior = opts.containsKey("-J");
         boolean classWeights = opts.containsKey("-w");
 
-        double firstD = 0;
-        if (opts.containsKey("-B")) {
-            try {
-                firstD = Double.parseDouble(opts.get("-B"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid first_d value: " + opts.get("-B"));
-            }
-        }
+        double firstD = parseOptionDouble(opts, "-B",
+                "Invalid first_d value: " + opts.get("-B"));
 
         boolean bestCodeLength = opts.containsKey("-C");
         boolean roundedCentroids = opts.containsKey("-R");
 
-        int distanceType = 1;
-        if (opts.containsKey("-f")) {
-            try {
-                distanceType = Integer.parseInt(opts.get("-f"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid distance type: " + opts.get("-f"));
-            }
-        }
+        int distanceType = parseOptionInt(opts, "-f",
+                "Invalid distance type: " + opts.get("-f"));
 
-        int maxIter = 0;
-        if (opts.containsKey("-n")) {
-            try {
-                maxIter = Integer.parseInt(opts.get("-n"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid max_iter: " + opts.get("-n"));
-            }
-        }
+        int maxIter = parseOptionInt(opts, "-n",
+                "Invalid max_iter: " + opts.get("-n"));
 
-        int heuristicCount = 1;
-        if (opts.containsKey("-j")) {
-            try {
-                heuristicCount = Integer.parseInt(opts.get("-j")) + 1;
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid heuristic count: " + opts.get("-j"));
-            }
-        }
+        int heuristicCount = parseOptionInt(opts, "-j",
+                "Invalid heuristic count: " + opts.get("-j")) + 1;
 
-        int safetyLimit = maxIter > 0 ? maxIter : 1000;
-        if (opts.containsKey("-F")) {
-            try {
-                safetyLimit = Integer.parseInt(opts.get("-F"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
+        int safetyLimit = maxIter > 0 ? maxIter
+                : parseOptionInt(opts, "-F",
                         "Invalid safety limit: " + opts.get("-F"));
-            }
-        }
 
-        int iterBase = 0;
-        if (opts.containsKey("-a")) {
-            try {
-                iterBase = Integer.parseInt(opts.get("-a"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid iter_base: " + opts.get("-a"));
-            }
-        }
+        int iterBase = parseOptionInt(opts, "-a",
+                "Invalid iter_base: " + opts.get("-a"));
 
         String dumpfile = null;
         if (opts.containsKey("-d")) {

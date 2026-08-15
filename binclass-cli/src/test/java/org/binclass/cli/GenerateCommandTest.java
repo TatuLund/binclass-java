@@ -2,17 +2,12 @@ package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
-import java.util.Map;
 
-import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
-import org.binclass.algorithms.generate.DataGenerator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for GenerateCommand to verify algorithm execution.
  */
-public class GenerateCommandTest {
+class GenerateCommandTest {
 
     private GenerateCommand command;
     private TestCommandArgs args;

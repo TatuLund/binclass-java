@@ -12,8 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.binclass.algorithms.core.BinaryVector;
-import org.binclass.algorithms.core.Centroid;
-import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.gla.GLAConfig;
@@ -364,18 +362,5 @@ public class BootstrapCommandTest {
             GLAConfig capturedConfig = configCaptor.getAllValues().get(0);
             assertEquals(3, capturedConfig.centroidType());
         }
-    }
-
-    private VectorSet createMockVectorSet(int nVectors, int length) {
-        VectorSet vectorSet = new VectorSet(nVectors);
-        for (int i = 0; i < nVectors; i++) {
-            int[] el = new int[length];
-            for (int j = 0; j < length; j++) {
-                el[j] = (i + j) % 2; // Alternating pattern
-            }
-            BinaryVector bv = new BinaryVector(el, 0, length, 0, "strain" + i);
-            vectorSet.addElement(bv);
-        }
-        return vectorSet;
     }
 }

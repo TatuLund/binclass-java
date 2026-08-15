@@ -27,21 +27,11 @@ public class CompareCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
+        setupVerboseMode(opts);
         boolean exactMatches = opts.containsKey("-M");
-        boolean verbose = !opts.containsKey("-q");
 
-        int printMode = 1; // Default values
-        if (opts.containsKey("-V")) {
-            try {
-                printMode = Integer.parseInt(opts.get("-V"));
-                if (printMode < 1 || printMode > 3)
-                    throw new IllegalArgumentException(
-                            "Print mode must be 1-3");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid print mode: " + opts.get("-V"));
-            }
-        }
+        int printMode = parseOptionInt(opts, "-V",
+                "Invalid print mode: " + opts.get("-V"));
 
         String filebase = opts.getOrDefault("filebase", args.command());
 

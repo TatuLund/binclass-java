@@ -3,17 +3,13 @@ package org.binclass.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
-import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeClassifier;
 import org.binclass.algorithms.classify.CumulativeConfig;
-import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +20,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Unit tests for SemiCumulativeCommand to verify algorithm execution.
  */
-public class SemiCumulativeCommandTest {
+class SemiCumulativeCommandTest {
 
     private SemiCumulativeCommand command;
     private TestCommandArgs args;

@@ -27,7 +27,7 @@ public class SortPartCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
 
         String filebase = opts.getOrDefault("filebase", args.command());
 

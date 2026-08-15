@@ -3,17 +3,13 @@ package org.binclass.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
-import java.util.Map;
 
 import org.binclass.algorithms.classify.MixtureClassifier;
-import org.binclass.algorithms.core.BinaryVector;
-import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
@@ -25,7 +21,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Unit tests for MixtureCommand to verify algorithm execution.
  */
-public class MixtureCommandTest {
+class MixtureCommandTest {
 
     private MixtureCommand command;
     private TestCommandArgs args;
@@ -123,17 +119,13 @@ public class MixtureCommandTest {
             assertEquals(0, result);
 
             // Verify - should call applyMixtureClassifier with vectorSet,
-            // centroids, and sampleMixture=10
+            // centroids, and sample mixture of 10 (CLI value)
             mockedMixtureClassifier
                     .verify(() -> MixtureClassifier.applyMixtureClassifier(
-                            any(), any(), sampleMixtureCaptor.capture()));
+                            vectorSetCaptor.capture(), any(), eq(10)));
 
             VectorSet capturedVectorSet = vectorSetCaptor.getValue();
             assertEquals(mockVectorSet, capturedVectorSet);
-
-            Integer capturedSampleMixture = sampleMixtureCaptor.getValue();
-            assertNotNull(capturedSampleMixture);
-            assertEquals(10, capturedSampleMixture.intValue());
         }
     }
 
@@ -149,7 +141,8 @@ public class MixtureCommandTest {
                     .thenReturn(mockVectorSet);
 
             InfiniteCentroids resultCentroids = new InfiniteCentroids(2, 16);
-            when(MixtureClassifier.applyMixtureClassifier(any(), any(), any()))
+            when(MixtureClassifier.applyMixtureClassifier(any(), any(),
+                    anyInt()))
                     .thenReturn(resultCentroids);
 
             // Capture parameters passed to applyMixtureClassifier
@@ -166,17 +159,14 @@ public class MixtureCommandTest {
             assertEquals(0, result);
 
             // Verify - should call applyMixtureClassifier with vectorSet,
-            // centroids, and sampleMixture=2
+            // centroids, and sample mixture of 2 (default)
             mockedMixtureClassifier
                     .verify(() -> MixtureClassifier.applyMixtureClassifier(
-                            any(), any(), sampleMixtureCaptor.capture()));
+                            vectorSetCaptor.capture(),
+                            centroidsCaptor.capture(), eq(Integer.valueOf(2))));
 
             VectorSet capturedVectorSet = vectorSetCaptor.getValue();
             assertEquals(mockVectorSet, capturedVectorSet);
-
-            Integer capturedSampleMixture = sampleMixtureCaptor.getValue();
-            assertNotNull(capturedSampleMixture);
-            assertEquals(2, capturedSampleMixture.intValue());
 
             // Verify centroids were also passed (captured during first verify)
             InfiniteCentroids capturedCentroids = centroidsCaptor.getValue();

@@ -31,30 +31,19 @@ public class GenerateCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        int vecsToGen = 100;
-        if (opts.containsKey("-v")) {
-            try {
-                vecsToGen = Integer.parseInt(opts.get("-v"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid vecs_to_gen: " + opts.get("-v"));
-            }
-        }
+        int vecsToGen = parseOptionInt(opts, "-v",
+                "Invalid vecs_to_gen: " + opts.get("-v"));
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
         boolean uniqueVectors = opts.containsKey("-u");
 
-        int dataGenType = 1; // RAND by default
-        if (opts.containsKey("-G")) {
-            try {
-                dataGenType = Integer.parseInt(opts.get("-G"));
-                if (dataGenType < 1 || dataGenType > 4)
-                    throw new IllegalArgumentException(
-                            "Data gen type must be 1-4");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid data generator type: " + opts.get("-G"));
-            }
+        int dataGenType = parseOptionInt(opts, "-G",
+                "Invalid data generator type: " + opts.get("-G"), 1);
+
+        // Validate data generator type (must be 1, 2, or 3)
+        if (dataGenType < 1 || dataGenType > 3) {
+            throw new IllegalArgumentException(
+                    "Unsupported data generator type: " + dataGenType);
         }
 
         String filebase = opts.getOrDefault("filebase", args.command());

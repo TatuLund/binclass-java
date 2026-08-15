@@ -37,50 +37,20 @@ public class BootstrapCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        int vecsToGen = 100;
-        if (opts.containsKey("-v")) {
-            try {
-                vecsToGen = Integer.parseInt(opts.get("-v"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid vecs_to_gen: " + opts.get("-v"));
-            }
-        }
+        int vecsToGen = parseOptionInt(opts, "-v",
+                "Invalid vecs_to_gen: " + opts.get("-v"));
 
         boolean saveBestBoots = opts.containsKey("-P");
         boolean jeffreysPrior = opts.containsKey("-J");
 
-        int heuristic = 1;
-        if (opts.containsKey("-r")) {
-            try {
-                heuristic = Integer.parseInt(opts.get("-r"));
-                if (heuristic < 1 || heuristic > 6)
-                    throw new IllegalArgumentException("Heuristic must be 1-6");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid heuristic type: " + opts.get("-r"));
-            }
-        }
+        int heuristic = parseOptionInt(opts, "-r",
+                "Invalid heuristic type: " + opts.get("-r"));
 
-        int bootstrapSize = 0;
-        if (opts.containsKey("-N")) {
-            try {
-                bootstrapSize = Integer.parseInt(opts.get("-N"));
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid bootstrap_size: " + opts.get("-N"));
-            }
-        }
+        int bootstrapSize = parseOptionInt(opts, "-N",
+                "Invalid bootstrap_size: " + opts.get("-N"));
 
-        int bootstrapK = 0;
-        if (opts.containsKey("-K")) {
-            try {
-                bootstrapK = Integer.parseInt(opts.get("-K")) + 1;
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid bootstrap_k: " + opts.get("-K"));
-            }
-        }
+        int bootstrapK = parseOptionInt(opts, "-K",
+                "Invalid bootstrap_k: " + opts.get("-K")) + 1;
 
         double epsilon = 0.001;
         if (opts.containsKey("-E")) {
@@ -104,7 +74,7 @@ public class BootstrapCommand implements BaseCommand {
             }
         }
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
         boolean classWeights = opts.containsKey("-w");
 
         int centroidType = 1; // RAND by default for bootstrap

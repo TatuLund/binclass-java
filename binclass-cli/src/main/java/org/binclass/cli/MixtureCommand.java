@@ -32,39 +32,21 @@ public class MixtureCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
-        boolean verbose = !opts.containsKey("-q");
+        setupVerboseMode(opts);
 
-        double epsilon = 0.001;
-        if (opts.containsKey("-E")) {
-            try {
-                epsilon = Double.parseDouble(opts.get("-E"));
-                if (epsilon >= 0.5)
-                    throw new IllegalArgumentException("Epsilon must be < 0.5");
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid epsilon value: " + opts.get("-E"));
-            }
+        double epsilon = parseOptionDouble(opts, "-E",
+                "Invalid epsilon value: " + opts.get("-E"), 0.001);
+
+        int mixtureClasses = parseOptionInt(opts, "-k",
+                "Invalid mixture_classes: " + opts.get("-k")) + 1;
+
+        // If user didn't specify -k or specified 0, default to 2 components
+        if (mixtureClasses <= 1) {
+            mixtureClasses = 2;
         }
 
-        int mixtureClasses = 0;
-        if (opts.containsKey("-k")) {
-            try {
-                mixtureClasses = Integer.parseInt(opts.get("-k")) + 1;
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid mixture_classes: " + opts.get("-k"));
-            }
-        }
-
-        int sampleMixture = 0;
-        if (opts.containsKey("-s")) {
-            try {
-                sampleMixture = Integer.parseInt(opts.get("-s")) + 1;
-            } catch (NumberFormatException ex) {
-                throw new IllegalArgumentException(
-                        "Invalid sample_mixture: " + opts.get("-s"));
-            }
-        }
+        int sampleMixture = parseOptionInt(opts, "-s",
+                "Invalid sample_mixture: " + opts.get("-s"));
 
         String filebase = opts.getOrDefault("filebase", args.command());
 
