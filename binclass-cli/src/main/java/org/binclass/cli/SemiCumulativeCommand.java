@@ -3,6 +3,7 @@ package org.binclass.cli;
 import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeClassifier;
+import org.binclass.algorithms.classify.CumulativeConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
 import org.slf4j.Logger;
@@ -88,7 +89,8 @@ public class SemiCumulativeCommand implements BaseCommand {
                 vectorSet.size(), joinTarget, glaThreshold);
 
         // Run cumulative classification algorithm (semi-cumulative variant)
-        CumulativeClassifier.doCumulativeClassification(vectorSet, 0);
+        CumulativeClassifier.doCumulativeClassification(vectorSet,
+                CumulativeConfig.defaults());
 
         log.info("Semi-cumulative classification complete");
 

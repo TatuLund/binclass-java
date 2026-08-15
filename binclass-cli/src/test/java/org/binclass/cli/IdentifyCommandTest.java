@@ -1,17 +1,18 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.clearAllCaches;
-import static org.mockito.Mockito.eq;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
 import org.binclass.algorithms.classify.Classifier;
 import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for IdentifyCommand to verify classifier execution.
@@ -67,13 +68,52 @@ public class IdentifyCommandTest {
             mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
                     .thenReturn(mockVectorSet);
 
+            // Capture epsilon parameter passed to identifyVectors
+            ArgumentCaptor<Double> epsilonCaptor = ArgumentCaptor
+                    .forClass(Double.class);
+
             // Execute
             int result = command.execute(args);
 
-            // Verify - should call identifyVectors with epsilon=0.01
             assertEquals(0, result);
+
+            // Verify - should call identifyVectors with epsilon=0.01 from CLI
+            // switch
             mockedClassifier.verify(() -> Classifier.identifyVectors(any(),
-                    any(), any(), eq(0.01)));
+                    any(), any(), epsilonCaptor.capture()));
+
+            Double capturedEpsilon = epsilonCaptor.getValue();
+            assertEquals(0.01, capturedEpsilon);
+        }
+    }
+
+    @Test
+    void testExecuteWithDefaultEpsilon() throws Exception {
+        // Setup - default distance type 1 (Shannon codelength) with default
+        // epsilon
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            var mockedClassifier = mockStatic(Classifier.class);
+
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            // Capture epsilon parameter passed to identifyVectors
+            ArgumentCaptor<Double> epsilonCaptor = ArgumentCaptor
+                    .forClass(Double.class);
+
+            // Execute
+            int result = command.execute(args);
+
+            assertEquals(0, result);
+
+            // Verify - should call identifyVectors with default epsilon=0.001
+            mockedClassifier.verify(() -> Classifier.identifyVectors(any(),
+                    any(), any(), epsilonCaptor.capture()));
+
+            Double capturedEpsilon = epsilonCaptor.getValue();
+            assertEquals(0.001, capturedEpsilon);
         }
     }
 

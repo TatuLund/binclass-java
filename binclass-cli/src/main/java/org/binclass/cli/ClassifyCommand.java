@@ -349,30 +349,35 @@ public class ClassifyCommand implements BaseCommand {
             // Calculate stochastic complexity or best code length based on flag
             double sc;
             int numClusters = Math.min(k + 1, partition.size());
-            
-            // Propagate GLAConfig flags to DistanceCalculator for codelength calculations
+
+            // Propagate GLAConfig flags to DistanceCalculator for codelength
+            // calculations
             DistanceCalculator.setUseClassWeights(config.weights());
             DistanceCalculator.setUseRoundedCentroids(config.rounded());
 
             if (config.bestCodeLength()) {
                 // Use best code length criterion instead of SC
                 try {
-                    sc = DistanceCalculator.averageCodelength(partition, centroids);
+                    sc = DistanceCalculator.averageCodelength(partition,
+                            centroids);
                 } catch (ArithmeticException e) {
-                    log.debug("averageCodelength threw ArithmeticException: {}", e.getMessage());
+                    log.debug("averageCodelength threw ArithmeticException: {}",
+                            e.getMessage());
                     sc = 0.0; // Fallback for empty partitions
                 }
             } else {
-                // Check if we have enough non-empty clusters for full SC calculation
+                // Check if we have enough non-empty clusters for full SC
+                // calculation
                 boolean hasEnoughClusters = true;
                 for (int i = 1; i <= numClusters && hasEnoughClusters; i++) {
                     if (partition.getSize(i) == 0) {
                         hasEnoughClusters = false;
                     }
                 }
-                
+
                 if (!hasEnoughClusters || numClusters < 2) {
-                    // Not enough non-empty clusters: use simplified distortion-based SC
+                    // Not enough non-empty clusters: use simplified
+                    // distortion-based SC
                     sc = calculateStochasticComplexity(partition, centroids,
                             config.distanceType());
                 } else {
@@ -492,7 +497,8 @@ public class ClassifyCommand implements BaseCommand {
             return;
         for (int i = 0; i < centroids.size(); i++) {
             Centroid centroid = centroids.get(i);
-            int clusterIdx = Math.min(i + 1, partition.size()); // 1-based, bounded
+            int clusterIdx = Math.min(i + 1, partition.size()); // 1-based,
+                                                                // bounded
             int clusterSize = partition.getSize(clusterIdx);
             double entropy = calculateEntropy(centroid);
             log.debug("Cluster {}: size={}, entropy={:.4f}", i + 1, clusterSize,

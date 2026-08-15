@@ -4,6 +4,8 @@
  */
 package org.binclass.algorithms.gla;
 
+import org.binclass.algorithms.util.MathUtils;
+
 /**
  * Configuration record for GLA algorithm parameters.
  * <p>
@@ -85,7 +87,7 @@ public record GLAConfig(
 
     /** Default configuration with standard parameters */
     public static final GLAConfig DEFAULT = new GLAConfig(
-            0.001, // epsilon
+            MathUtils.EPSILON, // epsilon
             1.8, // pnnThreshold
             1, // heuristic (standard)
             1, // alternateMode

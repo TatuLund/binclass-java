@@ -1,6 +1,10 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
@@ -11,7 +15,8 @@ import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+
+import org.binclass.cli.TestUtils;
 
 /**
  * Unit tests for CentroidCommand to verify algorithm execution.
@@ -24,13 +29,17 @@ class CentroidCommandTest {
     @BeforeEach
     void setUp() {
         command = new CentroidCommand();
-        args = new TestCommandArgs("test");
+        args = TestUtils.createTestArgs("test");
     }
 
     @AfterEach
-    void tearDown() {
-        // Reset static mock framework state between tests
-        Mockito.framework().clearInlineMocks();
+    void tearDown() throws Exception {
+        // Clean up static mocks between tests to prevent conflicts
+        org.mockito.Mockito.clearAllCaches();
+    }
+
+    private VectorSet createMockVectorSet(int nVectors, int length) {
+        return TestUtils.createMockVectorSet(nVectors, length);
     }
 
     @Test
@@ -106,16 +115,14 @@ class CentroidCommandTest {
         }
     }
 
-    private VectorSet createMockVectorSet(int nVectors, int length) {
-        VectorSet vectorSet = new VectorSet(nVectors);
-        for (int i = 0; i < nVectors; i++) {
-            int[] el = new int[length];
-            for (int j = 0; j < length; j++) {
-                el[j] = (i + j) % 2; // Alternating pattern
-            }
-            BinaryVector bv = new BinaryVector(el, 0, length, 0, "strain" + i);
-            vectorSet.addElement(bv);
-        }
-        return vectorSet;
+    @Test
+    void testGetName() {
+        assertEquals("centroids", command.getName());
+    }
+
+    @Test
+    void testGetDescription() {
+        String desc = command.getDescription();
+        assertTrue(desc != null && !desc.isEmpty());
     }
 }

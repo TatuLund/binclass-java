@@ -1,17 +1,25 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeClassifier;
+import org.binclass.algorithms.classify.CumulativeConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for SemiCumulativeCommand to verify algorithm execution.
@@ -24,7 +32,13 @@ public class SemiCumulativeCommandTest {
     @BeforeEach
     void setUp() {
         command = new SemiCumulativeCommand();
-        args = new TestCommandArgs("test");
+        args = TestUtils.createTestArgs("test");
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Clean up static mocks between tests to prevent conflicts
+        clearAllCaches();
     }
 
     @Test
@@ -32,14 +46,36 @@ public class SemiCumulativeCommandTest {
         // Setup - default parameters for semi-cumulative classification
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedCumulativeClassifier = mockStatic(
+                        CumulativeClassifier.class)) {
             mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
                     .thenReturn(mockVectorSet);
 
-            // Execute - should run semi-cumulative classification with delta=0
+            // Capture parameters passed to doCumulativeClassification
+            ArgumentCaptor<VectorSet> vectorSetCaptor = ArgumentCaptor
+                    .forClass(VectorSet.class);
+            ArgumentCaptor<CumulativeConfig> configCaptor = ArgumentCaptor
+                    .forClass(CumulativeConfig.class);
+
+            // Execute - should run semi-cumulative classification with default
+            // config
             int result = command.execute(args);
 
             assertEquals(0, result);
+
+            // Verify - should call doCumulativeClassification with vectorSet
+            // and CumulativeConfig
+            mockedCumulativeClassifier.verify(
+                    () -> CumulativeClassifier.doCumulativeClassification(
+                            vectorSetCaptor.capture(), configCaptor.capture()));
+
+            VectorSet capturedVectorSet = vectorSetCaptor.getValue();
+            assertEquals(mockVectorSet, capturedVectorSet);
+
+            CumulativeConfig capturedConfig = configCaptor.getValue();
+            assertNotNull(capturedConfig);
+            assertEquals(1, capturedConfig.delta()); // default delta=1
         }
     }
 
@@ -145,16 +181,14 @@ public class SemiCumulativeCommandTest {
         }
     }
 
-    private VectorSet createMockVectorSet(int nVectors, int length) {
-        VectorSet vectorSet = new VectorSet(nVectors);
-        for (int i = 0; i < nVectors; i++) {
-            int[] el = new int[length];
-            for (int j = 0; j < length; j++) {
-                el[j] = (i + j) % 2; // Alternating pattern
-            }
-            BinaryVector bv = new BinaryVector(el, 0, length, 0, "strain" + i);
-            vectorSet.addElement(bv);
-        }
-        return vectorSet;
+    @Test
+    void testGetName() {
+        assertEquals("sclassify", command.getName());
+    }
+
+    @Test
+    void testGetDescription() {
+        String desc = command.getDescription();
+        assertTrue(desc != null && !desc.isEmpty());
     }
 }

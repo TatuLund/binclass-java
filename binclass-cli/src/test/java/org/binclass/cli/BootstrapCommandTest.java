@@ -1,7 +1,12 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,10 +16,13 @@ import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for BootstrapCommand to verify algorithm execution.
@@ -27,7 +35,7 @@ public class BootstrapCommandTest {
     @BeforeEach
     void setUp() {
         command = new BootstrapCommand();
-        args = new TestCommandArgs("test");
+        args = TestUtils.createTestArgs("test");
     }
 
     @AfterEach
@@ -146,6 +154,33 @@ public class BootstrapCommandTest {
     }
 
     @Test
+    void testExecuteWithInvalidBootstrapI() {
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-I", "abc");
+        TestUtils.setupOptions(args, opts);
+
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> command.execute(args));
+        }
+    }
+
+    @Test
+    void testGetName() {
+        assertEquals("bootstrap", command.getName());
+    }
+
+    @Test
+    void testGetDescription() {
+        String desc = command.getDescription();
+        assertTrue(desc != null && !desc.isEmpty());
+    }
+
+    @Test
     void testExecuteWithBootstrapK() throws Exception {
         // Setup - bootstrap K=2 (will use k=3 in GLA)
         TestUtils.setupOptions(args, TestUtils.createOptions("-K", "2"));
@@ -204,10 +239,22 @@ public class BootstrapCommandTest {
             when(GLAEngine.gla(any(), any(), any(), any(), any()))
                     .thenReturn(resultPartition);
 
+            // Capture GLAConfig parameter
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+
             // Execute
             int result = command.execute(args);
 
             assertEquals(0, result);
+
+            // Verify - should call GLA with epsilon=0.01 from CLI switch
+            // (called once per trial)
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), times(5));
+
+            GLAConfig capturedConfig = configCaptor.getAllValues().get(0);
+            assertEquals(0.01, capturedConfig.epsilon());
         }
     }
 
@@ -248,6 +295,74 @@ public class BootstrapCommandTest {
 
             // Verify - should execute successfully with class weights
             assertEquals(0, result);
+        }
+    }
+
+    @Test
+    void testExecuteWithHeuristicCapturesConfig() throws Exception {
+        // Setup - heuristic=2 (stochastic relaxation) from CLI switch -r
+        TestUtils.setupOptions(args, TestUtils.createOptions("-r", "2"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            Partition resultPartition = new Partition(1);
+            when(GLAEngine.glaSr(any(), any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
+
+            // Capture GLAConfig parameter
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+
+            // Execute - default 5 bootstrap trials will run
+            int result = command.execute(args);
+
+            assertEquals(0, result);
+
+            // Verify - should call glaSr with heuristic=2 from CLI switch
+            // (called once per trial)
+            mockedGlaEngine.verify(() -> GLAEngine.glaSr(any(), any(), any(),
+                    any(), configCaptor.capture()), times(5));
+
+            GLAConfig capturedConfig = configCaptor.getAllValues().get(0);
+            assertEquals(2, capturedConfig.heuristic());
+        }
+    }
+
+    @Test
+    void testExecuteWithCentroidTypeCapturesConfig() throws Exception {
+        // Setup - centroid type=3 from CLI switch -c
+        TestUtils.setupOptions(args, TestUtils.createOptions("-c", "3"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            Partition resultPartition = new Partition(1);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
+
+            // Capture GLAConfig parameter
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+
+            // Execute
+            int result = command.execute(args);
+
+            assertEquals(0, result);
+
+            // Verify - should call GLA with centroidType=3 from CLI switch
+            // (called once per trial)
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), times(5));
+
+            GLAConfig capturedConfig = configCaptor.getAllValues().get(0);
+            assertEquals(3, capturedConfig.centroidType());
         }
     }
 

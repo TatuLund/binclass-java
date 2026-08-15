@@ -611,15 +611,18 @@ class ClassifyCommandTest {
                 VECTOR_LENGTH);
 
         try (var mockedLoader = mockStatic(DataLoader.class);
-             var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
             mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
                     .thenReturn(mockVectorSet);
 
-            // Mock GLAEngine.gla to return immediately without executing actual algorithm logic
+            // Mock GLAEngine.gla to return immediately without executing actual
+            // algorithm logic
             Partition resultPartition = new Partition(1);
-            when(GLAEngine.gla(any(), any(), any(), any(), any())).thenReturn(resultPartition);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
 
-            // Execute command - should initialize log factorials before calling GLA
+            // Execute command - should initialize log factorials before calling
+            // GLA
             int result = command.execute(args);
             assertEquals(0, result);
 
@@ -632,13 +635,16 @@ class ClassifyCommandTest {
             // Verify known values are correctly computed: log2(n!)
             assertEquals(0.0, storedArray[0], 1e-10); // log2(0!) = 0
             assertEquals(0.0, storedArray[1], 1e-10); // log2(1!) = 0
-            assertEquals(Math.log(2) / Math.log(2), storedArray[2], 1e-10); // log2(2!) = 1
+            assertEquals(Math.log(2) / Math.log(2), storedArray[2], 1e-10); // log2(2!)
+                                                                            // =
+                                                                            // 1
         }
     }
 
     @Test
     void testLogFactorialsDirectInitialization() throws Exception {
-        // Directly test prepareLog2Factorials without going through command execution
+        // Directly test prepareLog2Factorials without going through command
+        // execution
         java.lang.reflect.Field field = MathUtils.class
                 .getDeclaredField("LOG2_FACTORIALS");
         field.setAccessible(true);
@@ -648,14 +654,19 @@ class ClassifyCommandTest {
         int n = N_VECTORS;
         double[] result = MathUtils.prepareLog2Factorials((n + n));
 
-        assertNotNull(result, "prepareLog2Factorials should return non-null array");
+        assertNotNull(result,
+                "prepareLog2Factorials should return non-null array");
         assertEquals(6, result.length, "Array length should be 2*n=6");
 
         // Verify known values: log2(n!) for small n
         assertEquals(0.0, result[0], 1e-10); // log2(0!) = log2(1) = 0
         assertEquals(0.0, result[1], 1e-10); // log2(1!) = log2(1) = 0
-        assertEquals(Math.log(2) / Math.log(2), result[2], 1e-10); // log2(2!) = log2(2) = 1
-        assertEquals(Math.log(6) / Math.log(2), result[3], 1e-10); // log2(3!) = log2(6) ≈ 2.585
+        assertEquals(Math.log(2) / Math.log(2), result[2], 1e-10); // log2(2!) =
+                                                                   // log2(2) =
+                                                                   // 1
+        assertEquals(Math.log(6) / Math.log(2), result[3], 1e-10); // log2(3!) =
+                                                                   // log2(6) ≈
+                                                                   // 2.585
 
         // Verify the static field is also populated
         double[] storedArray = (double[]) field.get(null);

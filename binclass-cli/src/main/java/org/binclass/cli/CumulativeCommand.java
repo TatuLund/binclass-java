@@ -3,6 +3,7 @@ package org.binclass.cli;
 import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeClassifier;
+import org.binclass.algorithms.classify.CumulativeConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
 import org.slf4j.Logger;
@@ -107,12 +108,25 @@ public class CumulativeCommand implements BaseCommand {
         // Determine delta value for cumulative classification
         int delta = realDeltaValue > 0 ? realDeltaValue : 1;
 
-        log.info(
-                "Running cumulative classification with {} vectors and delta={}",
-                vectorSet.size(), delta);
+        // Create configuration record with all parameters
+        CumulativeConfig config = new CumulativeConfig(
+                delta,
+                cumulativeAnalysis > 0,
+                cumulativeSamples,
+                fixedDelta,
+                bayesianPredictive,
+                testFeatureSignificance,
+                cumSaveByPf,
+                cumNoNewClasses,
+                cumulativeInOrder,
+                epsilon);
 
-        // Run cumulative classification algorithm
-        CumulativeClassifier.doCumulativeClassification(vectorSet, delta);
+        log.info(
+                "Running cumulative classification with {} vectors and config={}",
+                vectorSet.size(), config);
+
+        // Run cumulative classification algorithm with configuration
+        CumulativeClassifier.doCumulativeClassification(vectorSet, config);
 
         log.info("Cumulative classification complete");
 

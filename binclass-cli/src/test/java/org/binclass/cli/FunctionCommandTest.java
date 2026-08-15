@@ -1,11 +1,14 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
+import java.util.Map;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
@@ -14,7 +17,6 @@ import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Unit tests for FunctionCommand to verify algorithm execution.
@@ -27,13 +29,13 @@ class FunctionCommandTest {
     @BeforeEach
     void setUp() {
         command = new FunctionCommand();
-        args = new TestCommandArgs("test");
+        args = TestUtils.createTestArgs("test");
     }
 
     @AfterEach
     void tearDown() {
-        // Reset static mock framework state between tests
-        Mockito.framework().clearInlineMocks();
+        // Clean up static mocks between tests to prevent conflicts
+        clearAllCaches();
     }
 
     @Test
@@ -145,6 +147,38 @@ class FunctionCommandTest {
 
             assertEquals(0, result);
         }
+    }
+
+    @Test
+    void testExecuteWithInvalidDistanceType() {
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-f", "abc");
+        TestUtils.setupOptions(args, opts);
+
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            Partition resultPartition = new Partition(3);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> command.execute(args));
+        }
+    }
+
+    @Test
+    void testGetName() {
+        assertEquals("function", command.getName());
+    }
+
+    @Test
+    void testGetDescription() {
+        String desc = command.getDescription();
+        assertTrue(desc != null && !desc.isEmpty());
     }
 
     @Test
