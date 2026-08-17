@@ -1,11 +1,15 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.generate.DataGenerator;
+import org.binclass.algorithms.io.VectorWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,6 +92,38 @@ public class GenerateCommand implements BaseCommand {
         }
 
         log.info("Generated {} vectors", generated.size());
+
+        // Write generated data to file if -o flag is provided
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile != null && !outputFile.isEmpty()) {
+            try {
+                // Convert VectorSet to int[][] array for writing
+                BinaryVector[] vectorsArray = generated
+                        .toArray(new BinaryVector[0]);
+                int[][] vectorData = new int[vectorsArray.length][];
+                for (int i = 0; i < vectorsArray.length; i++) {
+                    vectorData[i] = vectorsArray[i].getEl();
+                }
+
+                // Write with header metadata (vector count and length)
+                String content = VectorWriter.writeWithHeader(vectorData);
+
+                // Create parent directories if needed
+                Path path = Path.of(outputFile);
+                Path parent = path.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+
+                // Write to file
+                Files.writeString(path, content);
+                log.info("Generated data written to {}", outputFile);
+            } catch (IOException e) {
+                log.warn("Failed to write generated data to {}: {}", outputFile,
+                        e.getMessage());
+                return 1;
+            }
+        }
 
         return 0;
     }

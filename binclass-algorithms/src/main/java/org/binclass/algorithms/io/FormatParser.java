@@ -40,29 +40,87 @@ public final class FormatParser {
     /**
      * Parses a header line from a .hdr file.
      * <p>
-     * Equivalent to C function {@code read_header()} from {@code format.c}.
-     * Extracts metadata fields from the first line of a BinClass data file,
-     * including vector count, length, and optional strain identifiers.
-     * </p>
-     * <p>
-     * Header format: "n_vectors n_length [strain1 strain2 ...]" where strains
-     * are optional space-separated identifiers.
+     * Supports two formats:
+     * <ol>
+     * <li><b>Simple format:</b> "n_vectors n_length [strain1 strain2 ...]"</li>
+     * <li><b>Key-value format:</b> Multiple lines with key=value pairs
+     * (vecoffs, veclen, idlen, etc.)</li>
+     * </ol>
      * </p>
      *
-     * @param headerLine
-     *            the first line of a .hdr file containing metadata
+     * @param headerContent
+     *            the content of a .hdr file (may contain multiple lines)
      * @return a Header object containing parsed metadata fields
      */
-    public static Header parseHeader(String headerLine) {
-        Objects.requireNonNull(headerLine, HEADER_MUST_NOT_BE_NULL);
+    public static Header parseHeader(String headerContent) {
+        Objects.requireNonNull(headerContent, HEADER_MUST_NOT_BE_NULL);
 
-        String trimmed = headerLine.trim();
+        String trimmed = headerContent.trim();
         if (trimmed.isEmpty()) {
-            throw new IllegalArgumentException("Header line cannot be empty");
+            throw new IllegalArgumentException(
+                    "Header content cannot be empty");
         }
 
-        // Split by whitespace to extract fields
-        String[] parts = trimmed.split("\\s+");
+        // Check if this is key=value format or simple format
+        boolean hasEquals = trimmed.contains("=");
+
+        if (hasEquals) {
+            return parseKeyValueFormat(trimmed);
+        } else {
+            return parseSimpleFormat(trimmed);
+        }
+    }
+
+    /**
+     * Parses header in key=value format (e.g., "vecoffs=23\nveclen=47").
+     */
+    private static Header parseKeyValueFormat(String content) {
+        int nVectors = -1;
+        int length = -1;
+        int vecOffs = 0;
+
+        String[] lines = content.split("\\n");
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty())
+                continue;
+
+            String[] parts = line.split("=", 2);
+            if (parts.length == 2) {
+                String key = parts[0].trim();
+                String value = parts[1].trim();
+
+                switch (key) {
+                case "n_vectors" -> nVectors = Integer.parseInt(value);
+                case "veclen", "length" -> {
+                    int parsedLen = Integer.parseInt(value);
+                    length = parsedLen;
+                }
+                case "vecoffs" -> {
+                    int parsedVecOffs = Integer.parseInt(value);
+                    vecOffs = parsedVecOffs;
+                }
+                default -> {
+                    /* ignore other keys */ }
+                }
+            }
+        }
+
+        if (length < 0) {
+            throw new IllegalArgumentException(
+                    "Key-value header must contain veclen/length field");
+        }
+
+        // If n_vectors not in header, use -1 to indicate it should be
+        // determined from data file
+        return new Header(nVectors, length, null, vecOffs);
+    }
+
+    /**
+     * Parses header in simple format (e.g., "100 50 strain1 strain2").
+     */
+    private static Header parseSimpleFormat(String headerLine) {
+        String[] parts = headerLine.split("\\s+");
         if (parts.length < 2) {
             throw new IllegalArgumentException(
                     "Header must contain at least vector count and length, got: '"
@@ -198,16 +256,49 @@ public final class FormatParser {
             return new int[0];
         }
 
-        String[] parts = trimmed.split("\\s+");
-        int[] result = new int[parts.length];
+        // Strip all whitespace characters (newlines, tabs, etc.) that aren't
+        // separators
+        String cleaned = trimmed.replaceAll("\\s+", "");
 
-        for (int i = 0; i < parts.length; i++) {
-            try {
-                result[i] = Integer.parseInt(parts[i]);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(
-                        "Invalid binary value in formatted vector: " + parts[i],
-                        e);
+        if (cleaned.isEmpty()) {
+            throw new IllegalStateException(
+                    "Cleand vector should not be empty!");
+        }
+
+        // Check if it's a continuous binary string or space-separated values
+        // Use cleaned (whitespace-stripped) to determine continuity - if only
+        // 0s and 1s remain, treat as continuous
+        boolean hasSpace = formatted.contains(" ");
+        boolean isContinuous = !hasSpace || cleaned.matches("[01]+");
+
+        int[] result;
+        if (isContinuous) {
+            // Parse continuous binary string like "11000" → [1, 1, 0, 0, 0]
+            result = new int[cleaned.length()];
+            for (int i = 0; i < cleaned.length(); i++) {
+                char c = cleaned.charAt(i);
+                if (c != '0' && c != '1') {
+                    throw new IllegalArgumentException(
+                            "Invalid binary value in formatted vector: '" + c
+                                    + "' at position " + i,
+                            null);
+                }
+                result[i] = c - '0';
+            }
+        } else {
+            // Parse space-separated values like "0 1 1 0"
+            String[] parts = trimmed.split("\\s+");
+            result = new int[parts.length];
+
+            for (int i = 0; i < parts.length; i++) {
+                try {
+                    result[i] = Integer.parseInt(parts[i]);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "Invalid binary value in formatted vector: "
+                                    + parts[i],
+                            e);
+                }
             }
         }
 
@@ -228,6 +319,8 @@ public final class FormatParser {
         private final int length; // Length of each binary vector (number of
                                   // bits)
         private final String[] strains; // Optional strain identifiers
+        private final int vecOffs; // Offset to start of binary portion in data
+                                   // lines
 
         /**
          * Creates a new Header with the given metadata.
@@ -240,9 +333,26 @@ public final class FormatParser {
          *            optional strain identifiers, or null if not present
          */
         public Header(int nVectors, int length, String[] strains) {
+            this(nVectors, length, strains, 0);
+        }
+
+        /**
+         * Creates a new Header with the given metadata including vecOffs.
+         *
+         * @param nVectors
+         *            total number of vectors in the dataset
+         * @param length
+         *            length of each binary vector (number of bits)
+         * @param strains
+         *            optional strain identifiers, or null if not present
+         * @param vecOffs
+         *            offset to start of binary portion in data lines
+         */
+        public Header(int nVectors, int length, String[] strains, int vecOffs) {
             this.nVectors = nVectors;
             this.length = length;
             this.strains = strains != null ? strains.clone() : null;
+            this.vecOffs = vecOffs;
         }
 
         /**
@@ -261,6 +371,15 @@ public final class FormatParser {
          */
         public int getLength() {
             return length;
+        }
+
+        /**
+         * Returns the offset to start of binary portion in data lines.
+         *
+         * @return vecOffs value from header metadata
+         */
+        public int getVecOffs() {
+            return vecOffs;
         }
 
         /**

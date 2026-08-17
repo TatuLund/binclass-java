@@ -1,7 +1,13 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
+import org.binclass.algorithms.core.InfiniteCentroids;
+import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.report.ReportGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +77,7 @@ public class ReportCommand implements BaseCommand {
         log.info("Generating report for {} vectors", vectorSet.size());
 
         // Create a partition from the loaded data
-        var partition = new org.binclass.algorithms.core.Partition(2);
+        var partition = new Partition(2);
 
         int idx = 0;
         for (var v : vectorSet.getElements()) {
@@ -84,13 +90,29 @@ public class ReportCommand implements BaseCommand {
         }
 
         // Call ReportGenerator to generate the report
-        var centroids = new org.binclass.algorithms.core.InfiniteCentroids(2,
-                vectorSet.getVectorLength());
-        var report = org.binclass.algorithms.report.ReportGenerator
-                .generateReport(partition, centroids);
+        var centroids = new InfiniteCentroids(2, vectorSet.getVectorLength());
+        var report = ReportGenerator.generateReport(partition, centroids);
 
         log.info("Report generated successfully");
         log.info("Report size: {} bytes", report.length());
+
+        // Write report to file if -o flag is provided
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile != null && !outputFile.isEmpty()) {
+            try {
+                Path path = Path.of(outputFile);
+                Path parent = path.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(path, report);
+                log.info("Report written to {}", outputFile);
+            } catch (IOException e) {
+                log.warn("Failed to write report to {}: {}", outputFile,
+                        e.getMessage());
+                return 1;
+            }
+        }
 
         return 0;
     }

@@ -40,6 +40,7 @@ public class CliParser {
     }
 
     private static final int MAX_ARGS = 1024;
+    private static final String INVALID_EPSILON_VALUE = "Invalid epsilon value: ";
 
     /**
      * Parse raw args into structured CommandArgs. First non-option token is the
@@ -55,45 +56,91 @@ public class CliParser {
         Map<String, String> options = new HashMap<>();
 
         for (int i = 2; i < args.length && i < MAX_ARGS; i++) {
-            String arg = args[i];
-            if (arg.startsWith("--")) {
-                // Long option: --flag=value or --flag value
-                int eqIdx = arg.indexOf('=');
-                if (eqIdx > 0) {
-                    options.put(arg.substring(2, eqIdx),
-                            arg.substring(eqIdx + 1));
-                } else {
-                    String flag = arg.substring(2);
-                    // Check if next arg is a value (not another option)
-                    if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
-                        options.put(flag, args[++i]);
-                    } else {
-                        options.put(flag, "true");
-                    }
-                }
-            } else if (arg.startsWith("-") && arg.length() > 1) {
-                // Short option: -E0.1 or -q
-                String flag = arg.substring(0, 2);
-                String value = arg.substring(2);
-
-                if (value.isEmpty()) {
-                    // Check if next arg is a value
-                    if (i + 1 < args.length && !args[i + 1].startsWith("-")) {
-                        options.put(flag, args[++i]);
-                    } else {
-                        options.put(flag, "true");
-                    }
-                } else {
-                    options.put(flag, value);
-                }
-            } else if (arg.equals("help") || arg.equals("--help")
-                    || arg.equals("-h")) {
-                // Help flag - will be handled by Application
-                options.put("help", "true");
-            }
+            parseArg(args, i, options);
         }
 
         return new CommandArgsImpl(command, options);
+    }
+
+    /**
+     * Parse a single argument and add to options map.
+     *
+     * @param args
+     *            the raw arguments array
+     * @param index
+     *            current position in args (may be incremented)
+     * @param options
+     *            map to populate with parsed options
+     */
+    private void parseArg(String[] args, int index,
+            Map<String, String> options) {
+        String arg = args[index];
+        if (arg.startsWith("--")) {
+            parseLongOption(arg, index, args, options);
+        } else if (arg.startsWith("-") && arg.length() > 1) {
+            parseShortOption(arg, index, args, options);
+        } else if (arg.equals("help") || arg.equals("--help")
+                || arg.equals("-h")) {
+            options.put("help", "true");
+        } else {
+            // Positional argument - treat as filebase
+            options.put("filebase", arg);
+        }
+    }
+
+    /**
+     * Parse a long option (--flag=value or --flag value).
+     *
+     * @param arg
+     *            the argument starting with --
+     * @param index
+     *            current position in args (may be incremented)
+     * @param args
+     *            the raw arguments array
+     * @param options
+     *            map to populate with parsed options
+     */
+    private void parseLongOption(String arg, int index, String[] args,
+            Map<String, String> options) {
+        int eqIdx = arg.indexOf('=');
+        if (eqIdx > 0) {
+            options.put(arg.substring(2, eqIdx), arg.substring(eqIdx + 1));
+        } else {
+            String flag = arg.substring(2);
+            if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
+                options.put(flag, args[++index]);
+            } else {
+                options.put(flag, "true");
+            }
+        }
+    }
+
+    /**
+     * Parse a short option (-E0.1 or -q).
+     *
+     * @param arg
+     *            the argument starting with -
+     * @param index
+     *            current position in args (may be incremented)
+     * @param args
+     *            the raw arguments array
+     * @param options
+     *            map to populate with parsed options
+     */
+    private void parseShortOption(String arg, int index, String[] args,
+            Map<String, String> options) {
+        String flag = arg.substring(0, 2);
+        String value = arg.substring(2);
+
+        if (value.isEmpty()) {
+            if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
+                options.put(flag, args[++index]);
+            } else {
+                options.put(flag, "true");
+            }
+        } else {
+            options.put(flag, value);
+        }
     }
 
     /**
@@ -137,8 +184,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -150,7 +197,7 @@ public class CliParser {
                 int val = Integer.parseInt(kstart);
                 if (val < 1)
                     errors.add("kstart must be >= 1");
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid kstart value: " + kstart);
             }
         }
@@ -159,7 +206,7 @@ public class CliParser {
         if (kstop != null && !isDouble(kstop)) {
             try {
                 Integer.parseInt(kstop);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid kstop value: " + kstop);
             }
         }
@@ -168,7 +215,7 @@ public class CliParser {
         if (f != null && !isInt(f)) {
             try {
                 Integer.parseInt(f);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid distance type: " + f);
             }
         }
@@ -179,7 +226,7 @@ public class CliParser {
         if (v != null && !isInt(v)) {
             try {
                 Integer.parseInt(v);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid print mode: " + v);
             }
         }
@@ -190,7 +237,7 @@ public class CliParser {
         if (p != null && !isInt(p)) {
             try {
                 Integer.parseInt(p);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid report params: " + p);
             }
         }
@@ -199,8 +246,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -210,7 +257,7 @@ public class CliParser {
         if (v != null && !isInt(v)) {
             try {
                 Integer.parseInt(v);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid vecs_to_gen: " + v);
             }
         }
@@ -219,7 +266,7 @@ public class CliParser {
         if (g != null && !isInt(g)) {
             try {
                 Integer.parseInt(g);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid data generator type: " + g);
             }
         }
@@ -230,7 +277,7 @@ public class CliParser {
         if (k != null && !isInt(k)) {
             try {
                 Integer.parseInt(k);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid bootstrap_k: " + k);
             }
         }
@@ -239,7 +286,7 @@ public class CliParser {
         if (n != null && !isInt(n)) {
             try {
                 Integer.parseInt(n);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid bootstrap_size: " + n);
             }
         }
@@ -248,7 +295,7 @@ public class CliParser {
         if (c != null && !isInt(c)) {
             try {
                 Integer.parseInt(c);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid centroid_type: " + c);
             }
         }
@@ -259,7 +306,7 @@ public class CliParser {
         if (s != null && !isInt(s)) {
             try {
                 Integer.parseInt(s);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid kstopwhen: " + s);
             }
         }
@@ -268,8 +315,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -279,7 +326,7 @@ public class CliParser {
         if (n != null && !isInt(n)) {
             try {
                 Integer.parseInt(n);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid cumulative_analysis: " + n);
             }
         }
@@ -288,7 +335,7 @@ public class CliParser {
         if (s != null && !isInt(s)) {
             try {
                 Integer.parseInt(s);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid cumulative_samples: " + s);
             }
         }
@@ -297,8 +344,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -308,7 +355,7 @@ public class CliParser {
         if (j != null && !isInt(j)) {
             try {
                 Integer.parseInt(j);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid join_target: " + j);
             }
         }
@@ -317,7 +364,7 @@ public class CliParser {
         if (t != null && !isDouble(t)) {
             try {
                 Double.parseDouble(t);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid gla_treshold: " + t);
             }
         }
@@ -326,8 +373,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -337,16 +384,20 @@ public class CliParser {
         if (h != null && !isInt(h)) {
             try {
                 Integer.parseInt(h);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid use_hellinger: " + h);
             }
         }
     }
 
+    /** No additional validation for centroids command. */
     private void validateCentroids(CommandArgs args, List<String> errors) {
+        // intentionally empty - no extra options to validate
     }
 
+    /** No additional validation for sortpart command. */
     private void validateSortPart(CommandArgs args, List<String> errors) {
+        // intentionally empty - no extra options to validate
     }
 
     private void validateMixture(CommandArgs args, List<String> errors) {
@@ -354,7 +405,7 @@ public class CliParser {
         if (k != null && !isInt(k)) {
             try {
                 Integer.parseInt(k);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid mixture_classes: " + k);
             }
         }
@@ -363,7 +414,7 @@ public class CliParser {
         if (s != null && !isInt(s)) {
             try {
                 Integer.parseInt(s);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid sample_mixture: " + s);
             }
         }
@@ -372,8 +423,8 @@ public class CliParser {
         if (e != null && !isDouble(e)) {
             try {
                 Double.parseDouble(e);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid epsilon value: " + e);
+            } catch (NumberFormatException _) {
+                errors.add(INVALID_EPSILON_VALUE + e);
             }
         }
     }
@@ -383,17 +434,17 @@ public class CliParser {
         if (a != null && !isInt(a)) {
             try {
                 Integer.parseInt(a);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid analyse_int: " + a);
             }
         }
 
-        String A = args.options().get("-A");
-        if (A != null && !isInt(A)) {
+        String analyzeStab = args.options().get("-A");
+        if (analyzeStab != null && !isInt(analyzeStab)) {
             try {
-                Integer.parseInt(A);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid analyse_int_stab: " + A);
+                Integer.parseInt(analyzeStab);
+            } catch (NumberFormatException _) {
+                errors.add("Invalid analyse_int_stab: " + analyzeStab);
             }
         }
 
@@ -401,17 +452,17 @@ public class CliParser {
         if (d != null && !isInt(d)) {
             try {
                 Integer.parseInt(d);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid fixed_delta: " + d);
             }
         }
 
-        String D = args.options().get("-D");
-        if (D != null && !isInt(D)) {
+        String realDelta = args.options().get("-D");
+        if (realDelta != null && !isInt(realDelta)) {
             try {
-                Integer.parseInt(D);
-            } catch (NumberFormatException ex) {
-                errors.add("Invalid real_delta_value: " + D);
+                Integer.parseInt(realDelta);
+            } catch (NumberFormatException _) {
+                errors.add("Invalid real_delta_value: " + realDelta);
             }
         }
     }
@@ -421,7 +472,7 @@ public class CliParser {
         if (f != null && !isInt(f)) {
             try {
                 Integer.parseInt(f);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid distance type: " + f);
             }
         }
@@ -432,7 +483,7 @@ public class CliParser {
         if (k != null && !isInt(k)) {
             try {
                 Integer.parseInt(k);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid kstart: " + k);
             }
         }
@@ -441,7 +492,7 @@ public class CliParser {
         if (r != null && !isInt(r)) {
             try {
                 Integer.parseInt(r);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid t1_rs_count: " + r);
             }
         }
@@ -450,7 +501,7 @@ public class CliParser {
         if (t != null && !isInt(t)) {
             try {
                 Integer.parseInt(t);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid t1_trials: " + t);
             }
         }
@@ -461,7 +512,7 @@ public class CliParser {
         if (t != null && !isInt(t)) {
             try {
                 Integer.parseInt(t);
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 errors.add("Invalid t2_treshold: " + t);
             }
         }
@@ -473,7 +524,7 @@ public class CliParser {
         try {
             Double.parseDouble(s);
             return true;
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
@@ -484,7 +535,7 @@ public class CliParser {
         try {
             Integer.parseInt(s);
             return true;
-        } catch (NumberFormatException ex) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

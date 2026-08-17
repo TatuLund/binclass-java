@@ -1,11 +1,16 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeClassifier;
 import org.binclass.algorithms.classify.CumulativeConfig;
 import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.DynamicPartition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.io.DynamicPartitionWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,14 +98,40 @@ public class CumulativeCommand implements BaseCommand {
                 cumulativeInOrder,
                 epsilon);
 
+        String partitionFile = opts.getOrDefault("-P", null);
+
         log.info(
                 "Running cumulative classification with {} vectors and config={}",
                 vectorSet.size(), config);
 
         // Run cumulative classification algorithm with configuration
-        CumulativeClassifier.doCumulativeClassification(vectorSet, config);
+        DynamicPartition dynamicPartition = CumulativeClassifier
+                .doCumulativeClassification(vectorSet, config);
 
-        log.info("Cumulative classification complete");
+        if (dynamicPartition != null) {
+            log.info("Cumulative classification complete with {} clusters",
+                    dynamicPartition.size());
+
+            // Write partition to file if -P flag is provided
+            if (partitionFile != null && !partitionFile.isEmpty()) {
+                try {
+                    Path path = Path.of(partitionFile);
+                    Path parent = path.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    DynamicPartitionWriter.writeDynamicPartition(
+                            dynamicPartition, partitionFile);
+                    log.info("Dynamic partition written to {}", partitionFile);
+                } catch (IOException e) {
+                    log.warn("Failed to write dynamic partition to {}: {}",
+                            partitionFile, e.getMessage());
+                    return 1;
+                }
+            }
+        } else {
+            log.warn("Cumulative classification returned null partition");
+        }
 
         return 0;
     }

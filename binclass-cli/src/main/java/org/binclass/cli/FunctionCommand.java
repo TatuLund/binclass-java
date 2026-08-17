@@ -42,10 +42,10 @@ public class FunctionCommand implements BaseCommand {
         log.info("  Class weights: {}", classWeights);
 
         // Use InfoFunctions to render information-theoretic functions
-        String datfile = filebase + ".dat";
+        String datfile = filebase + ".data";
         String outfile = filebase + ".out";
         String ctrfile = filebase + ".centroids";
-        String hdrfile = filebase + ".hdr";
+        String hdrfile = filebase + ".header";
 
         log.info(
                 "Computing information-theoretic functions using InfoFunctions");

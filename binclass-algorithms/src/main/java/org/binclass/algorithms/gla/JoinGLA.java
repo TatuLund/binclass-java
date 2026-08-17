@@ -108,10 +108,9 @@ public final class JoinGLA {
         VectorSet cluster0 = P.getElements(1);
         vectors.copyTo(cluster0);
 
-        System.out.println("DEBUG JoinGLA: Initial k=" + k
-                + ", partition.size()=" + P.size());
+        logger.debug("Initial k={}, partition.size()={}", k, P.size());
         for (int i = 1; i <= P.size(); i++) {
-            System.out.println("  Cluster " + i + ": size=" + P.getSize(i));
+            logger.debug("  Cluster {}: size={}", i, P.getSize(i));
         }
 
         double[] dmin = new double[1];
@@ -122,11 +121,11 @@ public final class JoinGLA {
         // low codelengths
         double mse = DistanceCalculator.overallMse(P, C);
         int actualK = P.size();
-        System.out.println(
-                "DEBUG JoinGLA: After GLA - k=" + k + ", partition.size()="
-                        + P.size() + ", centroids.size()=" + C.size());
+        logger.debug(
+                "After GLA - k={}, partition.size()={}, centroids.size()={}",
+                k, P.size(), C.size());
         for (int i = 1; i <= P.size(); i++) {
-            System.out.println("  Cluster " + i + ": size=" + P.getSize(i));
+            logger.debug("  Cluster {}: size={}", i, P.getSize(i));
         }
         double sc = DistanceCalculator.stochasticComplexityWithDistortion(P,
                 actualK, l, mse);
@@ -233,63 +232,20 @@ public final class JoinGLA {
 
         // Iteratively merge closest pair until threshold reached
         while (currentN > MIN_CLUSTERS) {
-            double dmin = Double.MAX_VALUE;
-            int imin = -1;
-            int jmin = -1;
-
-            // Find closest pair
-            for (int i = 0; i < currentN; i++) {
-                for (int j = i + 1; j < currentN; j++) {
-                    double d = edistance2(centroids[i], centroids[j], l);
-                    if (d < dmin) {
-                        dmin = d;
-                        imin = i;
-                        jmin = j;
-                    }
-                }
-            }
-
-            // Stop if threshold reached
-            if (dmin >= threshold) {
+            PairInfo pair = findClosestPair(centroids, l, currentN);
+            if (pair.dmin >= threshold) {
                 logger.debug(
                         "PNN2: Stopping at {} clusters, dmin = {:.4f} >= threshold",
-                        currentN, dmin);
+                        currentN, pair.dmin);
                 break;
             }
 
-            // Merge j into i using weighted average
-            double wI = weights[imin];
-            double wJ = weights[jmin];
-            double totalW = wI + wJ;
-
-            for (int j = 0; j < l; j++) {
-                centroids[imin][j] = ((wI * centroids[imin][j])
-                        + (wJ * centroids[jmin][j])) / totalW;
-            }
-            weights[imin] = (int) totalW;
-
-            // Remove j by shifting last element into its place
-            if (jmin != currentN - 1) {
-                System.arraycopy(centroids[currentN - 1], 0, centroids[jmin], 0,
-                        l);
-                weights[jmin] = weights[currentN - 1];
-            }
+            mergeWeighted(centroids, weights, pair.i, pair.j, l, currentN);
             currentN--;
-
-            logger.debug("PNN2: Merged clusters {} and {}, dmin = {:.4f}", imin,
-                    jmin, dmin);
         }
 
         // Create InfiniteCentroids from merged centroids
-        InfiniteCentroids result = new InfiniteCentroids(currentN, l);
-        for (int i = 0; i < currentN; i++) {
-            Centroid c = result.get(i);
-            for (int j = 0; j < l; j++) {
-                c.set(j, centroids[i][j]);
-            }
-        }
-
-        return result;
+        return createInfiniteCentroids(centroids, currentN, l);
     }
 
     /**
@@ -337,57 +293,20 @@ public final class JoinGLA {
 
         // Iteratively merge closest pair until threshold reached
         while (currentN > MIN_CLUSTERS) {
-            double dmin = Double.MAX_VALUE;
-            int imin = -1;
-            int jmin = -1;
-
-            // Find closest pair
-            for (int i = 0; i < currentN; i++) {
-                for (int j = i + 1; j < currentN; j++) {
-                    double d = edistance2(centroids[i], centroids[j], l);
-                    if (d < dmin) {
-                        dmin = d;
-                        imin = i;
-                        jmin = j;
-                    }
-                }
-            }
-
-            // Stop if threshold reached
-            if (dmin >= threshold) {
+            PairInfo pair = findClosestPair(centroids, l, currentN);
+            if (pair.dmin >= threshold) {
                 logger.debug(
                         "PNN: Stopping at {} clusters, dmin = {:.4f} >= threshold",
-                        currentN, dmin);
+                        currentN, pair.dmin);
                 break;
             }
 
-            // Merge j into i using simple 50/50 average
-            for (int j = 0; j < l; j++) {
-                centroids[imin][j] = (centroids[imin][j] + centroids[jmin][j])
-                        * 0.5;
-            }
-
-            // Remove j by shifting last element into its place
-            if (jmin != currentN - 1) {
-                System.arraycopy(centroids[currentN - 1], 0, centroids[jmin], 0,
-                        l);
-            }
+            mergeUnweighted(centroids, pair.i, pair.j, l, currentN);
             currentN--;
-
-            logger.debug("PNN: Merged clusters {} and {}, dmin = {:.4f}", imin,
-                    jmin, dmin);
         }
 
         // Create InfiniteCentroids from merged centroids
-        InfiniteCentroids result = new InfiniteCentroids(currentN, l);
-        for (int i = 0; i < currentN; i++) {
-            Centroid c = result.get(i);
-            for (int j = 0; j < l; j++) {
-                c.set(j, centroids[i][j]);
-            }
-        }
-
-        return result;
+        return createInfiniteCentroids(centroids, currentN, l);
     }
 
     /**
@@ -448,26 +367,7 @@ public final class JoinGLA {
                 .toArray(new BinaryVector[0]);
 
         // Compute weighted average of all vectors in both clusters
-        double[] newCentroid = new double[l];
-        int totalVectors = vi.length + vj.length;
-
-        for (BinaryVector v : vi) {
-            for (int j = 0; j < l; j++) {
-                newCentroid[j] += v.getElement(j);
-            }
-        }
-        for (BinaryVector v : vj) {
-            for (int j = 0; j < l; j++) {
-                newCentroid[j] += v.getElement(j);
-            }
-        }
-
-        // Normalize by total vector count
-        if (totalVectors > 0) {
-            for (int j = 0; j < l; j++) {
-                newCentroid[j] /= (double) totalVectors;
-            }
-        }
+        double[] newCentroid = computeMergedCentroid(vi, vj, l);
 
         // Update centroid i with the merged values
         Centroid cI = centroids.get(imin);
@@ -476,23 +376,10 @@ public final class JoinGLA {
         }
 
         // Move all vectors from cluster j to cluster i in the partition
-        BinaryVector[] vjMove = partition.getElements(jmin + 1)
-                .toArray(new BinaryVector[0]);
-        for (BinaryVector v : vjMove) {
-            partition.addElement(imin + 1, v);
-            partition.removeElement(jmin + 1, v);
-        }
+        moveVectors(partition, vj, imin + 1, jmin + 1);
 
         // Remove centroid j by shifting last centroid into its place
-        if (jmin != k - 1) {
-            Centroid cjLast = centroids.get(k - 1);
-            for (int j = 0; j < l; j++) {
-                centroids.get(jmin).set(j, cjLast.getElement(j));
-            }
-        }
-
-        // Remove last centroid
-        centroids.remove(k - 1);
+        removeLastCentroid(centroids, jmin, k, l);
 
         // Also remove cluster j from the partition to keep them in sync
         partition.removeCluster(jmin + 1);
@@ -609,5 +496,212 @@ public final class JoinGLA {
                     "Cannot determine vector length from empty VectorSet");
         }
         return all[0].getLength();
+    }
+
+    /**
+     * Creates an {@link InfiniteCentroids} instance from raw centroid data.
+     *
+     * @param centroids
+     *            the raw double arrays of centroid values
+     * @param count
+     *            number of valid centroids in the arrays
+     * @param l
+     *            length of each centroid
+     * @return a new InfiniteCentroids instance with merged data
+     */
+    private static InfiniteCentroids createInfiniteCentroids(
+            double[][] centroids, int count, int l) {
+        InfiniteCentroids result = new InfiniteCentroids(count, l);
+        for (int i = 0; i < count; i++) {
+            Centroid c = result.get(i);
+            for (int j = 0; j < l; j++) {
+                c.set(j, centroids[i][j]);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Computes the merged centroid by averaging all vectors from two clusters.
+     *
+     * @param vi
+     *            vectors in cluster i
+     * @param vj
+     *            vectors in cluster j
+     * @param l
+     *            length of each vector
+     * @return the averaged centroid values
+     */
+    private static double[] computeMergedCentroid(BinaryVector[] vi,
+            BinaryVector[] vj, int l) {
+        double[] newCentroid = new double[l];
+        int totalVectors = vi.length + vj.length;
+
+        for (BinaryVector v : vi) {
+            for (int j = 0; j < l; j++) {
+                newCentroid[j] += v.getElement(j);
+            }
+        }
+        for (BinaryVector v : vj) {
+            for (int j = 0; j < l; j++) {
+                newCentroid[j] += v.getElement(j);
+            }
+        }
+
+        if (totalVectors > 0) {
+            for (int j = 0; j < l; j++) {
+                newCentroid[j] /= totalVectors;
+            }
+        }
+
+        return newCentroid;
+    }
+
+    /**
+     * Moves vectors from one cluster to another in a partition.
+     *
+     * @param partition
+     *            the partition containing the clusters
+     * @param vjMove
+     *            vectors to move
+     * @param targetCluster
+     *            1-based index of the destination cluster
+     * @param sourceCluster
+     *            1-based index of the source cluster
+     */
+    private static void moveVectors(Partition partition, BinaryVector[] vjMove,
+            int targetCluster, int sourceCluster) {
+        for (BinaryVector v : vjMove) {
+            partition.addElement(targetCluster, v);
+            partition.removeElement(sourceCluster, v);
+        }
+    }
+
+    /**
+     * Removes a centroid by shifting the last one into its place.
+     *
+     * @param centroids
+     *            the centroid array (modified in-place)
+     * @param jmin
+     *            0-based index of the centroid to remove
+     * @param k
+     *            current number of centroids before removal
+     * @param l
+     *            length of each centroid
+     */
+    private static void removeLastCentroid(InfiniteCentroids centroids,
+            int jmin, int k, int l) {
+        if (jmin != k - 1) {
+            Centroid cjLast = centroids.get(k - 1);
+            for (int j = 0; j < l; j++) {
+                centroids.get(jmin).set(j, cjLast.getElement(j));
+            }
+        }
+        centroids.remove(k - 1);
+    }
+
+    /**
+     * Information about the closest pair of clusters.
+     *
+     * @param dmin
+     *            squared distance between the pair
+     * @param i
+     *            index of first cluster
+     * @param j
+     *            index of second cluster
+     */
+    private record PairInfo(double dmin, int i, int j) {
+    }
+
+    /**
+     * Finds the closest pair of clusters in a centroid array.
+     *
+     * @param centroids
+     *            the raw double arrays of centroid values
+     * @param l
+     *            length of each centroid
+     * @param count
+     *            number of valid centroids
+     * @return information about the closest pair found
+     */
+    private static PairInfo findClosestPair(double[][] centroids, int l,
+            int count) {
+        double dmin = Double.MAX_VALUE;
+        int imin = -1;
+        int jmin = -1;
+
+        for (int i = 0; i < count; i++) {
+            for (int j = i + 1; j < count; j++) {
+                double d = edistance2(centroids[i], centroids[j], l);
+                if (d < dmin) {
+                    dmin = d;
+                    imin = i;
+                    jmin = j;
+                }
+            }
+        }
+
+        return new PairInfo(dmin, imin, jmin);
+    }
+
+    /**
+     * Merges two clusters using weighted averaging and shifts the last cluster
+     * into the removed position.
+     *
+     * @param centroids
+     *            the raw double arrays of centroid values
+     * @param weights
+     *            weight array for each cluster
+     * @param i
+     *            index of first cluster (kept)
+     * @param j
+     *            index of second cluster (merged into i)
+     * @param l
+     *            length of each centroid
+     * @param count
+     *            current number of clusters before removal
+     */
+    private static void mergeWeighted(double[][] centroids, int[] weights,
+            int i, int j, int l, int count) {
+        double wI = weights[i];
+        double wJ = weights[j];
+        double totalW = wI + wJ;
+
+        for (int k = 0; k < l; k++) {
+            centroids[i][k] = ((wI * centroids[i][k])
+                    + (wJ * centroids[j][k])) / totalW;
+        }
+        weights[i] = (int) totalW;
+
+        if (j != count - 1) {
+            System.arraycopy(centroids[count - 1], 0, centroids[j], 0, l);
+            weights[j] = weights[count - 1];
+        }
+    }
+
+    /**
+     * Merges two clusters using simple 50/50 averaging and shifts the last
+     * cluster into the removed position.
+     *
+     * @param centroids
+     *            the raw double arrays of centroid values
+     * @param i
+     *            index of first cluster (kept)
+     * @param j
+     *            index of second cluster (merged into i)
+     * @param l
+     *            length of each centroid
+     * @param count
+     *            current number of clusters before removal
+     */
+    private static void mergeUnweighted(double[][] centroids, int i, int j,
+            int l, int count) {
+        for (int k = 0; k < l; k++) {
+            centroids[i][k] = (centroids[i][k] + centroids[j][k]) * 0.5;
+        }
+
+        if (j != count - 1) {
+            System.arraycopy(centroids[count - 1], 0, centroids[j], 0, l);
+        }
     }
 }

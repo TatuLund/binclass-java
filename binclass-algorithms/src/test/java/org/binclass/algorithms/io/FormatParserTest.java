@@ -127,4 +127,174 @@ final class FormatParserTest {
         assertTrue(str.contains("5"));
         assertTrue(str.contains("s1"));
     }
+
+    // --- parseVector tests for continuous binary strings with whitespace ---
+
+    @Test
+    void parseVectorContinuousWithTrailingNewline() {
+        // Input has 48 binary chars + trailing newline
+        String input = "011000000110000110010000110111100000010110010011\n";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertEquals(48, result.length);
+        assertEquals(0, result[0]);
+        assertEquals(1, result[1]);
+        assertEquals(1, result[result.length - 1]);
+    }
+
+    @Test
+    void parseVectorContinuousWithTrailingSpace() {
+        String input = "11000   ";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 1, 0, 0, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousWithTrailingCarriageReturn() {
+        String input = "1010\r";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 0, 1, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousWithTrailingTab() {
+        String input = "1100\t";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 1, 0, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousWithMixedWhitespace() {
+        String input = "1010 \t\r\n";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 0, 1, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousWithInternalSpaces() {
+        // Continuous string with internal spaces should still be treated as
+        // continuous
+        String input = "1010 1100";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 0, 1, 0, 1, 1, 0, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousWithLeadingWhitespace() {
+        String input = "   1100";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 1, 0, 0 }, result);
+    }
+
+    @Test
+    void parseVectorContinuousEmpty() {
+        String input = "   ";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertEquals(0, result.length);
+    }
+
+    @Test
+    void parseVectorSpaceSeparatedWithTrailingNewline() {
+        String input = "1 0 1 0\n";
+
+        int[] result = FormatParser.parseVector(input);
+
+        assertArrayEquals(new int[] { 1, 0, 1, 0 }, result);
+    }
+
+    @Test
+    void parseVectorInvalidCharacterThrows() {
+        String input = "10a0";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> FormatParser.parseVector(input));
+    }
+
+    // --- parseHeader tests for key=value format ---
+
+    @Test
+    void parseHeaderKeyValueFormat() {
+        String header = "vecoffs=23\nveclen=47\nidlen=7\nidoffs=15";
+
+        FormatParser.Header result = FormatParser.parseHeader(header);
+
+        assertEquals(-1, result.getNVectors());
+        assertEquals(47, result.getLength());
+        assertEquals(23, result.getVecOffs());
+    }
+
+    @Test
+    void parseHeaderKeyValueFormatWithNVectors() {
+        String header = "n_vectors=50\nveclen=100\nvecoffs=0";
+
+        FormatParser.Header result = FormatParser.parseHeader(header);
+
+        assertEquals(50, result.getNVectors());
+        assertEquals(100, result.getLength());
+        assertEquals(0, result.getVecOffs());
+    }
+
+    @Test
+    void parseHeaderKeyValueFormatWithStrains() {
+        String header = "vecoffs=23\nveclen=47\nidlen=7\nidoffs=15\nnamelen=9";
+
+        FormatParser.Header result = FormatParser.parseHeader(header);
+
+        assertEquals(-1, result.getNVectors());
+        assertEquals(47, result.getLength());
+    }
+
+    @Test
+    void parseHeaderMixedFormats() {
+        // Header with both simple and key=value fields - currently not
+        // supported
+        String header = "50 47\nvecoffs=23";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> FormatParser.parseHeader(header));
+    }
+
+    @Test
+    void parseHeaderKeyValueMissingVeclenThrows() {
+        String header = "vecoffs=23\nidlen=7";
+
+        assertThrows(IllegalArgumentException.class,
+                () -> FormatParser.parseHeader(header));
+    }
+
+    // --- Header constructor tests ---
+
+    @Test
+    void headerConstructorWithVecOffs() {
+        FormatParser.Header header = new FormatParser.Header(10, 5,
+                null, 23);
+
+        assertEquals(10, header.getNVectors());
+        assertEquals(5, header.getLength());
+        assertNull(header.getStrains());
+        assertEquals(23, header.getVecOffs());
+    }
+
+    @Test
+    void headerConstructorDefaultVecOffs() {
+        FormatParser.Header header = new FormatParser.Header(10, 5,
+                null);
+
+        assertEquals(0, header.getVecOffs());
+    }
 }

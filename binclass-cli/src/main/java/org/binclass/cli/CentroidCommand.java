@@ -6,6 +6,7 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.io.CentroidWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +62,7 @@ public class CentroidCommand implements BaseCommand {
 
         // Save centroids to file
         String outputFile = filebase + ".centroids";
-        org.binclass.algorithms.io.CentroidWriter.save(centroids, outputFile);
+        CentroidWriter.save(centroids, outputFile);
 
         log.info("Saved {} centroids to {}", numCentroids, outputFile);
 

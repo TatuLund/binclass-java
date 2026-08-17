@@ -278,4 +278,43 @@ public final class DynamicPartition {
         return totalProbDiff;
     }
 
+    /**
+     * Returns the complete frequency table for all clusters.
+     * <p>
+     * Equivalent to C function {@code dyn_partition_get_freqs_all()} from
+     * {@code binset.h}.
+     * </p>
+     *
+     * @return 2D array of frequencies: [cluster][bit_position]
+     */
+    public int[][] getFrequencies() {
+        return freqs;
+    }
+
+    /**
+     * Returns the complete Hamming distance matrix for all cluster pairs.
+     * <p>
+     * Equivalent to C function {@code dyn_partition_get_hamming_distances()}
+     * from {@code binset.h}.
+     * </p>
+     *
+     * @return 2D array of Hamming distances: [cluster_i][cluster_j]
+     */
+    public double[][] getHammingDistances() {
+        return hammingDistances;
+    }
+
+    /**
+     * Returns the length (number of bits) of vectors in this partition.
+     * <p>
+     * Equivalent to C function {@code dyn_partition_get_length()} from
+     * {@code binset.h}.
+     * </p>
+     *
+     * @return vector length (number of bits)
+     */
+    public int getVectorLength() {
+        return freqs.length > 0 ? freqs[0].length : 0;
+    }
+
 }

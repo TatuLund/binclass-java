@@ -8,10 +8,10 @@ import org.slf4j.LoggerFactory;
 /**
  * BinClass CLI Application - main entry point.
  */
-public class Application {
+public class BinClass {
 
     private static final Logger log = LoggerFactory
-            .getLogger(Application.class);
+            .getLogger(BinClass.class);
     private static final String VERSION = "3.0-SNAPSHOT";
     private static final String APP_NAME = "BinClass";
 
@@ -32,7 +32,6 @@ public class Application {
             // Check if command is registered
             if (!registry.hasCommand(command)) {
                 log.error("Unknown command: {}", command);
-                log.info("Run '{}' help' for available commands.", APP_NAME);
                 System.exit(1);
             }
 
@@ -47,42 +46,38 @@ public class Application {
             }
 
             // Get command implementation and execute
-            Class<? extends BaseCommand> cmdClass = registry
-                    .getCommandClass(command);
-            if (cmdClass == null) {
-                log.error("No implementation for command: {}", command);
-                System.exit(1);
-            }
-
-            BaseCommand commandImpl;
-            if ("test1".equals(command) || "test2".equals(command)) {
-                // Special handling for TestAlgorithmsCommand which needs test
-                // name
-                commandImpl = new TestAlgorithmsCommand(command);
-            } else if (cmdClass != null) {
-                try {
-                    commandImpl = cmdClass.getDeclaredConstructor()
-                            .newInstance();
-                } catch (Exception e) {
-                    log.error("Failed to instantiate {}: {}",
-                            cmdClass.getSimpleName(), e.getMessage());
-                    System.exit(1);
-                    return;
-                }
-            } else {
-                throw new IllegalStateException(
-                        "No implementation for command: " + command);
-            }
-
+            BaseCommand commandImpl = instantiateCommand(registry,
+                    cmdArgs.command());
             int exitCode = commandImpl.execute(cmdArgs);
             System.exit(exitCode);
 
         } catch (Exception e) {
             log.error("Error: {}", e.getMessage());
-            if (args.length > 1 && args[0].equals("-v")) {
-                e.printStackTrace();
-            }
             System.exit(1);
+        }
+    }
+
+    private static BaseCommand instantiateCommand(CommandRegistry registry,
+            String command) throws Exception {
+        Class<? extends BaseCommand> cmdClass = registry
+                .getCommandClass(command);
+        if (cmdClass == null) {
+            throw new IllegalStateException(
+                    "No implementation for command: " + command);
+        }
+
+        if ("test1".equals(command) || "test2".equals(command)) {
+            // Special handling for TestAlgorithmsCommand which needs test name
+            return new TestAlgorithmsCommand(command);
+        } else {
+            try {
+                return cmdClass.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                log.error("Failed to instantiate {}: {}",
+                        cmdClass.getSimpleName(), e.getMessage());
+                System.exit(1);
+                throw e;
+            }
         }
     }
 

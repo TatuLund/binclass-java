@@ -11,7 +11,6 @@ import static org.mockito.Mockito.times;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.gla.GLAConfig;

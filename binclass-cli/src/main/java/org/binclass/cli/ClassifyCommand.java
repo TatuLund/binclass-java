@@ -14,6 +14,7 @@ import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.binclass.algorithms.io.CentroidWriter;
+import org.binclass.algorithms.io.PartitionWriter;
 import org.binclass.algorithms.util.MathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,7 @@ public class ClassifyCommand implements BaseCommand {
                 kstart = Integer.parseInt(opts.get("-b"));
                 if (kstart < 1)
                     throw new IllegalArgumentException("kstart must be >= 1");
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 throw new IllegalArgumentException(
                         "Invalid kstart value: " + opts.get("-b"));
             }
@@ -113,15 +114,12 @@ public class ClassifyCommand implements BaseCommand {
         int iterBase = parseOptionInt(opts, "-a",
                 "Invalid iter_base: " + opts.get("-a"));
 
-        String dumpfile = null;
-        if (opts.containsKey("-d")) {
-            dumpfile = opts.get("-d");
-        }
-
         String centroidFile = null;
         if (opts.containsKey("-L")) {
             centroidFile = opts.get("-L");
         }
+
+        String partitionFile = opts.getOrDefault("-P", null);
 
         // Get filebase from options or last argument
         String filebase = opts.getOrDefault("filebase", args.command());
@@ -185,28 +183,56 @@ public class ClassifyCommand implements BaseCommand {
         );
 
         // Run GLA for each k value and track best classification
-        Partition bestPartition = runRangeSearch(vectorSet, kstart, kEnd,
+        Partition finalPartition = runRangeSearch(vectorSet, kstart, kEnd,
                 config);
 
-        log.info("GLA completed with {} clusters", bestPartition.size());
-        log.info("Final number of clusters: {}", bestPartition.size());
+        if (finalPartition == null) {
+            log.warn("No partition found during range search");
+            return 1;
+        }
+
+        log.info("GLA completed with {} clusters", finalPartition.size());
+        log.info("Final number of clusters: {}", finalPartition.size());
 
         // Write centroids to file if -L specified
-        if (centroidFile != null && bestCentroids != null) {
+        if (centroidFile != null) {
             try {
                 Path path = Path.of(centroidFile);
                 Path parent = path.getParent();
                 if (parent != null) {
                     Files.createDirectories(parent);
                 }
-                CentroidWriter.save(bestCentroids, centroidFile);
-                log.info("Centroids written to {}", centroidFile);
+
+                if (bestCentroids != null) {
+                    CentroidWriter.save(bestCentroids, centroidFile);
+                    log.info("Best partition written to {}", centroidFile);
+                } else {
+                    log.warn("No centroids available for writing");
+                }
             } catch (IOException e) {
-                log.warn("Failed to write centroids to {}: {}", centroidFile,
+                log.warn("Failed to write best partition to {}: {}",
+                        centroidFile,
                         e.getMessage());
+                return 1;
             }
-        } else if (centroidFile != null) {
-            log.warn("No centroids available for writing");
+        }
+
+        // Write partition data to file if -P specified
+        if (partitionFile != null && finalPartition != null) {
+            try {
+                Path path = Path.of(partitionFile);
+                Path parent = path.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+
+                PartitionWriter.writePartition(finalPartition, partitionFile);
+                log.info("Partition written to {}", partitionFile);
+            } catch (IOException e) {
+                log.warn("Failed to write partition to {}: {}", partitionFile,
+                        e.getMessage());
+                return 1;
+            }
         }
 
         return 0;
@@ -223,167 +249,54 @@ public class ClassifyCommand implements BaseCommand {
             int kstop,
             GLAConfig config) {
 
-        Partition bestPartition = null;
         double scmin = Double.MAX_VALUE;
         int actualK = kstart;
         int noImprovementCount = 0;
         InfiniteCentroids centroids = null; // Declare outside loop for logging
 
+        bestPartition = null;
+        bestCentroids = null;
+
         for (int k = kstart; k <= kstop; k++) {
-            // Create new partition with (k+1) clusters (C uses 1-indexed)
-            Partition partition = new Partition(k + 1);
             centroids = new InfiniteCentroids(k + 1, 16);
+            Partition partition = initializePartition(vectorSet, k, centroids);
 
-            // Initialize centroids from first k vectors
-            int idx = 0;
-            for (BinaryVector bv : vectorSet) {
-                if (idx >= k)
-                    break;
-                Centroid centroid = centroids.get(idx);
-                centroid.setEl(bv.getEl());
-                idx++;
-            }
+            double sc = runGLAAndCalculateSC(vectorSet, partition, centroids,
+                    config, k);
 
-            // Calculate minimum distortion array
-            double[] dmin = new double[1];
-
-            // Initialization hint: skip if firstD indicates already converged
-            if (config.firstD() > 0 && dmin[0] < config.firstD()) {
-                log.debug("Initial distortion below firstD={}, skipping",
-                        config.firstD());
-            }
-
-            // Run GLA based on heuristic selection
-            switch (config.heuristic()) {
-            case 1:
-                log.info("Using standard GLA");
-                GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
-                break;
-            case 2:
-                log.info("Using stochastic relaxation GLA");
-                GLAEngine.glaSr(vectorSet, partition, centroids, dmin, config);
-                break;
-            case 3:
-                log.info("Using simulated annealing GLA");
-                GLAEngine.glaSa(vectorSet, partition, centroids, dmin, config);
-                break;
-            case 4:
-                log.info("Using hybrid L1 GLA");
-                GLAEngine.hybridGlaL1(vectorSet, partition, centroids, dmin,
-                        config);
-                break;
-            case 5:
-                log.info("Using hybrid L2 GLA");
-                GLAEngine.hybridGlaL2(vectorSet, partition, centroids, dmin,
-                        config);
-                break;
-            case 6:
-                log.info("Using MAE GLA");
-                GLAEngine.maeGla(vectorSet, partition, centroids, dmin, config);
-                break;
-            default:
-                log.info("Defaulting to standard GLA");
-                GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
-            }
-
-            // Calculate stochastic complexity or best code length based on flag
-            double sc;
-            int numClusters = Math.min(k + 1, partition.size());
-
-            // Propagate GLAConfig flags to DistanceCalculator for codelength
-            // calculations
-            DistanceCalculator.setUseClassWeights(config.weights());
-            DistanceCalculator.setUseRoundedCentroids(config.rounded());
-
-            if (config.bestCodeLength()) {
-                // Use best code length criterion instead of SC
-                try {
-                    sc = DistanceCalculator.averageCodelength(partition,
-                            centroids);
-                } catch (ArithmeticException e) {
-                    log.debug("averageCodelength threw ArithmeticException: {}",
-                            e.getMessage());
-                    sc = 0.0; // Fallback for empty partitions
-                }
-            } else {
-                // Check if we have enough non-empty clusters for full SC
-                // calculation
-                boolean hasEnoughClusters = true;
-                for (int i = 1; i <= numClusters && hasEnoughClusters; i++) {
-                    if (partition.getSize(i) == 0) {
-                        hasEnoughClusters = false;
-                    }
-                }
-
-                if (!hasEnoughClusters || numClusters < 2) {
-                    // Not enough non-empty clusters: use simplified
-                    // distortion-based SC
-                    sc = calculateStochasticComplexity(partition, centroids,
-                            config.distanceType());
-                } else {
-                    sc = DistanceCalculator.stochasticComplexity(
-                            partition, numClusters, vectorSet.getVectorLength(),
-                            config.jeffreysPrior());
-                }
-            }
-
-            // Convergence check: stop if distortion change is below epsilon
-            double prevScmin = scmin;
-            scmin = Math.min(scmin, sc);
-            boolean converged = (config.epsilon() > 0)
-                    && (Math.abs(sc - prevScmin) < config.epsilon());
-
-            log.info("k={}: SC={}, clusters={}, distType={}{}",
-                    k, sc, partition.size(), config.distanceType(),
-                    converged ? " [CONVERGED]" : "");
-
-            if (sc < scmin || !converged) {
+            boolean converged = checkConvergenceAndUpdateBest(scmin, sc, k,
+                    partition, centroids, actualK, noImprovementCount, config);
+            if (converged) {
                 scmin = Math.min(scmin, sc);
-                bestPartition = partition;
-                bestCentroids = centroids; // Store centroids for later output
+                this.bestPartition = partition;
+                this.bestCentroids = centroids;
                 actualK = k;
                 noImprovementCount = 0;
-                log.debug("New best classification at k={}: SC={}, clusters={}",
-                        k, sc, partition.size());
             } else {
                 noImprovementCount++;
-                // Early termination if no improvement for kstopwhen consecutive
-                // steps or convergence reached
-                int maxSteps = config.kstopwhen() > 0 ? config.kstopwhen()
-                        : Integer.MAX_VALUE;
-                if (noImprovementCount >= maxSteps || converged) {
-                    log.info("Terminating: {}", converged ? "converged"
-                            : "no improvement for " + noImprovementCount
-                                    + " steps");
+                if (shouldTerminate(noImprovementCount, config)) {
                     break;
                 }
-                log.debug("No improvement at k={}, trying next", k);
             }
 
-            // Safety limit on range search iterations
             if (k - kstart >= config.safetyLimit()) {
                 log.info("Safety limit reached at k={}", k);
                 break;
             }
-
-            // Update vectorSet for next iteration (C code does
-            // partition_to_set)
-            // For simplicity, we'll reuse the same vectorSet in this
-            // implementation
         }
 
         // Log centroid info if enabled
-        if (bestPartition != null) {
-            logCentroidInfo(bestPartition, centroids,
+        if (this.bestPartition != null) {
+            logCentroidInfo(this.bestPartition, centroids,
                     config.logCentroids());
         }
 
-        if (bestPartition == null) {
-            bestPartition = new Partition(kstart + 1);
+        if (this.bestPartition == null) {
+            this.bestPartition = new Partition(kstart + 1);
         }
 
         log.info("Best classification: k={}, SC={}", actualK, scmin);
-        return bestPartition;
+        return this.bestPartition;
     }
 
     /**
@@ -404,6 +317,151 @@ public class ClassifyCommand implements BaseCommand {
             }
         }
         return totalDistortion;
+    }
+
+    /**
+     * Initialize partition with first k vectors as centroids.
+     */
+    private Partition initializePartition(VectorSet vectorSet, int k,
+            InfiniteCentroids centroids) {
+        Partition partition = new Partition(k + 1);
+        int idx = 0;
+        for (BinaryVector bv : vectorSet) {
+            if (idx >= k)
+                break;
+            Centroid centroid = centroids.get(idx);
+            centroid.setEl(bv.getEl());
+            idx++;
+        }
+        return partition;
+    }
+
+    /**
+     * Run GLA and calculate stochastic complexity in one step.
+     */
+    private double runGLAAndCalculateSC(VectorSet vectorSet,
+            Partition partition,
+            InfiniteCentroids centroids, GLAConfig config, int k) {
+        // Calculate minimum distortion array
+        double[] dmin = new double[1];
+
+        // Initialization hint: skip if firstD indicates already converged
+        if (config.firstD() > 0 && dmin[0] < config.firstD()) {
+            log.debug("Initial distortion below firstD={}, skipping",
+                    config.firstD());
+        }
+
+        // Run GLA based on heuristic selection
+        switch (config.heuristic()) {
+        case 1:
+            log.info("Using standard GLA");
+            GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 2:
+            log.info("Using stochastic relaxation GLA");
+            GLAEngine.glaSr(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 3:
+            log.info("Using simulated annealing GLA");
+            GLAEngine.glaSa(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 4:
+            log.info("Using hybrid L1 GLA");
+            GLAEngine.hybridGlaL1(vectorSet, partition, centroids, dmin,
+                    config);
+            break;
+        case 5:
+            log.info("Using hybrid L2 GLA");
+            GLAEngine.hybridGlaL2(vectorSet, partition, centroids, dmin,
+                    config);
+            break;
+        case 6:
+            log.info("Using MAE GLA");
+            GLAEngine.maeGla(vectorSet, partition, centroids, dmin, config);
+            break;
+        default:
+            log.info("Defaulting to standard GLA");
+            GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+        }
+
+        // Calculate stochastic complexity or best code length based on flag
+        double sc;
+        int numClusters = Math.min(k + 1, partition.size());
+
+        // Propagate GLAConfig flags to DistanceCalculator for codelength
+        // calculations
+        DistanceCalculator.setUseClassWeights(config.weights());
+        DistanceCalculator.setUseRoundedCentroids(config.rounded());
+
+        if (config.bestCodeLength()) {
+            try {
+                sc = DistanceCalculator.averageCodelength(partition, centroids);
+            } catch (ArithmeticException ex) {
+                log.debug("averageCodelength threw ArithmeticException: {}",
+                        ex.getMessage());
+                sc = 0.0; // Fallback for empty partitions
+            }
+        } else {
+            boolean hasEnoughClusters = true;
+            for (int i = 1; i <= numClusters && hasEnoughClusters; i++) {
+                if (partition.getSize(i) == 0) {
+                    hasEnoughClusters = false;
+                }
+            }
+
+            if (!hasEnoughClusters || numClusters < 2) {
+                sc = calculateStochasticComplexity(partition, centroids,
+                        config.distanceType());
+            } else {
+                sc = DistanceCalculator.stochasticComplexity(
+                        partition, numClusters, vectorSet.getVectorLength(),
+                        config.jeffreysPrior());
+            }
+        }
+
+        return sc;
+    }
+
+    /**
+     * Check convergence and update best classification if improved.
+     */
+    private boolean checkConvergenceAndUpdateBest(double scmin, double sc,
+            int k,
+            Partition partition, InfiniteCentroids centroids, int actualK,
+            int noImprovementCount, GLAConfig config) {
+        double prevScmin = scmin;
+        scmin = Math.min(scmin, sc);
+        boolean converged = (config.epsilon() > 0)
+                && (Math.abs(sc - prevScmin) < config.epsilon());
+
+        log.info("k={}: SC={}, clusters={}, distType={}{}", k, sc,
+                partition.size(), config.distanceType(),
+                converged ? " [CONVERGED]" : "");
+
+        if (sc < scmin || !converged) {
+            this.bestPartition = partition;
+            this.bestCentroids = centroids;
+            actualK = k;
+            noImprovementCount = 0;
+            log.debug("New best classification at k={}: SC={}, clusters={}", k,
+                    sc, partition.size());
+        } else {
+            noImprovementCount++;
+            if (shouldTerminate(noImprovementCount, config)) {
+                return true; // Signal termination
+            }
+        }
+
+        return converged;
+    }
+
+    /**
+     * Check if we should terminate the range search.
+     */
+    private boolean shouldTerminate(int noImprovementCount, GLAConfig config) {
+        int maxSteps = config.kstopwhen() > 0 ? config.kstopwhen()
+                : Integer.MAX_VALUE;
+        return noImprovementCount >= maxSteps;
     }
 
     /**

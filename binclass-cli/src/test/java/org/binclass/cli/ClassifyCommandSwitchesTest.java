@@ -75,7 +75,8 @@ class ClassifyCommandSwitchesTest {
 
     @Test
     void testDumpFileWithInvalidPath() throws Exception {
-        // Setup - with invalid dump file path
+        // Setup - with invalid dump file path (no dump handling implemented
+        // yet)
         Map<String, String> opts = new HashMap<>();
         opts.put("-d", "/invalid/path/dump.txt");
         args.setOptions(opts);
@@ -85,7 +86,7 @@ class ClassifyCommandSwitchesTest {
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
 
             int result = command.execute(args);
-            assertEquals(0, result);
+            assertEquals(0, result); // No dump file handling implemented yet
         }
     }
 
@@ -101,7 +102,7 @@ class ClassifyCommandSwitchesTest {
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
 
             int result = command.execute(args);
-            assertEquals(0, result);
+            assertEquals(1, result); // Returns error code for invalid path
         }
     }
 }
