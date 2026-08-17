@@ -1,6 +1,8 @@
 package org.binclass.cli;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -11,6 +13,7 @@ import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
+import org.binclass.algorithms.io.CentroidWriter;
 import org.binclass.algorithms.util.MathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +25,12 @@ public class ClassifyCommand implements BaseCommand {
 
     private static final Logger log = LoggerFactory
             .getLogger(ClassifyCommand.class);
+
+    /** Best partition found during range search */
+    private Partition bestPartition;
+
+    /** Centroids from the best classification */
+    private InfiniteCentroids bestCentroids;
 
     @Override
     public String getName() {
@@ -182,6 +191,24 @@ public class ClassifyCommand implements BaseCommand {
         log.info("GLA completed with {} clusters", bestPartition.size());
         log.info("Final number of clusters: {}", bestPartition.size());
 
+        // Write centroids to file if -L specified
+        if (centroidFile != null && bestCentroids != null) {
+            try {
+                Path path = Path.of(centroidFile);
+                Path parent = path.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                CentroidWriter.save(bestCentroids, centroidFile);
+                log.info("Centroids written to {}", centroidFile);
+            } catch (IOException e) {
+                log.warn("Failed to write centroids to {}: {}", centroidFile,
+                        e.getMessage());
+            }
+        } else if (centroidFile != null) {
+            log.warn("No centroids available for writing");
+        }
+
         return 0;
     }
 
@@ -190,7 +217,7 @@ public class ClassifyCommand implements BaseCommand {
      * complexity. Mirrors the C function search_classes_nonautomatic() from
      * classify.c.
      */
-    private static Partition runRangeSearch(
+    private Partition runRangeSearch(
             VectorSet vectorSet,
             int kstart,
             int kstop,
@@ -313,9 +340,11 @@ public class ClassifyCommand implements BaseCommand {
             if (sc < scmin || !converged) {
                 scmin = Math.min(scmin, sc);
                 bestPartition = partition;
+                bestCentroids = centroids; // Store centroids for later output
                 actualK = k;
                 noImprovementCount = 0;
-                log.debug("New best classification at k={}: SC={}", k, sc);
+                log.debug("New best classification at k={}: SC={}, clusters={}",
+                        k, sc, partition.size());
             } else {
                 noImprovementCount++;
                 // Early termination if no improvement for kstopwhen consecutive

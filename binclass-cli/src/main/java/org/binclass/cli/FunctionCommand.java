@@ -2,12 +2,7 @@ package org.binclass.cli;
 
 import java.util.Map;
 
-import org.binclass.algorithms.core.BinaryVector;
-import org.binclass.algorithms.core.Centroid;
-import org.binclass.algorithms.core.InfiniteCentroids;
-import org.binclass.algorithms.core.Partition;
-import org.binclass.algorithms.core.VectorSet;
-import org.binclass.algorithms.dist.DistanceCalculator;
+import org.binclass.algorithms.info.InfoFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,38 +41,19 @@ public class FunctionCommand implements BaseCommand {
         log.info("  Distance type: {}", distanceType);
         log.info("  Class weights: {}", classWeights);
 
-        // Load vectors from data files
-        VectorSet vectorSet = DataLoader.loadVectors(filebase);
+        // Use InfoFunctions to render information-theoretic functions
+        String datfile = filebase + ".dat";
+        String outfile = filebase + ".out";
+        String ctrfile = filebase + ".centroids";
+        String hdrfile = filebase + ".hdr";
 
-        log.info("Computing information-theoretic functions for {} vectors",
-                vectorSet.size());
+        log.info(
+                "Computing information-theoretic functions using InfoFunctions");
+        String result = InfoFunctions.renderFunctions(datfile, outfile, ctrfile,
+                hdrfile);
 
-        // Compute Shannon entropy and SC function as a function of k
-        int maxK = Math.min(10, vectorSet.size());
-
-        for (int k = 1; k <= maxK; k++) {
-            Partition partition = new Partition(k);
-            InfiniteCentroids centroids = new InfiniteCentroids(k, 16);
-
-            // Initialize centroids from first k vectors and assign all vectors
-            int idx = 0;
-            for (BinaryVector bv : vectorSet) {
-                if (idx < k) {
-                    Centroid centroid = centroids.get(idx);
-                    centroid.setEl(bv.getEl());
-                }
-                partition.getElements((idx % k) + 1).add(bv);
-                idx++;
-            }
-
-            // Compute average codelength for this k value
-            double avgCodelength = DistanceCalculator.averageCodelength(
-                    partition, centroids);
-
-            log.info("k={}: average_codelength={}", k, avgCodelength);
-        }
-
-        log.info("Function computation complete");
+        log.info("Function computation complete: {}",
+                result != null ? "success" : "no data");
 
         return 0;
     }

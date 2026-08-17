@@ -59,6 +59,12 @@ public class CentroidCommand implements BaseCommand {
 
         log.info("Created {} initial centroids", numCentroids);
 
+        // Save centroids to file
+        String outputFile = filebase + ".centroids";
+        org.binclass.algorithms.io.CentroidWriter.save(centroids, outputFile);
+
+        log.info("Saved {} centroids to {}", numCentroids, outputFile);
+
         return 0;
     }
 }

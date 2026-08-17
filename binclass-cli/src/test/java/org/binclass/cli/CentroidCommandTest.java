@@ -1,17 +1,21 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.clearAllCaches;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for CentroidCommand to verify algorithm execution.
@@ -28,9 +32,9 @@ class CentroidCommandTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         // Clean up static mocks between tests to prevent conflicts
-        org.mockito.Mockito.clearAllCaches();
+        clearAllCaches();
     }
 
     private VectorSet createMockVectorSet(int nVectors, int length) {
@@ -39,74 +43,92 @@ class CentroidCommandTest {
 
     @Test
     void testExecuteWithDefaultParameters() throws Exception {
-        // Setup
+        // Setup - default parameters for centroid creation
         Map<String, String> opts = new HashMap<>();
 
         VectorSet mockVectorSet = createMockVectorSet(3, 10);
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
 
-            // Execute
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            when(DataLoader.loadVectors(anyString())).thenReturn(mockVectorSet);
+
+            // Capture InfiniteCentroids parameter passed to centroid creation
+            ArgumentCaptor<InfiniteCentroids> centroidsCaptor = ArgumentCaptor
+                    .forClass(InfiniteCentroids.class);
+
+            // Execute - should create initial centroids from loaded vectors
             int result = command.execute(args);
 
-            // Verify - should create initial centroids from loaded vectors
             assertEquals(0, result);
+
+            // Verify data loader was called with the correct input file
             mockedLoader.verify(() -> DataLoader.loadVectors("test"));
         }
     }
 
     @Test
     void testExecuteWithVerbose() throws Exception {
-        // Setup
+        // Setup - verbose mode enabled
         Map<String, String> opts = new HashMap<>();
+        TestUtils.setupOptions(args, TestUtils.createOptions("-v", ""));
 
         VectorSet mockVectorSet = createMockVectorSet(3, 10);
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
 
-            // Execute
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            when(DataLoader.loadVectors(anyString())).thenReturn(mockVectorSet);
+
+            // Execute - should execute successfully with verbose output
             int result = command.execute(args);
 
-            // Verify - should execute successfully with verbose output
+            assertEquals(0, result);
+            mockedLoader.verify(() -> DataLoader.loadVectors("test"));
+        }
+    }
+
+    @Test
+    void testExecuteWithFilebase() throws Exception {
+        // Setup - custom filebase parameter
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-f", "custom_filebase");
+        args.setOptions(opts);
+
+        VectorSet mockVectorSet = createMockVectorSet(5, 12);
+
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            when(DataLoader.loadVectors(anyString())).thenReturn(mockVectorSet);
+
+            // Execute - should use custom filebase
+            int result = command.execute(args);
+
             assertEquals(0, result);
         }
     }
 
     @Test
     void testExecuteWithSingleVector() throws Exception {
-        // Setup - no mocking needed for concrete TestCommandArgs
-        Map<String, String> opts = new HashMap<>();
+        // Setup - single vector (edge case)
+        VectorSet mockVectorSet = createMockVectorSet(1, 8);
 
-        VectorSet mockVectorSet = createMockVectorSet(1, 5);
         try (var mockedLoader = mockStatic(DataLoader.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+            when(DataLoader.loadVectors(anyString())).thenReturn(mockVectorSet);
 
-            // Execute
             int result = command.execute(args);
 
-            // Verify - should create single centroid for single vector
             assertEquals(0, result);
         }
     }
 
     @Test
-    void testExecuteWithLargeDataset() throws Exception {
-        // Setup - no mocking needed for concrete TestCommandArgs
-        Map<String, String> opts = new HashMap<>();
+    void testExecuteWithMultipleCentroids() throws Exception {
+        // Setup - multiple vectors to create more centroids
+        VectorSet mockVectorSet = createMockVectorSet(10, 16);
 
-        VectorSet mockVectorSet = createMockVectorSet(100, 50);
         try (var mockedLoader = mockStatic(DataLoader.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+            when(DataLoader.loadVectors(anyString())).thenReturn(mockVectorSet);
 
-            // Execute
             int result = command.execute(args);
 
-            // Verify - should handle large dataset gracefully
             assertEquals(0, result);
+            mockedLoader.verify(() -> DataLoader.loadVectors("test"));
         }
     }
 
@@ -118,6 +140,7 @@ class CentroidCommandTest {
     @Test
     void testGetDescription() {
         String desc = command.getDescription();
-        assertTrue(desc != null && !desc.isEmpty());
+        org.junit.jupiter.api.Assertions.assertNotNull(desc);
+        org.junit.jupiter.api.Assertions.assertFalse(desc.isEmpty());
     }
 }

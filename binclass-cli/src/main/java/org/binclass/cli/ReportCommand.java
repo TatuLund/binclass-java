@@ -27,6 +27,8 @@ public class ReportCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
+        setupVerboseMode(opts);
+
         double epsilon = 0.001;
         if (opts.containsKey("-E")) {
             try {
@@ -57,6 +59,38 @@ public class ReportCommand implements BaseCommand {
         log.info("  Filebase: {}", filebase);
         log.info("  Report params: {}", reportParams);
         log.info("  Class weights: {}", classWeights);
+
+        // Load vectors from data files
+        var vectorSet = DataLoader.loadVectors(filebase);
+
+        if (vectorSet.size() < 2) {
+            throw new IllegalArgumentException(
+                    "Need at least two vectors to generate report");
+        }
+
+        log.info("Generating report for {} vectors", vectorSet.size());
+
+        // Create a partition from the loaded data
+        var partition = new org.binclass.algorithms.core.Partition(2);
+
+        int idx = 0;
+        for (var v : vectorSet.getElements()) {
+            if (idx % 2 == 0) {
+                partition.addElement(1, v);
+            } else {
+                partition.addElement(2, v);
+            }
+            idx++;
+        }
+
+        // Call ReportGenerator to generate the report
+        var centroids = new org.binclass.algorithms.core.InfiniteCentroids(2,
+                vectorSet.getVectorLength());
+        var report = org.binclass.algorithms.report.ReportGenerator
+                .generateReport(partition, centroids);
+
+        log.info("Report generated successfully");
+        log.info("Report size: {} bytes", report.length());
 
         return 0;
     }

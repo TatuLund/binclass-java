@@ -993,14 +993,22 @@ public final class GLAEngine {
 
             // Compute frequency-weighted average for each bit position
             double[] el = centroid.getArray();
+            int maxBit = l;
+            for (BinaryVector bv : cluster) {
+                if (!bv.isTrashcan()) {
+                    maxBit = Math.min(maxBit, bv.getEl().length);
+                }
+            }
             for (int bit = 0; bit < l && bit < el.length; bit++) {
                 int count1 = 0;
                 int missingCount = 0;
                 for (BinaryVector bv : cluster) {
                     // Skip trashcan vectors when mode is enabled
                     if (!bv.isTrashcan()) {
-                        if (!bv.isMissing(bit)) {
-                            count1 += bv.get(bit);
+                        int[] bvEl = bv.getEl();
+                        int bvLen = bvEl.length;
+                        if (bit < bvLen && !bv.isMissing(bit)) {
+                            count1 += bvEl[bit];
                         } else {
                             missingCount++;
                         }

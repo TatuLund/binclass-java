@@ -35,7 +35,12 @@ public class CutCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
+        setupVerboseMode(opts);
+
         boolean relativeInt = opts.containsKey("-r");
+
+        boolean minimalInt = opts.containsKey("-s");
+        boolean maximalInt = opts.containsKey("-m");
 
         boolean analyseIntStab = false;
         int kstart1 = 0;

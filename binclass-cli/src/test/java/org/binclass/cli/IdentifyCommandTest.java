@@ -31,7 +31,7 @@ public class IdentifyCommandTest {
     @AfterEach
     void tearDown() throws Exception {
         // Clean up static mocks between tests to prevent conflicts
-        clearAllCaches();
+        org.mockito.Mockito.clearAllCaches();
     }
 
     @Test

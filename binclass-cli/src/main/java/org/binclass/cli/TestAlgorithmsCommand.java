@@ -37,10 +37,14 @@ public class TestAlgorithmsCommand implements BaseCommand {
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
+        setupVerboseMode(opts);
+
         if ("test1".equals(testName)) {
             return executeTest1(opts, args);
-        } else {
+        } else if ("test2".equals(testName)) {
             return executeTest2(opts, args);
+        } else {
+            throw new IllegalArgumentException("Unknown test: " + testName);
         }
     }
 

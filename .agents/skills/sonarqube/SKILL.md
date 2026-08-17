@@ -1,6 +1,8 @@
 ---
 name: sonarqube
 description: 'Run SonarQube analysis and interpret findings'
+paths:
+  - "**/*.java"
 ---
 
 # SonarQube Analysis Skill

@@ -8,9 +8,11 @@ import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
 
-import org.binclass.algorithms.classify.CumulativeClassifier;
 import org.binclass.algorithms.classify.CumulativeConfig;
+import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.gla.GLAConfig;
+import org.binclass.algorithms.gla.JoinGLA;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,35 +45,35 @@ class SemiCumulativeCommandTest {
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
         try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedCumulativeClassifier = mockStatic(
-                        CumulativeClassifier.class)) {
+                var mockedJoinGLA = mockStatic(JoinGLA.class)) {
             mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
                     .thenReturn(mockVectorSet);
-
-            // Capture parameters passed to doCumulativeClassification
+            // Mock JoinGLA.joinGLa to return a valid partition
+            Partition mockPartition = new org.binclass.algorithms.core.Partition(
+                    2);
+            when(JoinGLA.joinGLA(any(), any(), any(), any()))
+                    .thenReturn(mockPartition);
+            // Capture parameters passed to joinGLA
             ArgumentCaptor<VectorSet> vectorSetCaptor = ArgumentCaptor
                     .forClass(VectorSet.class);
-            ArgumentCaptor<CumulativeConfig> configCaptor = ArgumentCaptor
-                    .forClass(CumulativeConfig.class);
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
 
-            // Execute - should run semi-cumulative classification with default
-            // config
+            // Execute - should run semi-cumulative classification with Join-GLA
             int result = command.execute(args);
 
             assertEquals(0, result);
 
-            // Verify - should call doCumulativeClassification with vectorSet
-            // and CumulativeConfig
-            mockedCumulativeClassifier.verify(
-                    () -> CumulativeClassifier.doCumulativeClassification(
-                            vectorSetCaptor.capture(), configCaptor.capture()));
+            // Verify - should call joinGLA with vectorSet and GLAConfig
+            mockedJoinGLA.verify(
+                    () -> JoinGLA.joinGLA(vectorSetCaptor.capture(), any(),
+                            any(), configCaptor.capture()));
 
             VectorSet capturedVectorSet = vectorSetCaptor.getValue();
             assertEquals(mockVectorSet, capturedVectorSet);
 
-            CumulativeConfig capturedConfig = configCaptor.getValue();
+            GLAConfig capturedConfig = configCaptor.getValue();
             assertNotNull(capturedConfig);
-            assertEquals(1, capturedConfig.delta()); // default delta=1
         }
     }
 

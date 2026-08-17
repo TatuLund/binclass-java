@@ -188,6 +188,18 @@ public final class Centroid {
     }
 
     /**
+     * Returns the centroid values as an array.
+     * <p>
+     * Equivalent to C function {@code centroid_get_el()} from {@code binset.h}.
+     * </p>
+     *
+     * @return copy of the centroid element array
+     */
+    public double[] getEl() {
+        return Arrays.copyOf(el, el.length);
+    }
+
+    /**
      * Returns a copy of this centroid.
      * <p>
      * Equivalent to C function {@code centroid_copy()} from {@code binset.h}.

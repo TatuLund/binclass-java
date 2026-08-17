@@ -52,7 +52,7 @@ public class TreeCommand implements BaseCommand {
         // Load vectors from data files
         var vectorSet = DataLoader.loadVectors(filebase);
         int numClusters = Math.min(3, vectorSet.size());
-        
+
         // Create centroids and partition using classifier
         InfiniteCentroids centroids = new InfiniteCentroids(numClusters, 16);
         Partition partition = new Partition(numClusters);
@@ -86,7 +86,8 @@ public class TreeCommand implements BaseCommand {
      * Count the number of levels in a binary tree.
      */
     private int countLevels(TreeNode node) {
-        if (node == null || (node.getLeft() == null && node.getRight() == null)) {
+        if (node == null
+                || (node.getLeft() == null && node.getRight() == null)) {
             return 1;
         }
         return 1 + Math.max(countLevels(node.getLeft()),

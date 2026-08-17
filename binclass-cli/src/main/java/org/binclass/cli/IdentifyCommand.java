@@ -8,6 +8,7 @@ import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.io.PartitionWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +33,8 @@ public class IdentifyCommand implements BaseCommand {
     @Override
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
+
+        setupVerboseMode(opts);
 
         // Parse options
         double epsilon = 0.001;
@@ -58,6 +61,9 @@ public class IdentifyCommand implements BaseCommand {
 
         boolean jeffreysPrior = opts.containsKey("-J");
         boolean classWeights = opts.containsKey("-w");
+        boolean trashcanMode = opts.containsKey("-t");
+        boolean exactMatchesOnly = opts.containsKey("-M");
+        String partitionFile = opts.getOrDefault("-P", null);
 
         // Get filebase from options or last argument
         String filebase = opts.getOrDefault("filebase", args.command());
@@ -68,6 +74,8 @@ public class IdentifyCommand implements BaseCommand {
         log.info("  Distance type: {}", distanceType);
         log.info("  Jeffreys prior: {}", jeffreysPrior);
         log.info("  Class weights: {}", classWeights);
+        log.info("  Trashcan mode: {}", trashcanMode);
+        log.info("  Exact matches only: {}", exactMatchesOnly);
 
         // Load vectors from data files
         VectorSet vectorSet = DataLoader.loadVectors(filebase);
@@ -103,6 +111,12 @@ public class IdentifyCommand implements BaseCommand {
         log.info(
                 "Identification complete: {} vectors classified into {} clusters",
                 vectorSet.size(), numCentroids);
+
+        // Write partition to file if -P specified
+        if (partitionFile != null) {
+            PartitionWriter.writePartition(partition, partitionFile);
+            log.info("Partition written to {}", partitionFile);
+        }
 
         return 0;
     }
