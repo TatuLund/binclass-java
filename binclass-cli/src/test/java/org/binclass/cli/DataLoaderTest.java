@@ -74,7 +74,8 @@ final class DataLoaderTest {
 
         BinaryVector[] vectors = result.getElements()
                 .toArray(new BinaryVector[0]);
-        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 }, vectors[0].getEl());
+        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 },
+                findVector(vectors, "10101"));
     }
 
     @Test
@@ -99,8 +100,14 @@ final class DataLoaderTest {
 
         BinaryVector[] vectors = result.getElements()
                 .toArray(new BinaryVector[0]);
-        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 }, vectors[1].getEl());
-        assertArrayEquals(new int[] { 0, 1, 0, 1, 0 }, vectors[1].getEl());
+
+        // Use findVector to check by content (order-independent)
+        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 },
+                findVector(vectors, "10101"));
+        assertArrayEquals(new int[] { 0, 1, 0, 1, 0 },
+                findVector(vectors, "01010"));
+        assertArrayEquals(new int[] { 1, 1, 0, 0, 0 },
+                findVector(vectors, "11000"));
     }
 
     @Test
@@ -218,10 +225,12 @@ final class DataLoaderTest {
         // Create a simple header file expecting length 8
         Files.writeString(tempDir.resolve("test.hdr"), "2 8");
 
-        // Create data file with shorter binary strings (5 chars)
+        // Create data file with shorter binary strings (3 chars)
         StringBuilder sb = new StringBuilder();
-        sb.append("101\n"); // Should be padded to 00010101
-        sb.append("010\n"); // Should be padded to 00001010
+        sb.append("101\n"); // Should be padded to 00000101 (5 leading zeros +
+                            // "101")
+        sb.append("010\n"); // Should be padded to 00000010 (5 leading zeros +
+                            // "010")
         Files.writeString(tempDir.resolve("test.data"), sb.toString());
 
         VectorSet result = DataLoader.loadVectors(
@@ -231,8 +240,12 @@ final class DataLoaderTest {
 
         BinaryVector[] vectors = result.getElements()
                 .toArray(new BinaryVector[0]);
-        assertArrayEquals(new int[] { 0, 0, 0, 1, 0, 1, 0, 1 },
-                findVector(vectors, "00010101"));
+
+        // Verify both padded vectors are present (order-independent)
+        assertArrayEquals(new int[] { 0, 0, 0, 0, 0, 1, 0, 1 },
+                findVector(vectors, "00000101"));
+        assertArrayEquals(new int[] { 0, 0, 0, 0, 0, 0, 1, 0 },
+                findVector(vectors, "00000010"));
     }
 
     @Test
@@ -278,7 +291,14 @@ final class DataLoaderTest {
 
         BinaryVector[] vectors = result.getElements()
                 .toArray(new BinaryVector[0]);
-        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 }, vectors[0].getEl());
+
+        // Use findVector to check by content (order-independent)
+        assertArrayEquals(new int[] { 1, 0, 1, 0, 1 },
+                findVector(vectors, "10101"));
+        assertArrayEquals(new int[] { 0, 1, 0, 1, 0 },
+                findVector(vectors, "01010"));
+        assertArrayEquals(new int[] { 1, 1, 0, 0, 0 },
+                findVector(vectors, "11000"));
     }
 
     @Test
@@ -340,6 +360,9 @@ final class DataLoaderTest {
         // Create both .header and .hdr files - should prefer .header
         Files.writeString(tempDir.resolve("test.header"), "1 5");
         Files.writeString(tempDir.resolve("test.hdr"), "2 3");
+
+        // Also create a data file (required for loading)
+        Files.writeString(tempDir.resolve("test.data"), "10101\n");
 
         VectorSet result = DataLoader.loadVectors(
                 tempDir.resolve("test").toString());

@@ -45,15 +45,16 @@ public class DataLoader {
         // Read vectors from data file
         List<String> lines = Files.readAllLines(datFile);
 
-        // If n_vectors is -1, use all non-empty lines; otherwise limit to
-        // n_vectors
-        int count = (nVectors > 0) ? Math.min(lines.size(), nVectors)
-                : lines.size();
-        VectorSet vectorSet = new VectorSet(count);
+        VectorSet vectorSet = new VectorSet(lines.size());
 
-        for (int i = 0; i < count; i++) {
-            String line = lines.get(i).trim();
+        int loadedCount = 0;
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
             if (!line.isEmpty()) {
+                // If n_vectors is specified and we've reached the limit, stop
+                if (nVectors > 0 && loadedCount >= nVectors) {
+                    break;
+                }
                 // Extract binary portion starting at vecoffs offset
                 int startOffset = header.getVecOffs() > 0 ? header.getVecOffs()
                         : 0;
@@ -87,6 +88,7 @@ public class DataLoader {
                     BinaryVector bv = new BinaryVector(values, 0, length, 0,
                             null);
                     vectorSet.addElement(bv);
+                    loadedCount++;
                 }
             }
         }

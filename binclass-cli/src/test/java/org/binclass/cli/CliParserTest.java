@@ -33,12 +33,12 @@ class CliParserTest {
 
         @Test
         void parseMinimalArgs() {
-            // Positional arg "mydata" is ignored by parser (only flags are
-            // parsed)
+            // Positional arg "mydata" is treated as filebase by parser
             CommandArgs args = parser
                     .parse(new String[] { "binclass", "classify", "mydata" });
             assertEquals("classify", args.command());
-            assertFalse(args.options().containsKey("filebase"));
+            assertTrue(args.options().containsKey("filebase"));
+            assertEquals("mydata", args.options().get("filebase"));
         }
 
         @Test
