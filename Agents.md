@@ -29,18 +29,19 @@ This file is the compact Copilot entrypoint for the workspace.
 - New view components need BrowserlessTests.
 - New custom components with client-side code need Playwright e2e integration tests.
 - Do not remove or weaken existing tests without confirming the behavior change is intentional.
-- Use the `runTests` skill to run unit tests via VS Code's test runner tool when available; fall back to Maven (`mvn test`) if the tool doesn't discover JUnit 6 tests in a specific file.
+- Use the "run-tests" skill to run unit tests via VS Code's test runner tool when available; fall back to Maven (`mvn test`) if the tool doesn't discover JUnit 6 tests in a specific file.
 
 ## Quality expectations
 
 - SonarQube analysis provides code quality insights but is known for false positives.
 - Fix obvious issues (unused variables, dead code, missing null checks) but don't chase perfection.
-- Use `sonarqube_analyze_file` after changes to verify fixes; use `get_errors` for quick IDE-level checks.
+- Use "sonarqube" skill after changes to verify fixes.
+- Format code using `mvn spotless:apply` command
+- Run tests using "run-tests" skill.
 
 ## Workflow
 
 - Run `mvn spotless:apply` when formatting is needed.
-- Improve code quality using /sonarqube skill.
-- Run tests using /run-tests skill.
+- Improve code quality using "sonarqube" skill.
+- Run tests using "run-tests" skill.
 - Use `mvn verify -Pit` for the full verification path when a change affects integration-tested behavior.
-- Check `AGENTS.md` for the preferred dev commands, mock-data caveats, and ArchUnit-enforced boundaries before making larger changes.
