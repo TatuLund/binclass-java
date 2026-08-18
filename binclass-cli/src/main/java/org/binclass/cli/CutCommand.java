@@ -214,8 +214,13 @@ public class CutCommand implements BaseCommand {
      * Creates a partition with random initialization from the vector set.
      */
     private Partition createRandomPartition(VectorSet vectorSet, int k) {
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         Partition partition = new Partition(k);
-        InfiniteCentroids centroids = new InfiniteCentroids(k, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(k, vectorLength);
 
         // Initialize centroids from vectors (deterministic for now)
         int idx = 0;

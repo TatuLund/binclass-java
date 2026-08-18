@@ -45,9 +45,15 @@ public class CentroidCommand implements BaseCommand {
         log.info("Processing {} vectors for centroid computation",
                 vectorSet.size());
 
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         // Create initial centroids from the loaded vectors
         int numCentroids = Math.min(3, vectorSet.size());
-        InfiniteCentroids centroids = new InfiniteCentroids(numCentroids, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(numCentroids,
+                vectorLength);
 
         int idx = 0;
         for (BinaryVector bv : vectorSet) {

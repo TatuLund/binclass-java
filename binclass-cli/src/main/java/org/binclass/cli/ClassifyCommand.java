@@ -257,8 +257,13 @@ public class ClassifyCommand implements BaseCommand {
         bestPartition = null;
         bestCentroids = null;
 
+        // Get the actual vector length from the first vector in the set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         for (int k = kstart; k <= kstop; k++) {
-            centroids = new InfiniteCentroids(k + 1, 16);
+            centroids = new InfiniteCentroids(k + 1, vectorLength);
             Partition partition = initializePartition(vectorSet, k, centroids);
 
             double sc = runGLAAndCalculateSC(vectorSet, partition, centroids,

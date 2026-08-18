@@ -67,8 +67,14 @@ public class MixtureCommand implements BaseCommand {
         log.info("Running EM algorithm with {} vectors and {} components",
                 vectorSet.size(), numComponents);
 
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         // Create initial centroids for the mixture model
-        InfiniteCentroids centroids = new InfiniteCentroids(numComponents, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(numComponents,
+                vectorLength);
 
         int idx = 0;
         for (BinaryVector bv : vectorSet) {

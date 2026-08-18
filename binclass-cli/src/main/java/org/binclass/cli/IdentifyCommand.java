@@ -80,9 +80,15 @@ public class IdentifyCommand implements BaseCommand {
         // Load vectors from data files
         VectorSet vectorSet = DataLoader.loadVectors(filebase);
 
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         // Create centroids (using first few vectors as initial centroids)
         int numCentroids = Math.min(3, vectorSet.size());
-        InfiniteCentroids centroids = new InfiniteCentroids(numCentroids, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(numCentroids,
+                vectorLength);
 
         int idx = 0;
         for (BinaryVector bv : vectorSet) {

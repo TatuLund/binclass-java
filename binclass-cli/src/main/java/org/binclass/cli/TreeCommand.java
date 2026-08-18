@@ -51,10 +51,17 @@ public class TreeCommand implements BaseCommand {
 
         // Load vectors from data files
         var vectorSet = DataLoader.loadVectors(filebase);
+
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         int numClusters = Math.min(3, vectorSet.size());
 
         // Create centroids and partition using classifier
-        InfiniteCentroids centroids = new InfiniteCentroids(numClusters, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(numClusters,
+                vectorLength);
         Partition partition = new Partition(numClusters);
 
         Classifier.identifyVectors(vectorSet, partition, centroids, 0.001);

@@ -89,8 +89,13 @@ public class FastClassifyCommand implements BaseCommand {
         log.info("Running Split-GLA algorithm on {} vectors",
                 vectorSet.size());
 
+        // Get actual vector length from first vector in set
+        int vectorLength = vectorSet.size() > 0
+                ? vectorSet.iterator().next().getLength()
+                : 16;
+
         // Initialize centroids with first two vectors for binary split
-        InfiniteCentroids centroids = new InfiniteCentroids(2, 16);
+        InfiniteCentroids centroids = new InfiniteCentroids(2, vectorLength);
 
         int idx = 0;
         for (BinaryVector bv : vectorSet) {
