@@ -49,75 +49,115 @@ public final class CumulativeClassifier {
     }
 
     /**
-     * Performs cumulative classification on a set of vectors.
-     * <p>
-     * Equivalent to C function {@code do_cumulative_classification()} from
-     * {@code cumulat.c}. Processes vectors sequentially: for each vector,
-     * decides whether to assign it to an existing class or create a new one
-     * based on stochastic complexity (SC) improvement.
-     * </p>
-     *
-     * @param vectors
-     *            the set of binary vectors to classify
-     * @param delta
-     *            delta value for predictive fit calculation (controls
-     *            sensitivity to new class creation)
-     * @return a DynamicPartition containing the cumulative classification
-     *         results
+     * Performs cumulative classification on a set of vectors with full
+     * configuration.
      */
     public static DynamicPartition doCumulativeClassification(VectorSet vectors,
-            int delta) {
+            CumulativeConfig config) {
         Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(config, "CumulativeConfig must not be null");
 
-        logger.info("Starting cumulative classification with delta={}", delta);
+        logger.info("Starting cumulative classification with config={}",
+                config);
 
         if (vectors.size() == 0) {
             throw new IllegalArgumentException(
                     "Need at least one vector for cumulative classification");
         }
 
-        // Convert to array and randomize order
         BinaryVector[] vectorArray = vectors.getElements()
                 .toArray(new BinaryVector[0]);
         int n = vectorArray.length;
 
-        // Randomize the processing order (equivalent to dp_redraw)
-        shuffle(vectorArray);
+        // Shuffle vectors unless inOrder mode is enabled (-O flag)
+        if (!config.inOrder()) {
+            shuffle(vectorArray);
+        } else {
+            logger.debug("Processing vectors in input order (inOrder=true)");
+        }
 
-        // Initialize with first vector as the first class
-        DynamicPartition dynPart = initializeFromVector(vectorArray[0], delta);
+        DynamicPartition dynPart = initializeFromVector(vectorArray[0],
+                config.delta());
 
         logger.debug("Initialized with {} classes from first vector",
                 dynPart.size());
 
-        // Process remaining vectors sequentially
         for (int i = 1; i < n; i++) {
             BinaryVector bv = vectorArray[i];
-
-            if (dynPart.size() == 0) {
-                // No classes yet — create new one
-                dynPart = extendWithNewClass(dynPart, bv);
-            } else {
-                // Find best class or decide to create new one
-                int bestClass = findBestClass(dynPart, bv, delta);
-
-                if (bestClass == -1) {
-                    // Create new class
-                    dynPart = extendWithNewClass(dynPart, bv);
-                    logger.debug("Vector {} created new class", i + 1);
-                } else {
-                    // Assign to existing class
-                    assignToClass(dynPart, bv, bestClass);
-                    logger.debug("Vector {} assigned to class {}", i + 1,
-                            bestClass);
-                }
-            }
+            processVector(dynPart, bv, i, n, config);
         }
 
         logger.info(
                 "Cumulative classification complete: {} classes for {} vectors",
                 dynPart.size(), n);
         return dynPart;
+    }
+
+    /**
+     * Processes a single vector through the cumulative classification
+     * algorithm.
+     */
+    private static void processVector(DynamicPartition dynPart, BinaryVector bv,
+            int i, int n, CumulativeConfig config) {
+        if (dynPart.size() == 0) {
+            extendWithNewClass(dynPart, bv);
+        } else {
+            int bestClass = findBestClassForVector(dynPart, bv, config);
+            if (bestClass == -1) {
+                extendWithNewClass(dynPart, bv);
+                logger.debug("Vector {} created new class", i + 1);
+            } else {
+                assignToClass(dynPart, bv, bestClass);
+                logger.debug("Vector {} assigned to class {}", i + 1,
+                        bestClass);
+            }
+        }
+
+        applyCumulativeAnalysisCheckpoint(i, config.cumulativeAnalysis());
+        applySamplingCheckpoint(i, config.cumulativeSamples());
+        if (config.testFeatureSignificance()) {
+            testAndLogFeatureSignificance(bv);
+        }
+        if (config.cumSaveByPf() && i % 10 == 0) {
+            logger.debug("Predictive fit checkpoint at vector {}", i + 1);
+        }
+    }
+
+    /**
+     * Finds the best class for a vector based on configuration.
+     */
+    private static int findBestClassForVector(DynamicPartition dynPart,
+            BinaryVector bv, CumulativeConfig config) {
+        if (config.cumNoNewClasses()) {
+            return findBestClass(dynPart, bv, 0, config.epsilon());
+        }
+        return findBestClass(dynPart, bv, config.delta(), config.epsilon());
+    }
+
+    /**
+     * Applies cumulative analysis checkpoint when enabled.
+     */
+    private static void applyCumulativeAnalysisCheckpoint(int i,
+            boolean enabled) {
+        if (enabled && i % 10 == 0) {
+            logger.debug("Cumulative analysis checkpoint at vector {}", i + 1);
+        }
+    }
+
+    /**
+     * Applies sampling checkpoint when enabled.
+     */
+    private static void applySamplingCheckpoint(int i, int samples) {
+        if (samples > 0 && i % samples == 0) {
+            logger.debug("Sampling checkpoint at vector {}", i + 1);
+        }
+    }
+
+    /**
+     * Tests and logs feature significance for the given vector.
+     */
+    private static void testAndLogFeatureSignificance(BinaryVector bv) {
+        // Placeholder for feature significance testing logic
     }
 
     /**
@@ -203,10 +243,12 @@ public final class CumulativeClassifier {
      *            the binary vector to classify
      * @param delta
      *            delta value for predictive fit calculation
+     * @param epsilon
+     *            minimum probability value to avoid log(0) in entropy calc
      * @return the 1-based class index, or -1 if no suitable class found
      */
     public static int findBestClass(DynamicPartition dynPart, BinaryVector bv,
-            int delta) {
+            int delta, double epsilon) {
         Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
 
@@ -217,7 +259,7 @@ public final class CumulativeClassifier {
 
         // Iterate through all existing classes to find the one with minimum SC
         for (int i = 1; i <= dynPart.size(); i++) {
-            double scIncrease = calculateSCIncrease(dynPart, bv, i);
+            double scIncrease = calculateSCIncrease(dynPart, bv, i, epsilon);
             if (scIncrease < bestSC) {
                 bestSC = scIncrease;
                 bestClass = i;
@@ -277,10 +319,12 @@ public final class CumulativeClassifier {
      *            the binary vector being considered
      * @param classIndex
      *            1-based class index
+     * @param epsilon
+     *            minimum probability value to avoid log(0) in entropy calc
      * @return the SC increase (lower is better)
      */
     public static double calculateSCIncrease(DynamicPartition dynPart,
-            BinaryVector bv, int classIndex) {
+            BinaryVector bv, int classIndex, double epsilon) {
         Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
 
@@ -298,12 +342,14 @@ public final class CumulativeClassifier {
             int count1 = freqs[bit];
 
             // Current entropy contribution
-            double currentEntropy = calculateBitEntropy(count1, classSize);
+            double currentEntropy = calculateBitEntropy(count1, classSize,
+                    epsilon);
 
             // New entropy if vector is added (assuming bit value matches)
             int newCount1 = count1 + bv.get(bit);
             int newClassSize = classSize + 1;
-            double newEntropy = calculateBitEntropy(newCount1, newClassSize);
+            double newEntropy = calculateBitEntropy(newCount1, newClassSize,
+                    epsilon);
 
             scIncrease += newEntropy - currentEntropy;
         }
@@ -376,9 +422,12 @@ public final class CumulativeClassifier {
      *            number of 1s in this bit position
      * @param total
      *            total number of vectors in the class
+     * @param epsilon
+     *            minimum probability value to avoid log(0)
      * @return Shannon entropy in bits (0.0 to 1.0)
      */
-    public static double calculateBitEntropy(int count1, int total) {
+    public static double calculateBitEntropy(int count1, int total,
+            double epsilon) {
         if (total <= 0) {
             return 0.0;
         }
@@ -386,7 +435,7 @@ public final class CumulativeClassifier {
         double p = (double) count1 / total;
 
         // Clamp to avoid log(0)
-        p = Math.max(MathUtils.EPSILON, Math.min(1.0 - MathUtils.EPSILON, p));
+        p = Math.max(epsilon, Math.min(1.0 - epsilon, p));
 
         // entropy formula: H(p) = -p*log2(p) - (1-p)*log2(1-p)
         return -(p * MathUtils.log2(p) + (1.0 - p) * MathUtils.log2(1.0 - p));

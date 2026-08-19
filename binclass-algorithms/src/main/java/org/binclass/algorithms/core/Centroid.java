@@ -188,6 +188,18 @@ public final class Centroid {
     }
 
     /**
+     * Returns the centroid values as an array.
+     * <p>
+     * Equivalent to C function {@code centroid_get_el()} from {@code binset.h}.
+     * </p>
+     *
+     * @return copy of the centroid element array
+     */
+    public double[] getEl() {
+        return Arrays.copyOf(el, el.length);
+    }
+
+    /**
      * Returns a copy of this centroid.
      * <p>
      * Equivalent to C function {@code centroid_copy()} from {@code binset.h}.
@@ -197,6 +209,38 @@ public final class Centroid {
      */
     public Centroid copy() {
         return new Centroid(el, l, weight);
+    }
+
+    /**
+     * Sets all elements from an int array, converting each value to double.
+     * <p>
+     * Useful when initializing a centroid from binary vector data where the
+     * source is {@code int[]} but the centroid stores {@code double[]}.
+     * </p>
+     *
+     * @param values
+     *            the integer array to copy into this centroid (converted to
+     *            doubles)
+     */
+    public void setEl(int[] values) {
+        for (int i = 0; i < l && i < values.length; i++) {
+            el[i] = values[i];
+        }
+    }
+
+    /**
+     * Sets all elements from a double array.
+     * <p>
+     * Useful when initializing or updating centroid values directly.
+     * </p>
+     *
+     * @param values
+     *            the double array to copy into this centroid
+     */
+    public void setEl(double[] values) {
+        for (int i = 0; i < l && i < values.length; i++) {
+            el[i] = values[i];
+        }
     }
 
     /**

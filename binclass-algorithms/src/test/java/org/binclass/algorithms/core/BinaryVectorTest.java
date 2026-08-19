@@ -137,8 +137,8 @@ class BinaryVectorTest {
 
     @Test
     void testNullStrain() {
-        BinaryVector bv = new BinaryVector(new int[] { 0, 1 }, 2, 0, 0, null);
-
-        assertEquals("", bv.getStrain());
+        assertThrows(IllegalArgumentException.class, () -> {
+            new BinaryVector(new int[] { 0, 1 }, 2, 0, 0, null);
+        });
     }
 }

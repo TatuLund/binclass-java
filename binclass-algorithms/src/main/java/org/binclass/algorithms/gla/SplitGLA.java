@@ -50,12 +50,6 @@ public final class SplitGLA {
     private static final Logger logger = LoggerFactory
             .getLogger(SplitGLA.class);
 
-    /** Maximum number of clusters to search (s + 1 where s is vector count) */
-    private static final int KSTOPWHEN = 20;
-
-    /** Number of steps without SC improvement before stopping */
-    private static final int KC_STOP_WHEN = 5;
-
     private SplitGLA() {
         // Utility class — prevent instantiation
     }
@@ -88,7 +82,7 @@ public final class SplitGLA {
      * @return the final partition with cluster assignments at optimal k
      */
     public static Partition splitGLA(VectorSet vectors, double[] scmin,
-            double[] scs) {
+            double[] scs, GLAConfig config) {
         Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(scmin, "scmin array must not be null");
         Objects.requireNonNull(scs, "scs array must not be null");
@@ -108,12 +102,14 @@ public final class SplitGLA {
         }
 
         // Step 1: Evaluate k=1 (single cluster)
-        Partition P1 = new Partition(1);
-        VectorSet cluster0 = P1.getElements(1);
+        Partition P1 = new Partition(2); // Need at least 2 clusters for the
+                                         // formula
+        VectorSet cluster0 = P1.getElements(1); // Use cluster index 1 (second
+                                                // cluster)
         vectors.copyTo(cluster0);
         // Use L2-based MSE for k=1 (single cluster, no centroids yet, use
-        // simple SC)
-        double sc1 = DistanceCalculator.stochasticComplexity(P1, 1, l);
+        // simple SC). Pass k+1 because the formula expects "k is one too big"
+        double sc1 = DistanceCalculator.stochasticComplexity(P1, 2, l);
         scs[1] = sc1;
         if (sc1 < scmin[0]) {
             scmin[0] = sc1;
@@ -137,18 +133,19 @@ public final class SplitGLA {
 
         // Step 3: Iterative split-and-refine loop
         Partition P; // Initialize outside loop for later use
-        for (int k = 2; k <= KSTOPWHEN && k < s; k++) {
+        for (int k = 2; k <= config.kstopwhen() && k < s; k++) {
             int newK = k + 1;
             P = new Partition(newK);
 
             // Refine with GLA from current centroids
             double[] dmin = new double[1];
-            GLAEngine.gla(vectors, P, C, dmin, s);
+            GLAEngine.gla(vectors, P, C, dmin, config);
 
             // Use actual centroid count and MSE-based SC for model selection
             int kActual = C.size();
             double mse = DistanceCalculator.overallMse(P, C);
-            double sc = DistanceCalculator.stochasticComplexity(P, kActual, l,
+            double sc = DistanceCalculator.stochasticComplexityWithDistortion(P,
+                    kActual, l,
                     mse);
             logger.debug("k={}: SC = {}, MSE = {}", kActual, sc, mse);
 
@@ -171,16 +168,26 @@ public final class SplitGLA {
             }
 
             // Stop if stagnating or max reached
-            if (kc >= KC_STOP_WHEN || k + 1 >= s) {
+            if (kc >= config.kcStopWhen() || k + 1 >= s) {
                 logger.debug("Stagnation detected at k={}, stopping", k);
                 break;
             }
 
             // Find worst-matching class and split it
             int wp = pointWorstClass(P, C); // Returns 1-based index
-            BinaryVector[] xyNew = absWorstMatchingVectors(
-                    P.getCluster(wp - 1)); // Convert to 0-based for
-                                           // getCluster()
+            VectorSet cluster = P.getCluster(wp - 1); // Convert to 0-based for
+                                                      // getCluster()
+
+            // Skip clusters with fewer than 2 vectors (need at least 2 for
+            // splitting)
+            if (cluster.size() < 2) {
+                logger.debug("Skipping cluster {} with only {} vector(s)", wp,
+                        cluster.size());
+                kc++;
+                continue;
+            }
+
+            BinaryVector[] xyNew = absWorstMatchingVectors(cluster);
             BinaryVector xNew = xyNew[0];
             BinaryVector yNew = xyNew[1];
 

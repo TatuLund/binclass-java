@@ -6,6 +6,7 @@ package org.binclass.algorithms.dist;
 
 import java.util.Objects;
 
+import org.binclass.algorithms.core.AlgorithmConfig;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -42,6 +43,12 @@ public final class DistanceCalculator {
     private static final String CENTROID_MUST_NOT_BE_NULL = "Centroid must not be null";
     private static final String BINARY_VECTOR_MUST_NOT_BE_NULL = "BinaryVector must not be null";
     private static final String PARTITION_MUST_NOT_BE_NULL = "Partition must not be null";
+
+    /** Module-level flag for weighted codelength calculations. */
+    private static boolean useClassWeightsFlag = false;
+
+    /** Module-level flag for rounded centroid calculations. */
+    private static boolean useRoundedCentroidsFlag = false;
 
     private DistanceCalculator() {
         // Utility class — prevent instantiation
@@ -239,12 +246,6 @@ public final class DistanceCalculator {
         VectorSet classVectors = partition.getElements(classIndex);
         Centroid centroid = centroids.get(classIndex - 1); // Convert to 0-based
 
-        /*
-         * Original C: if (rounded_centroids)
-         * inf_average(P->el[i],C->el[i],FALSE,s); Compute weighted centroid
-         * before measuring distances, matching the behavior of inf_average() in
-         * distmin.c.
-         */
         if (useRoundedCentroids()) {
             infAverage(classVectors, centroid, true, totalVectors);
         }
@@ -491,13 +492,178 @@ public final class DistanceCalculator {
         return totalDist / count;
     }
 
+    /** LPI constant from C's const.h: log(PI) ≈ 1.6514961 */
+    private static final double LPI = 1.6514961;
+
+    /**
+     * Computes bit frequencies for a class of vectors.
+     * <p>
+     * Equivalent to C function {@code freq()} from {@code distmin.c}. Counts
+     * the number of 1-bits at each position across all vectors in the set.
+     * </p>
+     *
+     * @param vectors
+     *            the vector set (must not be null)
+     * @param d
+     *            the dimensionality (length of binary vectors)
+     * @return array of length {@code d} where element {@code i} contains the
+     *         count of 1-bits at position {@code i} across all vectors
+     */
+    private static int[] computeBitFrequencies(VectorSet vectors, int d) {
+        Objects.requireNonNull(vectors, "VectorSet must not be null");
+
+        int[] freqs = new int[d]; // indices 0..d-1 (C uses 1..d)
+        for (BinaryVector vector : vectors) {
+            for (int i = 0; i < d; i++) {
+                if (!vector.isMissing(i)) {
+                    freqs[i] += vector.get(i);
+                }
+            }
+        }
+        return freqs;
+    }
+
+    /**
+     * Computes stochastic complexity using Jeffreys prior.
+     * <p>
+     * Equivalent to C function {@code stochastic_complexity_j()} from
+     * {@code distmin.c}. Uses Jeffreys prior for Bayesian model selection with
+     * log-gamma functions and 0.5 offsets.
+     * </p>
+     *
+     * @param partition
+     *            the partition to evaluate (1-based class indices)
+     * @param k
+     *            number of clusters (1-based, must be &gt;= 2)
+     * @param d
+     *            dimensionality of binary vectors
+     * @return stochastic complexity value using Jeffreys prior
+     */
+    public static double stochasticComplexityJeffreys(Partition partition,
+            int k,
+            int d) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+
+        if (k < 1 || k > partition.size()) {
+            throw new IllegalArgumentException(
+                    "Invalid number of clusters: " + k);
+        }
+
+        // Allocate arrays for class sizes and bit frequencies
+        int[] classSizes = new int[k]; // class sizes (indices 0..k-1, C uses
+                                       // 1..k)
+        int t = 0; // total elements
+
+        // Calculate sizes of classes and total number of vectors
+        for (int j = 1; j < k; j++) {
+            classSizes[j] = partition.getSize(j);
+            if (classSizes[j] == 0) {
+                throw new IllegalStateException(
+                        "Empty cluster in stochastic_complexity_j");
+            }
+            t += classSizes[j];
+        }
+
+        double kVal = k - 1;
+        double dVal = d - 1;
+
+        // The part for coding the class no
+        double h = ((dVal * kVal) + (kVal / 2.0)) * LPI;
+        h += MathUtils.log2Gamma(kVal / 2.0);
+        h += MathUtils.log2Gamma(t + kVal / 2.0);
+        for (int j = 1; j < k; j++) {
+            h -= MathUtils.log2Gamma(classSizes[j] + 0.5);
+        }
+
+        // The part for coding the bits
+        int[] bitFreqs = new int[d]; // bit frequencies (indices 0..d-1, C uses
+                                     // 1..d)
+        for (int j = 1; j < k; j++) {
+            VectorSet classVectors = partition.getElements(j);
+            bitFreqs = computeBitFrequencies(classVectors, d);
+            for (int i = 1; i < d; i++) {
+                h += MathUtils.log2Factorial(classSizes[j]);
+                h -= MathUtils.log2Gamma(bitFreqs[i] + 0.5);
+                h -= MathUtils.log2Gamma((classSizes[j] - bitFreqs[i]) + 0.5);
+            }
+        }
+
+        return h / t;
+    }
+
+    /**
+     * Computes stochastic complexity using uniform prior.
+     * <p>
+     * Equivalent to C function {@code stochastic_complexity_u()} from
+     * {@code distmin.c}. Uses uniform prior with log-factorial functions.
+     * </p>
+     *
+     * @param partition
+     *            the partition to evaluate (1-based class indices)
+     * @param k
+     *            number of clusters (1-based, must be &gt;= 2)
+     * @param d
+     *            dimensionality of binary vectors
+     * @return stochastic complexity value using uniform prior
+     */
+    public static double stochasticComplexityUniform(Partition partition, int k,
+            int d) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+
+        if (k < 1 || k > partition.size()) {
+            throw new IllegalArgumentException(
+                    "Invalid number of clusters: " + k);
+        }
+
+        // Allocate arrays for class sizes and bit frequencies
+        int[] classSizes = new int[k]; // class sizes (indices 0..k-1, C uses
+                                       // 1..k)
+        int t = 0; // total elements
+
+        // Calculate sizes of classes and total number of vectors
+        for (int j = 1; j < k; j++) {
+            classSizes[j] = partition.getSize(j);
+            if (classSizes[j] == 0) {
+                throw new IllegalStateException(
+                        "Empty cluster in stochastic_complexity_u");
+            }
+            t += classSizes[j];
+        }
+
+        // The part for coding the class no
+        double h1 = MathUtils.log2Factorial(t);
+        for (int j = 1; j < k; j++) {
+            h1 -= MathUtils.log2Factorial(classSizes[j]);
+        }
+        // k is one too big, thus minus extra one
+        h1 += MathUtils.log2Factorial(t + k - 2);
+        h1 -= MathUtils.log2Factorial(t);
+        // k is one too big, thus minus extra one
+        h1 -= MathUtils.log2Factorial(k - 2);
+
+        // The part for coding the bits
+        double h2 = 0.0;
+        int[] bitFreqs = new int[d]; // bit frequencies (indices 0..d-1, C uses
+                                     // 1..d)
+        for (int j = 1; j < k; j++) {
+            VectorSet classVectors = partition.getElements(j);
+            bitFreqs = computeBitFrequencies(classVectors, d);
+            for (int i = 1; i < d; i++) {
+                h2 += MathUtils.log2Factorial(classSizes[j] + 1);
+                h2 -= MathUtils.log2Factorial(bitFreqs[i]);
+                h2 -= MathUtils.log2Factorial(classSizes[j] - bitFreqs[i]);
+            }
+        }
+
+        return (h1 + h2) / t;
+    }
+
     /**
      * Computes the Stochastic Complexity for a partition.
      * <p>
      * Equivalent to C function {@code stochastic_complexity()} from
-     * {@code distmin.c}. Measures the information content of a partition using
-     * Shannon entropy and class frequencies — used as model selection criterion
-     * in GLA algorithms.
+     * {@code distmin.c}. Dispatches between Jeffreys prior and uniform prior
+     * variants based on the {@code jeffreysPrior} flag.
      * </p>
      *
      * @param partition
@@ -506,10 +672,12 @@ public final class DistanceCalculator {
      *            number of clusters (1-based)
      * @param l
      *            length of binary vectors
+     * @param jeffreysPrior
+     *            if true, use Jeffreys prior; otherwise use uniform prior
      * @return stochastic complexity value (lower is better for model selection)
      */
     public static double stochasticComplexity(Partition partition, int k,
-            int l) {
+            int l, boolean jeffreysPrior) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
 
         if (k <= 0 || k > partition.size()) {
@@ -517,31 +685,30 @@ public final class DistanceCalculator {
                     "Invalid number of clusters: " + k);
         }
 
-        double sc = 0.0;
-        int totalElements = 0;
+        return jeffreysPrior ? stochasticComplexityJeffreys(partition, k, l)
+                : stochasticComplexityUniform(partition, k, l);
+    }
 
-        // Calculate total elements across all classes
-        for (int i = 1; i <= k; i++) {
-            totalElements += partition.getSize(i);
-        }
-
-        if (totalElements == 0) {
-            return 0.0;
-        }
-
-        // Calculate SC using Shannon entropy formula
-        for (int i = 1; i <= k; i++) {
-            int classSize = partition.getSize(i);
-            if (classSize > 0) {
-                double freq = (double) classSize / totalElements;
-                sc -= freq * MathUtils.log2(freq);
-            }
-        }
-
-        // Add complexity penalty for number of clusters
-        sc += k * MathUtils.log2(l);
-
-        return sc;
+    /**
+     * Computes the Stochastic Complexity for a partition using uniform prior.
+     * <p>
+     * Equivalent to C function {@code stochastic_complexity()} from
+     * {@code distmin.c} with {@code use_jeffreys_prior = false}. Measures the
+     * information content of a partition — used as model selection criterion in
+     * GLA algorithms.
+     * </p>
+     *
+     * @param partition
+     *            the partition to evaluate
+     * @param k
+     *            number of clusters (1-based)
+     * @param l
+     *            length of binary vectors
+     * @return stochastic complexity value using uniform prior
+     */
+    public static double stochasticComplexity(Partition partition, int k,
+            int l) {
+        return stochasticComplexity(partition, k, l, false);
     }
 
     /**
@@ -566,7 +733,8 @@ public final class DistanceCalculator {
      * @return stochastic complexity value including distortion term (lower is
      *         better)
      */
-    public static double stochasticComplexity(Partition partition, int k,
+    public static double stochasticComplexityWithDistortion(Partition partition,
+            int k,
             int l, double averageDistortion) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
 
@@ -598,9 +766,10 @@ public final class DistanceCalculator {
 
         // Add MDL cost: data encoding cost based on distortion
         // Use small epsilon to avoid log(0) when distortion is very small
-        double D = Math.max(averageDistortion, 1e-10);
+        double D = Math.max(averageDistortion,
+                AlgorithmConfig.NUMERICAL_STABILITY_EPSILON);
         double dataCost = (totalElements / 2.0)
-                * MathUtils.log2(D / (double) totalElements);
+                * MathUtils.log2(D / totalElements);
         sc += dataCost;
 
         // Add complexity penalty: model encoding cost for k clusters and l
@@ -644,7 +813,7 @@ public final class DistanceCalculator {
         }
 
         if (totalCount == 0) {
-            throw new ArithmeticException("Division by zero in overallMse");
+            return 0.0; // No vectors means no distortion
         }
         return totalDist / totalCount;
     }
@@ -660,11 +829,7 @@ public final class DistanceCalculator {
      * @return true if weighted classification is enabled
      */
     public static boolean useClassWeights() {
-        // In the original C code, this is a global variable controlled by CLI
-        // args.
-        // For now, default to false (unweighted) — can be made configurable
-        // later.
-        return false;
+        return useClassWeightsFlag;
     }
 
     /**
@@ -678,9 +843,7 @@ public final class DistanceCalculator {
      *            true to enable weighted classification, false for unweighted
      */
     public static void setUseClassWeights(boolean useWeights) {
-        // In a full implementation, this would set a module-level flag.
-        // For Phase 2, we keep it simple with the getter returning false by
-        // default.
+        useClassWeightsFlag = useWeights;
     }
 
     /**
@@ -694,9 +857,21 @@ public final class DistanceCalculator {
      * @return true if rounded centroids are enabled
      */
     public static boolean useRoundedCentroids() {
-        // In the original C code, this is a global variable controlled by CLI
-        // args. For now, default to false — can be made configurable later.
-        return false;
+        return useRoundedCentroidsFlag;
+    }
+
+    /**
+     * Sets whether rounded centroids are enabled for centroid calculations.
+     * <p>
+     * Mirrors the C global variable {@code rounded_centroids} from
+     * {@code vars.h}.
+     * </p>
+     *
+     * @param useRounded
+     *            true to enable rounding, false for fractional centroids
+     */
+    public static void setUseRoundedCentroids(boolean useRounded) {
+        useRoundedCentroidsFlag = useRounded;
     }
 
     /**

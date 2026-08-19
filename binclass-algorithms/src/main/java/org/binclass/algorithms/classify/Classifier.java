@@ -64,6 +64,33 @@ public final class Classifier {
     public static Partition identifyVectors(VectorSet vectors,
             Partition partition,
             InfiniteCentroids centroids) {
+        return identifyVectors(vectors, partition, centroids, 0.001);
+    }
+
+    /**
+     * Identifies vectors with epsilon threshold for distance comparison.
+     * <p>
+     * Equivalent to C function {@code identify_vectors_by_classification()}
+     * from {@code classify.c}. Assigns each vector in the set to its nearest
+     * centroid, using epsilon as a tolerance threshold for distance
+     * comparisons.
+     * </p>
+     *
+     * @param vectors
+     *            the set of binary vectors to classify (consumed — emptied
+     *            after)
+     * @param partition
+     *            the target partition to populate with assignments
+     * @param centroids
+     *            the centroid array defining clusters
+     * @param epsilon
+     *            tolerance threshold for distance comparisons
+     * @return a new Partition containing the classification results
+     */
+    public static Partition identifyVectors(VectorSet vectors,
+            Partition partition,
+            InfiniteCentroids centroids,
+            double epsilon) {
         Objects.requireNonNull(vectors, "VectorSet must not be null");
         Objects.requireNonNull(partition, "Partition must not be null");
         Objects.requireNonNull(centroids,
@@ -72,9 +99,8 @@ public final class Classifier {
         int k = centroids.size(); // 1-based count
         partition.setSize(k);
 
-        logger.debug("Identifying {} vectors into {} clusters",
-                vectors.size(),
-                k);
+        logger.debug("Identifying {} vectors into {} clusters with epsilon={}",
+                vectors.size(), k, epsilon);
 
         for (BinaryVector vector : vectors) {
             int closest = 0;
@@ -85,7 +111,7 @@ public final class Classifier {
                 double dist = DistanceCalculator.codeLength(
                         vector,
                         centroids.get(i));
-                if (dist < minDist) {
+                if (dist < minDist - epsilon) {
                     closest = i;
                     minDist = dist;
                 }

@@ -1,6 +1,8 @@
 ---
 name: run-tests
 description: 'Run unit tests using the VS Code test runner tool'
+paths:
+  -- "**/*.java"
 ---
 
 # Running Unit Tests with runTests Tool

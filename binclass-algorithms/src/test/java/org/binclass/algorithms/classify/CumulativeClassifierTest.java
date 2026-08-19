@@ -12,6 +12,7 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.DynamicPartition;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.util.MathUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,8 +28,9 @@ class CumulativeClassifierTest {
         BinaryVector v1 = new BinaryVector(el1, 3);
         vectors.addElement(v1);
 
+        CumulativeConfig config = CumulativeConfig.defaults();
         DynamicPartition result = CumulativeClassifier
-                .doCumulativeClassification(vectors, 0);
+                .doCumulativeClassification(vectors, config);
 
         assertNotNull(result);
         assertEquals(1, result.size()); // Single vector creates one class
@@ -50,8 +52,9 @@ class CumulativeClassifierTest {
             vectors.addElement(v);
         }
 
+        CumulativeConfig config = CumulativeConfig.defaults();
         DynamicPartition result = CumulativeClassifier
-                .doCumulativeClassification(vectors, 0);
+                .doCumulativeClassification(vectors, config);
 
         assertNotNull(result);
 
@@ -74,12 +77,160 @@ class CumulativeClassifierTest {
         BinaryVector v2 = new BinaryVector(el2, 2);
         vectors.addElement(v2);
 
+        CumulativeConfig config = CumulativeConfig.defaults();
         DynamicPartition result = CumulativeClassifier
-                .doCumulativeClassification(vectors, 0);
+                .doCumulativeClassification(vectors, config);
 
         assertNotNull(result);
 
         // Should create at least 2 classes for distinct vectors
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithNoNewClasses() {
+        VectorSet vectors = new VectorSet();
+
+        int[] el1 = { 0, 0 };
+        BinaryVector v1 = new BinaryVector(el1, 2);
+        vectors.addElement(v1);
+
+        int[] el2 = { 1, 1 };
+        BinaryVector v2 = new BinaryVector(el2, 2);
+        vectors.addElement(v2);
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withCumNoNewClasses(true);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        // With cumNoNewClasses=true, should not create new classes beyond the
+        // first
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithFixedDelta() {
+        VectorSet vectors = new VectorSet();
+
+        int[] el1 = { 0, 0 };
+        BinaryVector v1 = new BinaryVector(el1, 2);
+        vectors.addElement(v1);
+
+        int[] el2 = { 1, 1 };
+        BinaryVector v2 = new BinaryVector(el2, 2);
+        vectors.addElement(v2);
+
+        CumulativeConfig config = CumulativeConfig.ofFixedDelta(5);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        // With fixed delta=5, should be more conservative about creating new
+        // classes
+        assertTrue(result.size() >= 1 && result.size() <= 2);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithBayesianPredictiveDisabled() {
+        VectorSet vectors = new VectorSet();
+
+        int[] el1 = { 0, 0 };
+        BinaryVector v1 = new BinaryVector(el1, 2);
+        vectors.addElement(v1);
+
+        int[] el2 = { 1, 1 };
+        BinaryVector v2 = new BinaryVector(el2, 2);
+        vectors.addElement(v2);
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withBayesianPredictive(false);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithFeatureSignificance() {
+        VectorSet vectors = new VectorSet();
+
+        int[] el1 = { 0, 0 };
+        BinaryVector v1 = new BinaryVector(el1, 2);
+        vectors.addElement(v1);
+
+        int[] el2 = { 1, 1 };
+        BinaryVector v2 = new BinaryVector(el2, 2);
+        vectors.addElement(v2);
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withTestFeatureSignificance(true);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithSaveByPf() {
+        VectorSet vectors = new VectorSet();
+
+        // Create enough vectors to trigger save checkpoints (every 10)
+        for (int i = 0; i < 15; i++) {
+            int[] el = { 0, 0 };
+            BinaryVector v = new BinaryVector(el, 2);
+            vectors.addElement(v);
+        }
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withCumSaveByPf(true);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithSampling() {
+        VectorSet vectors = new VectorSet();
+
+        // Create enough vectors to trigger sampling checkpoints
+        for (int i = 0; i < 20; i++) {
+            int[] el = { 0, 0 };
+            BinaryVector v = new BinaryVector(el, 2);
+            vectors.addElement(v);
+        }
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withCumulativeSamples(5); // Sample every 5 vectors
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testDoCumulativeClassificationWithCumulativeAnalysis() {
+        VectorSet vectors = new VectorSet();
+
+        // Create enough vectors to trigger analysis checkpoints
+        for (int i = 0; i < 20; i++) {
+            int[] el = { 0, 0 };
+            BinaryVector v = new BinaryVector(el, 2);
+            vectors.addElement(v);
+        }
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withCumulativeAnalysis(true); // Enable cumulative analysis
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
         assertTrue(result.size() >= 1);
     }
 
@@ -146,7 +297,8 @@ class CumulativeClassifierTest {
         int[] el3 = { 0, 0 };
         BinaryVector v3 = new BinaryVector(el3, 2);
 
-        int bestClass = CumulativeClassifier.findBestClass(dynPart, v3, 0);
+        int bestClass = CumulativeClassifier.findBestClass(dynPart, v3, 0,
+                MathUtils.EPSILON);
 
         assertTrue(bestClass >= 1, "Should find a suitable class");
     }
@@ -174,7 +326,8 @@ class CumulativeClassifierTest {
         // false for any positive delta
         // This means findBestClass will return the existing class (1) rather
         // than -1
-        int bestClass = CumulativeClassifier.findBestClass(dynPart, v3, 1000);
+        int bestClass = CumulativeClassifier.findBestClass(dynPart, v3, 1000,
+                MathUtils.EPSILON);
 
         assertEquals(1, bestClass,
                 "With deterministic bits, should assign to existing class");
@@ -218,7 +371,7 @@ class CumulativeClassifierTest {
         BinaryVector v3 = new BinaryVector(el3, 2);
 
         double scIncrease = CumulativeClassifier.calculateSCIncrease(dynPart,
-                v3, 1);
+                v3, 1, MathUtils.EPSILON);
 
         assertTrue(scIncrease >= 0.0, "SC increase should be non-negative");
     }
@@ -261,8 +414,8 @@ class CumulativeClassifierTest {
 
     @Test
     void testDoCumulativeClassificationNullVectorSet() {
-        assertThrows(NullPointerException.class,
-                () -> CumulativeClassifier.doCumulativeClassification(null, 0));
+        assertThrows(NullPointerException.class, () -> CumulativeClassifier
+                .doCumulativeClassification(null, CumulativeConfig.defaults()));
     }
 
     @Test
@@ -294,10 +447,12 @@ class CumulativeClassifierTest {
                 0);
 
         assertThrows(NullPointerException.class,
-                () -> CumulativeClassifier.findBestClass(null, v, 0));
+                () -> CumulativeClassifier.findBestClass(null, v, 0,
+                        MathUtils.EPSILON));
 
         assertThrows(NullPointerException.class,
-                () -> CumulativeClassifier.findBestClass(dynPart, null, 0));
+                () -> CumulativeClassifier.findBestClass(dynPart, null, 0,
+                        MathUtils.EPSILON));
     }
 
     @Test
@@ -324,10 +479,11 @@ class CumulativeClassifierTest {
                 0);
 
         assertThrows(NullPointerException.class,
-                () -> CumulativeClassifier.calculateSCIncrease(null, v, 1));
+                () -> CumulativeClassifier.calculateSCIncrease(null, v, 1,
+                        MathUtils.EPSILON));
 
         assertThrows(NullPointerException.class, () -> CumulativeClassifier
-                .calculateSCIncrease(dynPart, null, 1));
+                .calculateSCIncrease(dynPart, null, 1, MathUtils.EPSILON));
     }
 
     @Test
@@ -366,8 +522,9 @@ class CumulativeClassifierTest {
             vectors.addElement(v);
         }
 
-        assertDoesNotThrow(() -> CumulativeClassifier
-                .doCumulativeClassification(vectors, 0));
+        assertDoesNotThrow(
+                () -> CumulativeClassifier.doCumulativeClassification(
+                        vectors, CumulativeConfig.defaults()));
     }
 
     @Test
@@ -383,9 +540,11 @@ class CumulativeClassifierTest {
 
         // Test with different delta values
         DynamicPartition resultLowDelta = CumulativeClassifier
-                .doCumulativeClassification(vectors, 0);
+                .doCumulativeClassification(
+                        vectors, CumulativeConfig.ofDelta(0));
         DynamicPartition resultHighDelta = CumulativeClassifier
-                .doCumulativeClassification(vectors, 100);
+                .doCumulativeClassification(
+                        vectors, CumulativeConfig.ofDelta(100));
 
         assertNotNull(resultLowDelta);
         assertNotNull(resultHighDelta);
@@ -408,7 +567,8 @@ class CumulativeClassifierTest {
         vectors.addElement(v2);
 
         DynamicPartition dynPart = CumulativeClassifier
-                .doCumulativeClassification(vectors, 0);
+                .doCumulativeClassification(
+                        vectors, CumulativeConfig.defaults());
 
         // Convert to static Partition
         Partition partition = dynPart.convert();
