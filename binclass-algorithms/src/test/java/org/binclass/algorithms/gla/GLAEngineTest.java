@@ -12,6 +12,7 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.gla.GLAConfig;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -297,6 +298,44 @@ class GLAEngineTest {
         assertFalse(Double.isNaN(dmin[0]), "Distortion should not be NaN");
         assertFalse(Double.isInfinite(dmin[0]),
                 "Distortion should not be infinite");
+    }
+
+    /**
+     * Regression test for the bug where removeEmpty() was called between Phase
+     * 1 and Phase 2, causing partition size truncation and vector loss when
+     * empty clusters existed after initial assignment.
+     */
+    @Test
+    void testGlaPreservesVectorsWithEmptyClustersAfterPhase1() {
+        // Create vectors that will result in one empty cluster after initial
+        // assignment
+        VectorSet vectors = createRandomVectorSet(30, 2);
+
+        // Use centroids that will cause C2 to be empty initially
+        InfiniteCentroids centroids = createInfiniteCentroids(
+                new double[][] {
+                        { 0.0, 0.0 }, // Cluster 1 - will get most vectors
+                        { 0.5, 0.5 }, // Cluster 2 - will be empty initially
+                        { 1.0, 1.0 } // Cluster 3 - will get some vectors
+                });
+
+        Partition partition = new Partition(3);
+        double[] dmin = new double[1];
+
+        Partition result = GLAEngine.gla(vectors, partition, centroids, dmin,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+
+        // Verify all 30 vectors are preserved (not lost due to premature
+        // removeEmpty)
+        VectorSet allVectors = new VectorSet();
+        result.copyAllTo(allVectors);
+        assertEquals(30, allVectors.size(),
+                "All vectors should be assigned even when clusters start empty");
+
+        // Verify the algorithm completed successfully
+        assertTrue(dmin[0] >= 0, "Distortion should be non-negative");
     }
 
     @Test

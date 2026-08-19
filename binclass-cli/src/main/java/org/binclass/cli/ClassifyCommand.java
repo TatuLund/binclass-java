@@ -109,7 +109,8 @@ public class ClassifyCommand implements BaseCommand {
 
         int safetyLimit = maxIter > 0 ? maxIter
                 : parseOptionInt(opts, "-F",
-                        "Invalid safety limit: " + opts.get("-F"));
+                        "Invalid safety limit: " + opts.get("-F"),
+                        500); // Default matches C code (safety_limit=500)
 
         int iterBase = parseOptionInt(opts, "-a",
                 "Invalid iter_base: " + opts.get("-a"));
@@ -269,14 +270,15 @@ public class ClassifyCommand implements BaseCommand {
             double sc = runGLAAndCalculateSC(vectorSet, partition, centroids,
                     config, k);
 
-            boolean converged = checkConvergenceAndUpdateBest(scmin, sc, k,
-                    partition, centroids, actualK, noImprovementCount, config);
-            if (converged) {
-                scmin = Math.min(scmin, sc);
+            // Always update scmin to track the best SC seen so far
+            if (sc < scmin) {
+                scmin = sc;
                 this.bestPartition = partition;
                 this.bestCentroids = centroids;
                 actualK = k;
                 noImprovementCount = 0;
+                log.debug("New best classification at k={}: SC={}, clusters={}",
+                        k, sc, partition.size());
             } else {
                 noImprovementCount++;
                 if (shouldTerminate(noImprovementCount, config)) {
@@ -302,26 +304,6 @@ public class ClassifyCommand implements BaseCommand {
 
         log.info("Best classification: k={}, SC={}", actualK, scmin);
         return this.bestPartition;
-    }
-
-    /**
-     * Calculates stochastic complexity for single-cluster case using the
-     * configured distance metric.
-     */
-    private static double calculateStochasticComplexity(Partition partition,
-            InfiniteCentroids centroids, int distanceType) {
-        double totalDistortion = 0;
-        for (int i = 1; i <= partition.size(); i++) {
-            var elements = partition.getElements(i);
-            if (!elements.isEmpty()) {
-                Centroid centroid = centroids.get(i - 1);
-                for (BinaryVector bv : elements) {
-                    totalDistortion += calculateDistance(bv, centroid,
-                            distanceType);
-                }
-            }
-        }
-        return totalDistortion;
     }
 
     /**
@@ -391,7 +373,7 @@ public class ClassifyCommand implements BaseCommand {
 
         // Calculate stochastic complexity or best code length based on flag
         double sc;
-        int numClusters = Math.min(k + 1, partition.size());
+        int numClusters = partition.size();
 
         // Propagate GLAConfig flags to DistanceCalculator for codelength
         // calculations
@@ -407,57 +389,26 @@ public class ClassifyCommand implements BaseCommand {
                 sc = 0.0; // Fallback for empty partitions
             }
         } else {
-            boolean hasEnoughClusters = true;
-            for (int i = 1; i <= numClusters && hasEnoughClusters; i++) {
-                if (partition.getSize(i) == 0) {
-                    hasEnoughClusters = false;
+            // Always use proper stochastic complexity calculation
+            // Use actual number of non-empty clusters for accurate SC
+            int actualClusters = 0;
+            for (int i = 1; i <= numClusters; i++) {
+                if (partition.getSize(i) > 0) {
+                    actualClusters++;
                 }
             }
 
-            if (!hasEnoughClusters || numClusters < 2) {
-                sc = calculateStochasticComplexity(partition, centroids,
-                        config.distanceType());
-            } else {
-                sc = DistanceCalculator.stochasticComplexity(
-                        partition, numClusters, vectorSet.getVectorLength(),
-                        config.jeffreysPrior());
-            }
+            sc = DistanceCalculator.stochasticComplexity(
+                    partition, actualClusters, vectorSet.getVectorLength(),
+                    config.jeffreysPrior());
+
+            log.debug(
+                    "SC calculation: k={}, actualClusters={}, l={}, jeffreys={}",
+                    numClusters, actualClusters, vectorSet.getVectorLength(),
+                    config.jeffreysPrior());
         }
 
         return sc;
-    }
-
-    /**
-     * Check convergence and update best classification if improved.
-     */
-    private boolean checkConvergenceAndUpdateBest(double scmin, double sc,
-            int k,
-            Partition partition, InfiniteCentroids centroids, int actualK,
-            int noImprovementCount, GLAConfig config) {
-        double prevScmin = scmin;
-        scmin = Math.min(scmin, sc);
-        boolean converged = (config.epsilon() > 0)
-                && (Math.abs(sc - prevScmin) < config.epsilon());
-
-        log.info("k={}: SC={}, clusters={}, distType={}{}", k, sc,
-                partition.size(), config.distanceType(),
-                converged ? " [CONVERGED]" : "");
-
-        if (sc < scmin || !converged) {
-            this.bestPartition = partition;
-            this.bestCentroids = centroids;
-            actualK = k;
-            noImprovementCount = 0;
-            log.debug("New best classification at k={}: SC={}, clusters={}", k,
-                    sc, partition.size());
-        } else {
-            noImprovementCount++;
-            if (shouldTerminate(noImprovementCount, config)) {
-                return true; // Signal termination
-            }
-        }
-
-        return converged;
     }
 
     /**
@@ -467,30 +418,6 @@ public class ClassifyCommand implements BaseCommand {
         int maxSteps = config.kstopwhen() > 0 ? config.kstopwhen()
                 : Integer.MAX_VALUE;
         return noImprovementCount >= maxSteps;
-    }
-
-    /**
-     * Calculates distance between a vector and centroid using the configured
-     * distance type. Dispatches to DistanceCalculator methods.
-     *
-     * @param bv
-     *            the binary vector
-     * @param centroid
-     *            the centroid
-     * @param distanceType
-     *            1=Hamming, 2=L1 (Manhattan), 3=L2 (Euclidean squared),
-     *            4=Shannon codelength
-     * @return the computed distance
-     */
-    private static double calculateDistance(BinaryVector bv, Centroid centroid,
-            int distanceType) {
-        return switch (distanceType) {
-        case 1 -> DistanceCalculator.hammingDistance(bv, centroid);
-        case 2 -> DistanceCalculator.l1Distance(bv, centroid);
-        case 3 -> DistanceCalculator.l2Distance(bv, centroid);
-        case 4 -> DistanceCalculator.codeLength(bv, centroid);
-        default -> DistanceCalculator.hammingDistance(bv, centroid);
-        };
     }
 
     /**
@@ -506,7 +433,7 @@ public class ClassifyCommand implements BaseCommand {
                                                                 // bounded
             int clusterSize = partition.getSize(clusterIdx);
             double entropy = calculateEntropy(centroid);
-            log.debug("Cluster {}: size={}, entropy={:.4f}", i + 1, clusterSize,
+            log.debug("Cluster {}: size={}, entropy={}", i + 1, clusterSize,
                     entropy);
         }
     }

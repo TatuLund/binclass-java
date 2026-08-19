@@ -284,10 +284,13 @@ public final class GLAEngine {
                     "Need at least one centroid for GLA");
         }
 
-        // Phase 1: Initial assignment using Shannon codelength
-        NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
-                false);
-        removeEmpty(partition, centroids);
+        // Phase 1: Initial assignment using MAE (L1 distance) - matches
+        // original C code
+        NearestNeighbor.maeNearestNeighbor(vectors, partition, centroids);
+
+        // Don't remove empty clusters here - keep them for proper iteration.
+        // Only remove empties at convergence time like the original C code
+        // does.
 
         // Apply trashcan outlier detection if enabled
         applyTrashcan(vectors, centroids, config);
@@ -295,12 +298,17 @@ public final class GLAEngine {
         // Recompute centroids from assignments (excludes trashcan vectors)
         recomputeCentroids(partition, centroids, config.rounded(), config.n());
 
-        double d = averageCodelength(partition, centroids, config.weights());
+        // Unweighted for Phase 1 baseline
+        double d = averageCodelength(partition, centroids, false);
 
         // Phase 2: Iterative refinement with weighted codelength
         boolean improvement = true;
         int iter = 0;
         int maxIter = config.maxIter() > 0 ? config.maxIter() : MAX_ITERATIONS;
+
+        // Start with larger epsilon for faster convergence
+        double epsilon = config.epsilon() > 0 ? config.epsilon() : 0.1;
+
         while (improvement && iter < maxIter) {
             iter++;
 
@@ -314,17 +322,40 @@ public final class GLAEngine {
             // Preserve current assignments before clearing for the next pass.
             vectors = partitionToSet(partition);
             clearPartition(partition, k);
-            // Use unweighted assignment to avoid bias toward larger clusters
-            NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
-                    false);
 
             // Re-apply trashcan detection each iteration
             applyTrashcan(vectors, centroids, config);
 
-            double nd = averageCodelength(partition, centroids,
-                    config.weights());
-            if (Math.abs(nd - d) > AlgorithmConfig.CONVERGENCE_EPSILON) {
+            // Phase 2 always uses weighted assignment per original C code
+            NearestNeighbor.infNearestNeighbor(vectors, partition, centroids,
+                    true);
+
+            // Recalculate centroid weights after reassignment before computing
+            // nd
+            recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
+
+            double nd = averageCodelength(partition, centroids, true);
+
+            // Debug: show cluster sizes and weights for first few iterations
+            if (iter <= 3) {
+                StringBuilder debugSb = new StringBuilder();
+                for (int i = 1; i <= k && i <= 5; i++) {
+                    Centroid c = centroids.get(i - 1);
+                    int size = partition.getSize(i);
+                    double weight = c.getWeight();
+                    debugSb.append(String.format("C%d: size=%d, weight=%.4f ",
+                            i, size, weight));
+                }
+            }
+
+            // Log precise diff to see if it's truly zero or just very small
+            double diff = Math.abs(nd - d);
+
+            if (diff > epsilon) {
                 d = nd;
+                // Decrease epsilon for next iteration to allow more refinement
+                epsilon *= 0.5;
             } else {
                 improvement = false;
             }
@@ -928,7 +959,17 @@ public final class GLAEngine {
                     "Adjusting centroids from {} to {} (empty cluster removal)",
                     centroids.size(), newK);
 
-            // Remove empty centroids from the end
+            // Remove empty centroids by shifting left and compacting
+            int writeIdx = 0;
+            for (int readIdx = 0; readIdx < centroids.size(); readIdx++) {
+                if (partition.getSize(readIdx + 1) > 0) {
+                    if (writeIdx != readIdx) {
+                        centroids.set(writeIdx, centroids.get(readIdx));
+                    }
+                    writeIdx++;
+                }
+            }
+            // Remove remaining centroids from the end
             while (centroids.size() > newK) {
                 centroids.remove(centroids.size() - 1);
             }
@@ -942,15 +983,6 @@ public final class GLAEngine {
         } else {
             logger.debug("Partition size already matches: {}", newK);
         }
-
-        // Log cluster sizes for debugging
-        StringBuilder sb = new StringBuilder();
-        for (int i = 1; i <= partition.size(); i++) {
-            if (i > 1)
-                sb.append(", ");
-            sb.append("C").append(i).append("=").append(partition.getSize(i));
-        }
-        logger.debug("Cluster sizes: [{}]", sb);
 
         logger.debug("Partition now has {} non-empty clusters", newK);
     }
@@ -1030,7 +1062,8 @@ public final class GLAEngine {
             }
 
             // Set weight as class frequency ratio
-            centroid.setWeight((double) classSize / n);
+            int effectiveN = (n > 0) ? n : classSize;
+            centroid.setWeight((double) classSize / effectiveN);
         }
     }
 

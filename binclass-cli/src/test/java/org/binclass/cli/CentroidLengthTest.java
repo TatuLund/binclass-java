@@ -48,7 +48,7 @@ class CentroidLengthTest {
 
             when(GLAEngine.gla(any(), any(), centroidsCaptor.capture(), any(),
                     any()))
-                            .thenReturn(resultPartition);
+                    .thenReturn(resultPartition);
 
             // Execute - should complete without IndexOutOfBoundsException
             int result = command.execute(args);
@@ -87,7 +87,7 @@ class CentroidLengthTest {
 
             when(GLAEngine.gla(any(), any(), centroidsCaptor.capture(), any(),
                     any()))
-                            .thenReturn(resultPartition);
+                    .thenReturn(resultPartition);
 
             // Execute - should complete successfully
             int result = command.execute(args);
@@ -122,7 +122,7 @@ class CentroidLengthTest {
 
             when(GLAEngine.gla(any(), any(), centroidsCaptor.capture(), any(),
                     any()))
-                            .thenReturn(resultPartition);
+                    .thenReturn(resultPartition);
 
             // Execute - should complete successfully
             int result = command.execute(args);
@@ -157,7 +157,7 @@ class CentroidLengthTest {
 
             when(GLAEngine.gla(any(), any(), centroidsCaptor.capture(), any(),
                     any()))
-                            .thenReturn(resultPartition);
+                    .thenReturn(resultPartition);
 
             // Execute - should complete successfully
             int result = command.execute(args);
@@ -193,7 +193,7 @@ class CentroidLengthTest {
 
             when(GLAEngine.gla(any(), any(), centroidsCaptor.capture(), any(),
                     any()))
-                            .thenReturn(resultPartition);
+                    .thenReturn(resultPartition);
 
             // Execute - should complete successfully without
             // IndexOutOfBoundsException
