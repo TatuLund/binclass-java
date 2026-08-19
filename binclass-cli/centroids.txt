@@ -1,5 +1,6 @@
 # BinClass Centroid File
-# Number of centroids: 1
-# Vector length: 16
+# Number of centroids: 2
+# Vector length: 8
 
-Centroid 1: 0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5
+Centroid 1: 1.0,0.0,1.0,0.0,1.0,0.0,1.0,0.0
+Centroid 2: 0.0,1.0,0.0,1.0,0.0,1.0,0.0,1.0

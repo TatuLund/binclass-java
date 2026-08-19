@@ -16,6 +16,25 @@ public class BinClass {
     private static final String APP_NAME = "BinClass";
 
     public static void main(String[] args) {
+        // Check for "command help" pattern first (e.g., "classify help")
+        if (args.length >= 3 && "help".equalsIgnoreCase(args[args.length - 1])) {
+            String command = args[1].toLowerCase();
+            CommandRegistry registry = new CommandRegistry();
+
+            if (!registry.hasCommand(command)) {
+                log.error("Unknown command: {}", command);
+                System.exit(1);
+            }
+
+            String helpText = new CliParser().helpTextForCommand(command);
+            System.out.println();
+            System.out.println("Usage: binclass " + command + " [options] <filebase>");
+            System.out.println();
+            System.out.println(helpText);
+            System.exit(0);
+        }
+
+        // General help or no args
         if (args.length < 1 || isHelpRequested(args)) {
             printUsage();
             return;
@@ -124,7 +143,7 @@ public class BinClass {
             case "test2" -> "Test algorithm 2 (semi-cumulative)";
             default -> "";
             };
-            log.info("  %-15s %s", cmd, desc);
+            log.info(String.format("  %-15s %s", cmd, desc));
         }
 
         log.info("");

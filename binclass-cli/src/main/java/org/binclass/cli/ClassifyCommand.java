@@ -398,6 +398,14 @@ public class ClassifyCommand implements BaseCommand {
                 }
             }
 
+            // If all clusters are empty, return a large SC value as fallback
+            if (actualClusters == 0) {
+                sc = Double.MAX_VALUE;
+                log.debug(
+                        "SC calculation: empty partition, returning MAX_VALUE");
+                return sc;
+            }
+
             sc = DistanceCalculator.stochasticComplexity(
                     partition, actualClusters, vectorSet.getVectorLength(),
                     config.jeffreysPrior());
