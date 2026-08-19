@@ -58,11 +58,36 @@ public final class PartitionWriter {
             var cluster = sorted.getElements(i);
             if (!cluster.isEmpty()) {
                 sb.append("Class ").append(i).append("\n");
-                // Write elements - using their indices or values
-                int idx = 0;
+                // Write elements in PIC format matching input data:
+                // classname (9 chars) + padding to col 15 + strain (7 chars) +
+                // padding to col 23 + binary string
                 for (var element : cluster) {
-                    sb.append(element.toString()).append("\n");
-                    idx++;
+                    String classname = "ESCH COLI";
+                    String strain = element.getStrain();
+
+                    // Build the line with proper alignment
+                    StringBuilder line = new StringBuilder();
+                    line.append(classname);
+                    // Pad to column 15 (idoffs)
+                    for (int j = classname.length(); j < 15; j++) {
+                        line.append(' ');
+                    }
+                    line.append(strain != null ? strain : "");
+                    // Pad to column 23 (vecoffs)
+                    int strainLen = strain != null ? strain.length() : 0;
+                    for (int j = 15 + strainLen; j < 23; j++) {
+                        line.append(' ');
+                    }
+
+                    // Append binary vector as continuous string of 0s and 1s
+                    for (int j = 0; j < element.getLength(); j++) {
+                        if (!element.isMissing(j)) {
+                            line.append(element.get(j));
+                        } else {
+                            line.append('x');
+                        }
+                    }
+                    sb.append(line).append("\n");
                 }
             }
         }

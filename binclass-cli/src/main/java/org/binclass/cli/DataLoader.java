@@ -85,8 +85,12 @@ public class DataLoader {
                     }
 
                     int[] values = FormatParser.parseVector(binaryStr);
+
+                    // Extract strain identifier from position idoffs to vecoffs
+                    String strain = extractStrain(line, header);
+
                     BinaryVector bv = new BinaryVector(values, 0, length, 0,
-                            null);
+                            strain != null ? strain : "");
                     vectorSet.addElement(bv);
                     loadedCount++;
                 }
@@ -94,6 +98,27 @@ public class DataLoader {
         }
 
         return vectorSet;
+    }
+
+    /**
+     * Extracts the strain identifier from a data line.
+     * 
+     * @param line
+     *            the complete line from the data file
+     * @param header
+     *            parsed format header with idoffs and vecoffs positions
+     * @return the strain identifier string, or empty string if not found
+     */
+    private static String extractStrain(String line,
+            FormatParser.Header header) {
+        int idoffs = header.getIdOffs() > 0 ? header.getIdOffs() : 15;
+        int vecoffs = header.getVecOffs() > 0 ? header.getVecOffs() : 23;
+
+        if (idoffs < line.length() && vecoffs <= line.length()) {
+            return line.substring(idoffs, Math.min(vecoffs, line.length()))
+                    .trim();
+        }
+        return "";
     }
 
     /**

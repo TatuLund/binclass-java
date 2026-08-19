@@ -17,7 +17,8 @@ public class BinClass {
 
     public static void main(String[] args) {
         // Check for "command help" pattern first (e.g., "classify help")
-        if (args.length >= 3 && "help".equalsIgnoreCase(args[args.length - 1])) {
+        if (args.length >= 3
+                && "help".equalsIgnoreCase(args[args.length - 1])) {
             String command = args[1].toLowerCase();
             CommandRegistry registry = new CommandRegistry();
 
@@ -28,7 +29,8 @@ public class BinClass {
 
             String helpText = new CliParser().helpTextForCommand(command);
             System.out.println();
-            System.out.println("Usage: binclass " + command + " [options] <filebase>");
+            System.out.println(
+                    "Usage: binclass " + command + " [options] <filebase>");
             System.out.println();
             System.out.println(helpText);
             System.exit(0);

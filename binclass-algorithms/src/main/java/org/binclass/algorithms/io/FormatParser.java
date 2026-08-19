@@ -78,6 +78,7 @@ public final class FormatParser {
         int nVectors = -1;
         int length = -1;
         int vecOffs = 0;
+        int idOffs = 15; // Default ID offset
 
         String[] lines = content.split("\\n");
         for (String line : lines) {
@@ -100,6 +101,9 @@ public final class FormatParser {
                     int parsedVecOffs = Integer.parseInt(value);
                     vecOffs = parsedVecOffs;
                 }
+                case "idoffs" -> {
+                    idOffs = Integer.parseInt(value);
+                }
                 default -> {
                     /* ignore other keys */ }
                 }
@@ -113,7 +117,7 @@ public final class FormatParser {
 
         // If n_vectors not in header, use -1 to indicate it should be
         // determined from data file
-        return new Header(nVectors, length, null, vecOffs);
+        return new Header(nVectors, length, null, vecOffs, idOffs);
     }
 
     /**
@@ -321,6 +325,7 @@ public final class FormatParser {
         private final String[] strains; // Optional strain identifiers
         private final int vecOffs; // Offset to start of binary portion in data
                                    // lines
+        private final int idOffs; // Offset to start of ID string
 
         /**
          * Creates a new Header with the given metadata.
@@ -349,10 +354,31 @@ public final class FormatParser {
          *            offset to start of binary portion in data lines
          */
         public Header(int nVectors, int length, String[] strains, int vecOffs) {
+            this(nVectors, length, strains, vecOffs, 15); // Default idOffs=15
+        }
+
+        /**
+         * Creates a new Header with the given metadata including vecOffs and
+         * idOffs.
+         *
+         * @param nVectors
+         *            total number of vectors in the dataset
+         * @param length
+         *            length of each binary vector (number of bits)
+         * @param strains
+         *            optional strain identifiers, or null if not present
+         * @param vecOffs
+         *            offset to start of binary portion in data lines
+         * @param idOffs
+         *            offset to start of ID string
+         */
+        public Header(int nVectors, int length, String[] strains, int vecOffs,
+                int idOffs) {
             this.nVectors = nVectors;
             this.length = length;
             this.strains = strains != null ? strains.clone() : null;
             this.vecOffs = vecOffs;
+            this.idOffs = idOffs;
         }
 
         /**
@@ -380,6 +406,15 @@ public final class FormatParser {
          */
         public int getVecOffs() {
             return vecOffs;
+        }
+
+        /**
+         * Returns the offset to start of ID string.
+         *
+         * @return idOffs value from header metadata
+         */
+        public int getIdOffs() {
+            return idOffs;
         }
 
         /**

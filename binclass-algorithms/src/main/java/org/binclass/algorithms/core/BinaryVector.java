@@ -53,11 +53,15 @@ public final class BinaryVector {
      */
     public BinaryVector(int[] el, int miss, int length, int classname,
             String strain) {
+        if (strain == null) {
+            throw new IllegalArgumentException(
+                    "Strain identifier cannot be null");
+        }
         this.el = Arrays.copyOf(el, el.length);
         this.miss = miss;
         this.length = length;
         this.classname = classname;
-        this.strain = strain != null ? strain : "";
+        this.strain = strain;
     }
 
     /**
