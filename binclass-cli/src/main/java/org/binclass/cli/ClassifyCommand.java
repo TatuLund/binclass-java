@@ -27,11 +27,10 @@ public class ClassifyCommand implements BaseCommand {
     private static final Logger log = LoggerFactory
             .getLogger(ClassifyCommand.class);
 
-    /** Best partition found during range search */
-    private Partition bestPartition;
-
-    /** Centroids from the best classification */
-    private InfiniteCentroids bestCentroids;
+    /** Result of a range search: best partition and its centroids. */
+    private record SearchResult(Partition partition,
+            InfiniteCentroids centroids) {
+    }
 
     @Override
     public String getName() {
@@ -43,22 +42,54 @@ public class ClassifyCommand implements BaseCommand {
         return "Classify vectors using Generalized Lloyd Algorithm (GLA)";
     }
 
+    /**
+     * Parse and validate the starting number of clusters ({@code -b}). Defaults
+     * to 1 when not provided.
+     *
+     * @param opts
+     *            command options
+     * @return a positive cluster count
+     */
+    private int parseKStart(Map<String, String> opts) {
+        if (!opts.containsKey("-b")) {
+            return 1;
+        }
+        try {
+            int kstart = Integer.parseInt(opts.get("-b"));
+            if (kstart < 1) {
+                throw new IllegalArgumentException("kstart must be >= 1");
+            }
+            return kstart;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "Invalid kstart value: " + opts.get("-b"), e);
+        }
+    }
+
+    /**
+     * Parse and validate the convergence threshold ({@code -E}). The value must
+     * satisfy {@code 0 < epsilon < 0.5}.
+     *
+     * @param opts
+     *            command options
+     * @return a valid epsilon value, defaulting to {@code 0.001}
+     */
+    private double parseEpsilon(Map<String, String> opts) {
+        double epsilon = parseOptionDouble(opts, "-E",
+                "Invalid epsilon value: " + opts.get("-E"), 0.001);
+        if (epsilon <= 0 || epsilon >= 0.5) {
+            throw new IllegalArgumentException(
+                    "Invalid epsilon value: " + opts.get("-E"));
+        }
+        return epsilon;
+    }
+
     @Override
     public int execute(CliParser.CommandArgs args) throws Exception {
         Map<String, String> opts = args.options();
 
         // Parse options
-        int kstart = 1;
-        if (opts.containsKey("-b")) {
-            try {
-                kstart = Integer.parseInt(opts.get("-b"));
-                if (kstart < 1)
-                    throw new IllegalArgumentException("kstart must be >= 1");
-            } catch (NumberFormatException _) {
-                throw new IllegalArgumentException(
-                        "Invalid kstart value: " + opts.get("-b"));
-            }
-        }
+        int kstart = parseKStart(opts);
 
         int kstop = parseOptionInt(opts, "-s",
                 "Invalid kstop value: " + opts.get("-s"));
@@ -66,14 +97,7 @@ public class ClassifyCommand implements BaseCommand {
         int kstopwhen = parseOptionInt(opts, "-S",
                 "Invalid kstopwhen value: " + opts.get("-S"));
 
-        double epsilon = parseOptionDouble(opts, "-E",
-                "Invalid epsilon value: " + opts.get("-E"), 0.001);
-
-        // Validate epsilon is within reasonable range (0 < epsilon < 0.5)
-        if (epsilon <= 0 || epsilon >= 0.5) {
-            throw new IllegalArgumentException(
-                    "Invalid epsilon value: " + opts.get("-E"));
-        }
+        double epsilon = parseEpsilon(opts);
 
         setupVerboseMode(opts);
 
@@ -184,9 +208,9 @@ public class ClassifyCommand implements BaseCommand {
         );
 
         // Run GLA for each k value and track best classification
-        Partition finalPartition = runRangeSearch(vectorSet, kstart, kEnd,
-                config);
+        SearchResult result = runRangeSearch(vectorSet, kstart, kEnd, config);
 
+        Partition finalPartition = result.partition();
         if (finalPartition == null) {
             log.warn("No partition found during range search");
             return 1;
@@ -195,44 +219,17 @@ public class ClassifyCommand implements BaseCommand {
         log.info("GLA completed with {} clusters", finalPartition.size());
         log.info("Final number of clusters: {}", finalPartition.size());
 
-        // Write centroids to file if -L specified
         if (centroidFile != null) {
-            try {
-                Path path = Path.of(centroidFile);
-                Path parent = path.getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
-                }
-
-                if (bestCentroids != null) {
-                    CentroidWriter.save(bestCentroids, centroidFile);
-                    log.info("Best partition written to {}", centroidFile);
-                } else {
-                    log.warn("No centroids available for writing");
-                }
-            } catch (IOException e) {
-                log.warn("Failed to write best partition to {}: {}",
-                        centroidFile,
-                        e.getMessage());
-                return 1;
+            int code = writeCentroids(result.centroids(), centroidFile);
+            if (code != 0) {
+                return code;
             }
         }
 
-        // Write partition data to file if -P specified
-        if (partitionFile != null && finalPartition != null) {
-            try {
-                Path path = Path.of(partitionFile);
-                Path parent = path.getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
-                }
-
-                PartitionWriter.writePartition(finalPartition, partitionFile);
-                log.info("Partition written to {}", partitionFile);
-            } catch (IOException e) {
-                log.warn("Failed to write partition to {}: {}", partitionFile,
-                        e.getMessage());
-                return 1;
+        if (partitionFile != null) {
+            int code = writePartition(finalPartition, partitionFile);
+            if (code != 0) {
+                return code;
             }
         }
 
@@ -240,11 +237,71 @@ public class ClassifyCommand implements BaseCommand {
     }
 
     /**
+     * Save the best centroids to a file.
+     *
+     * @param centroids
+     *            the centroids to persist, may be {@code null}
+     * @param centroidFile
+     *            destination path
+     * @return exit code ({@code 0} on success, {@code 1} on failure)
+     */
+    private int writeCentroids(InfiniteCentroids centroids,
+            String centroidFile) {
+        try {
+            Path path = Path.of(centroidFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            if (centroids == null) {
+                log.warn("No centroids available for writing");
+                return 1;
+            }
+
+            CentroidWriter.save(centroids, centroidFile);
+            log.info("Best partition written to {}", centroidFile);
+            return 0;
+        } catch (IOException e) {
+            log.warn("Failed to write best partition to {}: {}", centroidFile,
+                    e.getMessage());
+            return 1;
+        }
+    }
+
+    /**
+     * Write a partition to a file.
+     *
+     * @param partition
+     *            the partition to persist
+     * @param partitionFile
+     *            destination path
+     * @return exit code ({@code 0} on success, {@code 1} on failure)
+     */
+    private int writePartition(Partition partition, String partitionFile) {
+        try {
+            Path path = Path.of(partitionFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            PartitionWriter.writePartition(partition, partitionFile);
+            log.info("Partition written to {}", partitionFile);
+            return 0;
+        } catch (IOException e) {
+            log.warn("Failed to write partition to {}: {}", partitionFile,
+                    e.getMessage());
+            return 1;
+        }
+    }
+
+    /**
      * Runs GLA for each k value from kstart to kstop, tracking stochastic
      * complexity. Mirrors the C function search_classes_nonautomatic() from
      * classify.c.
      */
-    private Partition runRangeSearch(
+    private SearchResult runRangeSearch(
             VectorSet vectorSet,
             int kstart,
             int kstop,
@@ -254,9 +311,8 @@ public class ClassifyCommand implements BaseCommand {
         int actualK = kstart;
         int noImprovementCount = 0;
         InfiniteCentroids centroids = null; // Declare outside loop for logging
-
-        bestPartition = null;
-        bestCentroids = null;
+        Partition bestPartition = null;
+        InfiniteCentroids bestCentroids = null;
 
         // Get the actual vector length from the first vector in the set
         int vectorLength = vectorSet.size() > 0
@@ -268,42 +324,42 @@ public class ClassifyCommand implements BaseCommand {
             Partition partition = initializePartition(vectorSet, k, centroids);
 
             double sc = runGLAAndCalculateSC(vectorSet, partition, centroids,
-                    config, k);
+                    config);
 
             // Always update scmin to track the best SC seen so far
             if (sc < scmin) {
                 scmin = sc;
-                this.bestPartition = partition;
-                this.bestCentroids = centroids;
+                bestPartition = partition;
+                bestCentroids = centroids;
                 actualK = k;
                 noImprovementCount = 0;
                 log.debug("New best classification at k={}: SC={}, clusters={}",
                         k, sc, partition.size());
             } else {
                 noImprovementCount++;
-                if (shouldTerminate(noImprovementCount, config)) {
-                    break;
-                }
             }
 
-            if (k - kstart >= config.safetyLimit()) {
-                log.info("Safety limit reached at k={}", k);
+            boolean reachedSafetyLimit = k - kstart >= config.safetyLimit();
+            if (shouldTerminate(noImprovementCount, config)
+                    || reachedSafetyLimit) {
+                if (reachedSafetyLimit) {
+                    log.info("Safety limit reached at k={}", k);
+                }
                 break;
             }
         }
 
         // Log centroid info if enabled
-        if (this.bestPartition != null) {
-            logCentroidInfo(this.bestPartition, centroids,
-                    config.logCentroids());
+        if (bestPartition != null) {
+            logCentroidInfo(bestPartition, centroids, config.logCentroids());
         }
 
-        if (this.bestPartition == null) {
-            this.bestPartition = new Partition(kstart + 1);
+        if (bestPartition == null) {
+            bestPartition = new Partition(kstart + 1);
         }
 
         log.info("Best classification: k={}, SC={}", actualK, scmin);
-        return this.bestPartition;
+        return new SearchResult(bestPartition, bestCentroids);
     }
 
     /**
@@ -328,7 +384,7 @@ public class ClassifyCommand implements BaseCommand {
      */
     private double runGLAAndCalculateSC(VectorSet vectorSet,
             Partition partition,
-            InfiniteCentroids centroids, GLAConfig config, int k) {
+            InfiniteCentroids centroids, GLAConfig config) {
         // Calculate minimum distortion array
         double[] dmin = new double[1];
 
