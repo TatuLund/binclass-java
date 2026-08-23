@@ -9,6 +9,7 @@ import java.util.List;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.io.FormatParser;
+import org.binclass.algorithms.util.MathUtils;
 
 /**
  * Utility class for loading binary vector data from files.
@@ -96,6 +97,12 @@ public class DataLoader {
                 }
             }
         }
+
+        // Pre-build the log2-factorial lookup table once, sized to cover every
+        // stochastic-complexity index (cluster sizes / bit frequencies up to
+        // ~n).
+        // Mirrors C read_set(): prepare_log2_factorials((n+n)) in binset.c.
+        MathUtils.prepareLog2Factorials(vectorSet.size() + vectorSet.size());
 
         return vectorSet;
     }

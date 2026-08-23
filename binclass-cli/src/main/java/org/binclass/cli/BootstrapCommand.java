@@ -10,6 +10,7 @@ import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.slf4j.Logger;
@@ -178,8 +179,19 @@ public class BootstrapCommand implements BaseCommand {
                 GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
             }
 
-            // Calculate stochastic complexity for this trial
-            double sc = calculateStochasticComplexity(partition, centroids);
+            // Calculate stochastic complexity for this trial using the shared
+            // implementation (Jeffreys/uniform prior per -J), matching how
+            // ClassifyCommand scores partitions. Mirrors C bootstraper():
+            // sc = stochastic_complexity(P1, k, l). SC is only defined when at
+            // least two clusters are non-empty; a degenerate single-cluster
+            // result is treated as the worst model (MAX_VALUE), mirroring how
+            // ClassifyCommand scores empty partitions.
+            int nonEmptyClusters = countNonEmptyClusters(partition);
+            double sc = nonEmptyClusters >= 2
+                    ? DistanceCalculator.stochasticComplexity(
+                            partition, nonEmptyClusters,
+                            vectorSet.getVectorLength(), jeffreysPrior)
+                    : Double.MAX_VALUE;
             scValues.add(sc);
             partitions.add(partition);
 
@@ -206,43 +218,25 @@ public class BootstrapCommand implements BaseCommand {
     }
 
     /**
-     * Calculates stochastic complexity for a partition.
+     * Counts the number of non-empty clusters in a partition.
+     * <p>
+     * Stochastic complexity is only defined for partitions with at least two
+     * populated clusters, so this mirrors the actual cluster count used when
+     * scoring via {@link DistanceCalculator#stochasticComplexity}.
+     * </p>
+     *
+     * @param partition
+     *            the partition to inspect (1-based cluster indices)
+     * @return number of clusters containing at least one vector
      */
-    private static double calculateStochasticComplexity(Partition partition,
-            InfiniteCentroids centroids) {
-        double totalDistortion = 0;
+    private static int countNonEmptyClusters(Partition partition) {
+        int nonEmpty = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            var elements = partition.getElements(i);
-            if (!elements.isEmpty()) {
-                Centroid centroid = centroids.get(i - 1);
-                for (BinaryVector bv : elements) {
-                    totalDistortion += calculateDistance(bv, centroid);
-                }
+            if (partition.getSize(i) > 0) {
+                nonEmpty++;
             }
         }
-
-        // SC = distortion + complexity penalty
-        double sc = totalDistortion
-                + partition.size() * Math.log(partition.size());
-        return sc;
-    }
-
-    /**
-     * Calculates Hamming distance between a vector and centroid.
-     */
-    private static double calculateDistance(BinaryVector bv,
-            Centroid centroid) {
-        int[] el = bv.getEl();
-        int length = Math.min(el.length, centroid.getLength());
-        int distance = 0;
-        for (int i = 0; i < length; i++) {
-            double centroidVal = centroid.getElement(i);
-            int centroidBit = centroidVal >= 0.5 ? 1 : 0;
-            if (el[i] != centroidBit) {
-                distance++;
-            }
-        }
-        return distance;
+        return nonEmpty;
     }
 
     /**

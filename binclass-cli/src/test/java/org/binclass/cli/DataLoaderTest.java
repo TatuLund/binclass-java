@@ -10,10 +10,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import java.lang.reflect.Field;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.util.MathUtils;
 
 /**
  * Tests for {@link DataLoader} covering vector loading from files with various
@@ -428,6 +431,48 @@ final class DataLoaderTest {
                 tempDir.resolve("test").toString());
 
         assertEquals(100, result.size());
+    }
+
+    @Test
+    void loadVectorsPreparesLog2FactorialsTable() throws Exception {
+        // Regression guard: DataLoader.loadVectors() must eagerly build the
+        // log2-factorial lookup table so downstream stochastic-complexity
+        // calculations never trigger repeated lazy reallocation. If this call
+        // is ever removed, LOG2_FACTORIALS stays null and the assertion fails.
+        Field field = MathUtils.class.getDeclaredField("LOG2_FACTORIALS");
+        boolean wasAccessible = field.isAccessible();
+        field.setAccessible(true);
+        try {
+            field.set(null, null);
+
+            Files.writeString(tempDir.resolve("test.hdr"), "3 5");
+            StringBuilder sb = new StringBuilder();
+            sb.append("10101\n");
+            sb.append("01010\n");
+            sb.append("11000\n");
+            Files.writeString(tempDir.resolve("test.data"), sb.toString());
+
+            VectorSet result = DataLoader.loadVectors(
+                    tempDir.resolve("test").toString());
+
+            // Mirrors C read_set(): prepare_log2_factorials((n+n)).
+            int expectedLength = 2 * result.size();
+            double[] table = (double[]) field.get(null);
+
+            assertNotNull(table, "DataLoader must populate LOG2_FACTORIALS");
+            assertEquals(expectedLength, table.length,
+                    "log2-factorial table should be sized to 2*n vectors");
+
+            // Verify known values: log2(n!) for small n.
+            assertEquals(0.0, table[0], 1e-10); // log2(0!) = 0
+            assertEquals(0.0, table[1], 1e-10); // log2(1!) = 0
+            assertEquals(Math.log(2) / Math.log(2), table[2], 1e-10); // log2(2!)
+                                                                      // = 1
+            assertEquals(Math.log(6) / Math.log(2), table[3], 1e-10); // log2(3!)
+                                                                      // ≈ 2.585
+        } finally {
+            field.setAccessible(wasAccessible);
+        }
     }
 
     /**

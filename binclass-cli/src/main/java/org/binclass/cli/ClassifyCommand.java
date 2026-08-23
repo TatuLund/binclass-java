@@ -15,7 +15,6 @@ import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.binclass.algorithms.io.CentroidWriter;
 import org.binclass.algorithms.io.PartitionWriter;
-import org.binclass.algorithms.util.MathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,13 +163,10 @@ public class ClassifyCommand implements BaseCommand {
         log.info("  Distance type: {}", distanceType);
         log.info("  Heuristic count: {}", heuristicCount);
 
-        // Load vectors from data files
+        // Load vectors from data files. This also pre-builds the log2-factorial
+        // lookup table, sized to cover every stochastic-complexity index
+        // (mirrors C read_set(): prepare_log2_factorials((n+n)) in binset.c).
         VectorSet vectorSet = DataLoader.loadVectors(filebase);
-
-        // Initialize log factorials for stochastic complexity calculations
-        // (mirrors C code: prepare_log2_factorials(n+n) in binset.c)
-        int n = vectorSet.size();
-        MathUtils.prepareLog2Factorials((n + n));
 
         // Determine search range (kstart..kstop)
         int kEnd = kstop > 0 ? kstop : kstart;

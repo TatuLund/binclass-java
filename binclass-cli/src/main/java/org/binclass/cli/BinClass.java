@@ -14,7 +14,9 @@ public class BinClass {
             .getLogger(BinClass.class);
     private static final String VERSION = "3.0-SNAPSHOT";
     private static final String APP_NAME = "BinClass";
+    private static final String APP_NAME_LOWER = "binclass";
 
+    @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         // Check for "command help" pattern first (e.g., "classify help")
         if (args.length >= 3
@@ -79,7 +81,7 @@ public class BinClass {
     }
 
     private static BaseCommand instantiateCommand(CommandRegistry registry,
-            String command) throws Exception {
+            String command) throws ReflectiveOperationException {
         Class<? extends BaseCommand> cmdClass = registry
                 .getCommandClass(command);
         if (cmdClass == null) {
@@ -93,11 +95,13 @@ public class BinClass {
         } else {
             try {
                 return cmdClass.getDeclaredConstructor().newInstance();
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException e) {
                 log.error("Failed to instantiate {}: {}",
                         cmdClass.getSimpleName(), e.getMessage());
-                System.exit(1);
-                throw e;
+                throw new IllegalStateException(
+                        "Failed to instantiate command '"
+                                + cmdClass.getSimpleName() + "'",
+                        e);
             }
         }
     }
@@ -118,7 +122,7 @@ public class BinClass {
         log.info("Version: {}", VERSION);
         log.info("");
         log.info("Usage: {} <command> [options] <filebase>",
-                APP_NAME.toLowerCase());
+                APP_NAME_LOWER);
         log.info("");
 
         CommandRegistry registry = new CommandRegistry();
@@ -145,11 +149,12 @@ public class BinClass {
             case "test2" -> "Test algorithm 2 (semi-cumulative)";
             default -> "";
             };
-            log.info(String.format("  %-15s %s", cmd, desc));
+            if (log.isInfoEnabled()) {
+                log.info(String.format("  %-15s %s", cmd, desc));
+            }
         }
 
         log.info("");
-        log.info("Run '{}' <command> help' for command-specific help.",
-                APP_NAME.toLowerCase());
+        log.info("Run '<command> help' for command-specific help.");
     }
 }

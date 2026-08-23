@@ -600,48 +600,6 @@ class ClassifyCommandTest {
     }
 
     @Test
-    void testLogFactorialsInitialized() throws Exception {
-        // Setup - reset LOG2_FACTORIALS to simulate uninitialized state
-        java.lang.reflect.Field field = MathUtils.class
-                .getDeclaredField("LOG2_FACTORIALS");
-        field.setAccessible(true);
-        field.set(null, null);
-
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
-                VECTOR_LENGTH);
-
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
-
-            // Mock GLAEngine.gla to return immediately without executing actual
-            // algorithm logic
-            Partition resultPartition = new Partition(1);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute command - should initialize log factorials before calling
-            // GLA
-            int result = command.execute(args);
-            assertEquals(0, result);
-
-            // Verify the static field is populated after initialization
-            double[] storedArray = (double[]) field.get(null);
-            assertNotNull(storedArray, "LOG2_FACTORIALS should be populated");
-            assertTrue(storedArray.length >= 6,
-                    "LOG2_FACTORIALS array should have at least 7 elements (n+n=6)");
-
-            // Verify known values are correctly computed: log2(n!)
-            assertEquals(0.0, storedArray[0], 1e-10); // log2(0!) = 0
-            assertEquals(0.0, storedArray[1], 1e-10); // log2(1!) = 0
-            assertEquals(Math.log(2) / Math.log(2), storedArray[2], 1e-10); // log2(2!)
-                                                                            // =
-                                                                            // 1
-        }
-    }
-
-    @Test
     void testLogFactorialsDirectInitialization() throws Exception {
         // Directly test prepareLog2Factorials without going through command
         // execution
