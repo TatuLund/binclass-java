@@ -8,6 +8,7 @@ import java.util.Map;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.report.ReportGenerator;
+import org.binclass.algorithms.report.ReportOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,12 +60,22 @@ public class ReportCommand implements BaseCommand {
             }
         }
 
+        // Parse the remaining reporting switches. These map directly to C's
+        // parse_report() and are honoured by ReportGenerator:
+        // -d print_digits, -a affinity_matrix, -h use_hellinger.
+        boolean printDigits = opts.containsKey("-d");
+        boolean affinityMatrix = opts.containsKey("-a");
+        boolean useHellinger = opts.containsKey("-h");
+
         String filebase = opts.getOrDefault("filebase", args.command());
 
         log.info("Report command executed with:");
         log.info("  Filebase: {}", filebase);
         log.info("  Report params: {}", reportParams);
         log.info("  Class weights: {}", classWeights);
+        log.info("  Print digits: {}", printDigits);
+        log.info("  Affinity matrix: {}", affinityMatrix);
+        log.info("  Hellinger distance: {}", useHellinger);
 
         // Load vectors from data files
         var vectorSet = DataLoader.loadVectors(filebase);
@@ -89,9 +100,12 @@ public class ReportCommand implements BaseCommand {
             idx++;
         }
 
-        // Call ReportGenerator to generate the report
+        // Build reporting options from parsed switches and generate the report.
+        ReportOptions options = new ReportOptions(printDigits, affinityMatrix,
+                useHellinger, reportParams);
         var centroids = new InfiniteCentroids(2, vectorSet.getVectorLength());
-        var report = ReportGenerator.generateReport(partition, centroids);
+        var report = ReportGenerator.generateReport(partition, centroids,
+                options);
 
         log.info("Report generated successfully");
         log.info("Report size: {} bytes", report.length());

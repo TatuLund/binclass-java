@@ -11,6 +11,7 @@ import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.tree.TreeBuilder;
 
 /**
  * Generates statistical reports from classification output.
@@ -43,14 +44,11 @@ public final class ReportGenerator {
      * <p>
      * Equivalent to C function {@code generate_report()} from {@code report.c}.
      * Produces frequency tables, class nearness matrices, and summary
-     * statistics for all clusters in the partition. The report includes:
+     * statistics for all clusters in the partition. Which sections are emitted
+     * is controlled by
+     * {@link #generateReport(Partition, InfiniteCentroids, ReportOptions)} via
+     * the reporting-parameters bitmask.
      * </p>
-     * <ul>
-     * <li>Total frequencies across all vectors</li>
-     * <li>Per-class frequency breakdowns</li>
-     * <li>Class nearness matrix showing pairwise cluster similarity</li>
-     * <li>Size and species counts for each class</li>
-     * </ul>
      *
      * @param partition
      *            the partition to report on
@@ -60,6 +58,31 @@ public final class ReportGenerator {
      */
     public static String generateReport(Partition partition,
             InfiniteCentroids centroids) {
+        return generateReport(partition, centroids, ReportOptions.DEFAULT);
+    }
+
+    /**
+     * Generates a statistical report from classification output.
+     * <p>
+     * Equivalent to C function {@code generate_report()} from {@code report.c}.
+     * Produces frequency tables, class nearness matrices, and summary
+     * statistics for all clusters in the partition. The sections emitted are
+     * selected by {@link ReportOptions#reportParams}: a value of {@code 0}
+     * selects every section (matching C's {@code -p0}), while individual bits
+     * enable specific sections.
+     * </p>
+     *
+     * @param partition
+     *            the partition to report on
+     * @param centroids
+     *            the centroid array defining cluster probabilities
+     * @param options
+     *            reporting options controlling which sections are emitted and
+     *            how distances/digits are rendered
+     * @return a formatted string containing the statistical report
+     */
+    public static String generateReport(Partition partition,
+            InfiniteCentroids centroids, ReportOptions options) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
 
@@ -75,10 +98,12 @@ public final class ReportGenerator {
         // Collect frequencies across all vectors
         FrequencyList freqs = collectFrequencies(partition, k);
 
-        // Total frequencies section
-        sb.append("TOTAL FREQUENCIES:%n");
-        sb.append("-----------------%n%n");
-        writeFrequencies(sb, freqs, l);
+        // Total frequencies section (RP_TOTALFREQ)
+        if (options.showTotalFrequencies()) {
+            sb.append("TOTAL FREQUENCIES:%n");
+            sb.append("-----------------%n%n");
+            writeFrequencies(sb, freqs, l, options.printDigits());
+        }
 
         // Per-class breakdown
         sb.append("%nLIST OF CLASSES:%n");
@@ -88,13 +113,15 @@ public final class ReportGenerator {
             sb.append(String.format("Class: %d / %d%n", i, k - 1));
             sb.append(String.format("Size: %d%n", partition.getSize(i)));
 
-            // Compute class nearness with other clusters
-            if (k > 1) {
+            // Compute class nearness with other clusters when the nearness
+            // section is enabled (RP_NEARNESS)
+            if (options.showNearness()) {
                 double nearestDist = Double.MAX_VALUE;
                 int nearestClass = -1;
                 for (int j = 1; j <= k; j++) {
                     if (j != i) {
-                        double d = classNearness(partition, centroids, i, j);
+                        double d = classNearness(partition, centroids, i, j,
+                                options.useHellinger());
                         if (d < nearestDist) {
                             nearestDist = d;
                             nearestClass = j;
@@ -105,18 +132,21 @@ public final class ReportGenerator {
                         nearestDist));
             }
 
-            // Per-class frequencies
-            FrequencyList classFreqs = collectFrequenciesByClass(partition, i);
-            writeFrequencies(sb, classFreqs, l);
-            sb.append("%n");
+            // Per-class frequencies (RP_FREQ)
+            if (options.showPerClassFrequencies()) {
+                FrequencyList classFreqs = collectFrequenciesByClass(partition,
+                        i);
+                writeFrequencies(sb, classFreqs, l, options.printDigits());
+                sb.append("%n");
+            }
         }
 
-        // Class nearness matrix
-        if (k > 1) {
+        // Class nearness matrix (RP_NEARNESS)
+        if (options.showNearness()) {
             sb.append("%nCLASS NEARNESS MATRIX:%n");
             sb.append("---------------------%n%n");
             double[][] nearnessMatrix = generateNearnessMatrix(partition,
-                    centroids);
+                    centroids, options);
             writeNearnessMatrix(sb, nearnessMatrix, k);
         }
 
@@ -167,27 +197,38 @@ public final class ReportGenerator {
     /**
      * Computes the class nearness between two specific clusters in a partition.
      * <p>
-     * Helper method that compares two clusters by their centroid probabilities
-     * using Hamming distance as a similarity metric.
+     * Helper method that compares two clusters by their centroid probabilities.
+     * When {@code useHellinger} is set, uses Hellinger distance (a statistical
+     * distance between probability distributions); otherwise counts positions
+     * where the rounded probabilities differ (Hamming-like distance).
      * </p>
      *
      * @param partition
      *            the partition containing both clusters
      * @param centroids
      *            the centroid array defining cluster probabilities
-     * @param i
+     * @param clusterI
      *            1-based index of first cluster
-     * @param j
+     * @param clusterJ
      *            1-based index of second cluster
+     * @param useHellinger
+     *            when {@code true}, compute Hellinger distance between
+     *            centroids
      * @return the nearness distance between clusters i and j
      */
     private static double classNearness(Partition partition,
-            InfiniteCentroids centroids, int clusterI, int clusterJ) {
+            InfiniteCentroids centroids, int clusterI, int clusterJ,
+            boolean useHellinger) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
 
         Centroid ci = centroids.get(clusterI - 1);
         Centroid cj = centroids.get(clusterJ - 1);
+
+        if (useHellinger) {
+            return TreeBuilder.hellingerDistance(ci.getArray(), cj.getArray(),
+                    ci.getLength());
+        }
 
         // Compute Hamming-like distance between two centroids by comparing
         // their probabilities
@@ -261,7 +302,10 @@ public final class ReportGenerator {
      * <p>
      * Equivalent to C function {@code write_freqs()} from {@code report.c}.
      * Formats and outputs frequency information in a human-readable table
-     * format.
+     * format. When {@code printDigits} is set, appends a per-bit digit string
+     * (0/1/-) derived from each bit's probability, mirroring C's {@code -d}
+     * behaviour where values above 50% render as '1', below 50% as '0', and
+     * exactly 50% as '-'.
      * </p>
      *
      * @param sb
@@ -270,9 +314,12 @@ public final class ReportGenerator {
      *            the frequency list containing bit occurrence data
      * @param l
      *            the vector length (number of bits)
+     * @param printDigits
+     *            when {@code true}, emit per-bit digit strings after each
+     *            percentage line
      */
     private static void writeFrequencies(StringBuilder sb, FrequencyList freqs,
-            int l) {
+            int l, boolean printDigits) {
         for (int i = 1; i < l; i++) {
             int count = freqs.getCount(i);
             double percentage = count > 0
@@ -280,6 +327,22 @@ public final class ReportGenerator {
                     : 0.0;
             sb.append(String.format("  Bit %2d: %4d (%5.1f%%)%n", i, count,
                     percentage));
+
+            if (printDigits) {
+                double probability = freqs.getTotal() > 0
+                        ? (double) count / freqs.getTotal()
+                        : 0.0;
+                char digit;
+                if (probability > 0.5) {
+                    digit = '1';
+                } else if (probability < 0.5) {
+                    digit = '0';
+                } else {
+                    digit = '-';
+                }
+                sb.append(String.format("        %n          Digit: %c%n",
+                        digit));
+            }
         }
     }
 
@@ -289,23 +352,35 @@ public final class ReportGenerator {
      * Equivalent to C function {@code generate_nearness_matrix()} from
      * {@code report.c}. Computes pairwise similarity between all clusters and
      * stores results in a symmetric matrix where element [i][j] represents the
-     * nearness distance between clusters i and j.
+     * nearness distance between clusters i and j. When {@code affinityMatrix}
+     * is set, distances are transformed to {@code (l - d) / l} as in C; when
+     * {@code useHellinger} is set, Hellinger distance is used instead of the
+     * Hamming-based class nearness.
      * </p>
      *
      * @param partition
      *            the partition containing all clusters
      * @param centroids
      *            the centroid array defining cluster probabilities
+     * @param options
+     *            the reporting options controlling distance metric and scaling
      * @return a 2D array representing the nearness matrix (1-based indexing)
      */
     private static double[][] generateNearnessMatrix(Partition partition,
-            InfiniteCentroids centroids) {
+            InfiniteCentroids centroids, ReportOptions options) {
         int k = partition.size(); // 1-based count of clusters
+        boolean affinity = options.affinityMatrix();
         double[][] matrix = new double[k + 1][k + 1]; // 1-based indexing
 
         for (int i = 1; i <= k; i++) {
             for (int j = i + 1; j <= k; j++) {
-                double d = classNearness(partition, centroids, i, j);
+                double d = classNearness(partition, centroids, i, j,
+                        options.useHellinger());
+                if (affinity) {
+                    // Affinity transform: convert distance to a similarity in
+                    // [0, 1], mirroring C's generate_nearness_matrix().
+                    d = (partition.size() - d) / k;
+                }
                 matrix[i][j] = d;
                 matrix[j][i] = d; // Symmetric matrix
             }

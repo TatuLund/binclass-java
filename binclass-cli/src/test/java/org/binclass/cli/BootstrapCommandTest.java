@@ -4,20 +4,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.times;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.mockito.ArgumentCaptor;
 
@@ -55,7 +63,7 @@ public class BootstrapCommandTest {
             when(GLAEngine.gla(any(), any(), any(), any(), any()))
                     .thenReturn(resultPartition);
 
-            // Execute - should run default 5 bootstrap trials
+            // Execute - should run default 50 bootstrap trials (-N)
             int result = command.execute(args);
 
             assertEquals(0, result);
@@ -63,8 +71,9 @@ public class BootstrapCommandTest {
     }
 
     @Test
-    void testExecuteWithCustomBootstrapI() throws Exception {
-        // Setup - custom bootstrap iterations=3
+    void testResamplingCountDoesNotChangeTrialCount() throws Exception {
+        // Setup - -I controls the resampling analysis count, not the number of
+        // trials. Trial count is driven by -N (default 50).
         TestUtils.setupOptions(args, TestUtils.createOptions("-I", "3"));
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
@@ -77,10 +86,14 @@ public class BootstrapCommandTest {
             when(GLAEngine.gla(any(), any(), any(), any(), any()))
                     .thenReturn(resultPartition);
 
-            // Execute - should run 3 bootstrap trials
+            // Execute
             int result = command.execute(args);
 
             assertEquals(0, result);
+
+            // -I must not affect trial count: default -N=50 trials still run.
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), any()), times(50));
         }
     }
 
@@ -223,8 +236,9 @@ public class BootstrapCommandTest {
 
     @Test
     void testExecuteWithEpsilon() throws Exception {
-        // Setup - epsilon=0.01 for convergence threshold
-        TestUtils.setupOptions(args, TestUtils.createOptions("-E", "0.01"));
+        // Setup - epsilon=0.01 for convergence threshold; -N fixes trial count
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-E", "0.01", "-N", "5"));
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
         try (var mockedLoader = mockStatic(DataLoader.class);
@@ -297,8 +311,10 @@ public class BootstrapCommandTest {
 
     @Test
     void testExecuteWithHeuristicCapturesConfig() throws Exception {
-        // Setup - heuristic=2 (stochastic relaxation) from CLI switch -r
-        TestUtils.setupOptions(args, TestUtils.createOptions("-r", "2"));
+        // Setup - heuristic=2 (stochastic relaxation) from CLI switch -r;
+        // -N fixes trial count to 5 for the times(5) verification.
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-r", "2", "-N", "5"));
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
         try (var mockedLoader = mockStatic(DataLoader.class);
@@ -314,7 +330,7 @@ public class BootstrapCommandTest {
             ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
                     .forClass(GLAConfig.class);
 
-            // Execute - default 5 bootstrap trials will run
+            // Execute - 5 bootstrap trials run (driven by -N)
             int result = command.execute(args);
 
             assertEquals(0, result);
@@ -331,8 +347,9 @@ public class BootstrapCommandTest {
 
     @Test
     void testExecuteWithCentroidTypeCapturesConfig() throws Exception {
-        // Setup - centroid type=3 from CLI switch -c
-        TestUtils.setupOptions(args, TestUtils.createOptions("-c", "3"));
+        // Setup - centroid type=3 from CLI switch -c; -N fixes trial count to 5
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-c", "3", "-N", "5"));
         VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
         try (var mockedLoader = mockStatic(DataLoader.class);
@@ -360,6 +377,57 @@ public class BootstrapCommandTest {
 
             GLAConfig capturedConfig = configCaptor.getAllValues().get(0);
             assertEquals(3, capturedConfig.centroidType());
+        }
+    }
+
+    @Test
+    void testExecuteWithSaveBestPartitionWritesParFile(@TempDir Path tempDir)
+            throws Exception {
+        // Setup - -P enables saving the best-scoring partition to
+        // <filebase>.par. GLA is mocked to produce a two-cluster partition so
+        // that stochastic complexity is finite and a best partition is chosen.
+        String filebase = tempDir.resolve("out").toString();
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-P", "", "-N", "1", "-K", "1",
+                        "filebase", filebase));
+
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class);
+                var mockedDist = mockStatic(DistanceCalculator.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            // GLA populates the passed-in partition with two non-empty
+            // clusters.
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenAnswer(inv -> {
+                        Partition p = inv.getArgument(1);
+                        int length = mockVectorSet.getVectorLength();
+                        BinaryVector v1 = new BinaryVector(new int[length], 0,
+                                length, 1, "strainA");
+                        BinaryVector v2 = new BinaryVector(new int[length], 0,
+                                length, 2, "strainB");
+                        p.addElement(1, v1);
+                        p.addElement(2, v2);
+                        return p;
+                    });
+
+            // Deterministic finite SC so the best partition is always selected.
+            mockedDist.when(() -> DistanceCalculator.stochasticComplexity(
+                    any(), anyInt(), anyInt(), anyBoolean()))
+                    .thenReturn(42.0);
+
+            // Execute
+            int result = command.execute(args);
+
+            assertEquals(0, result);
+
+            // Verify - the best partition was written to <filebase>.par.
+            Path parFile = Paths.get(filebase + ".par");
+            assertTrue(Files.exists(parFile),
+                    "Expected partition file at " + parFile);
         }
     }
 }

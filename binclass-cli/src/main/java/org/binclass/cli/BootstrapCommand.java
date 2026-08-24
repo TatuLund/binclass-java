@@ -1,5 +1,6 @@
 package org.binclass.cli;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,8 @@ import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
+import org.binclass.algorithms.io.PartitionWriter;
+import org.binclass.algorithms.util.MathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +51,7 @@ public class BootstrapCommand implements BaseCommand {
                 "Invalid heuristic type: " + opts.get("-r"));
 
         int bootstrapSize = parseOptionInt(opts, "-N",
-                "Invalid bootstrap_size: " + opts.get("-N"));
+                "Invalid bootstrap_size: " + opts.get("-N"), 50);
 
         int bootstrapK = parseOptionInt(opts, "-K",
                 "Invalid bootstrap_k: " + opts.get("-K")) + 1;
@@ -59,7 +62,7 @@ public class BootstrapCommand implements BaseCommand {
                 epsilon = Double.parseDouble(opts.get("-E"));
                 if (epsilon >= 0.5)
                     throw new IllegalArgumentException("Epsilon must be < 0.5");
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 throw new IllegalArgumentException(
                         "Invalid epsilon value: " + opts.get("-E"));
             }
@@ -69,7 +72,7 @@ public class BootstrapCommand implements BaseCommand {
         if (opts.containsKey("-I")) {
             try {
                 bootstrapI = Integer.parseInt(opts.get("-I"));
-            } catch (NumberFormatException ex) {
+            } catch (NumberFormatException _) {
                 throw new IllegalArgumentException(
                         "Invalid bootstrap_i: " + opts.get("-I"));
             }
@@ -98,11 +101,22 @@ public class BootstrapCommand implements BaseCommand {
         log.info("Bootstrap command executed with:");
         log.info("  Filebase: {}", filebase);
         log.info("  Bootstrap k: {}", bootstrapK);
-        log.info("  Bootstrap size: {}", bootstrapSize);
+        log.info("  Number of trials (-N): {}", bootstrapSize);
+        log.info("  Resamplings (-I): {}", bootstrapI);
         log.info("  Save best boots: {}", saveBestBoots);
 
         // Load vectors from data files
         VectorSet vectorSet = DataLoader.loadVectors(filebase);
+
+        // Size the log2-factorial lookup table used by stochastic complexity.
+        // Mirrors C bootstraper(): the bootstrap trials may reference factorial
+        // indices up to vecs_to_gen, so the table must cover max(size(V),
+        // vecs_to_gen) + k rather than only the dataset size.
+        int tot = vectorSet.size();
+        if (vecsToGen > tot) {
+            tot = vecsToGen;
+        }
+        MathUtils.prepareLog2Factorials(tot + bootstrapK);
 
         // Build GLAConfig from parsed CLI options
         GLAConfig config = new GLAConfig(
@@ -129,8 +143,11 @@ public class BootstrapCommand implements BaseCommand {
                 1 // heuristicCount (default)
         );
 
-        // Run multiple GLA trials for bootstrap analysis
-        int numTrials = Math.max(1, bootstrapI > 0 ? bootstrapI : 5);
+        // Number of bootstrap trials mirrors C bootstraper(): the number of
+        // partitions generated is driven by -N (bootstrap_size), while -I
+        // (bootstrap_i) controls resampling iterations for the MLE/correlation
+        // analysis performed after all trials complete.
+        int numTrials = Math.max(1, bootstrapSize);
 
         log.info("Running {} bootstrap GLA trials with k={}, size={}",
                 numTrials, bootstrapK, bootstrapSize);
@@ -140,8 +157,6 @@ public class BootstrapCommand implements BaseCommand {
         List<Partition> partitions = new ArrayList<>();
         Partition bestPartition = null;
         double minSC = Double.MAX_VALUE;
-
-        Random random = new Random();
 
         // For each trial, run GLA and collect results
         for (int trial = 1; trial <= numTrials; trial++) {
@@ -205,11 +220,26 @@ public class BootstrapCommand implements BaseCommand {
             }
         }
 
-        // Perform statistical analysis on collected results
-        performStatisticalAnalysis(scValues, partitions.size());
+        // Perform statistical analysis on collected results. The resampling
+        // count (-I) drives the number of bootstrap iterations performed over
+        // the SC values, mirroring C boots_resample(f, bootstrap_i, SC, dist).
+        performStatisticalAnalysis(scValues, partitions.size(), bootstrapI);
 
+        // Save the best partition to <filebase>.par when -P is set. Mirrors C
+        // bootstraper(): inf_write_partition(p,P) after the trials complete and
+        // the best-scoring partition has been selected.
         if (saveBestBoots && bestPartition != null) {
-            log.info("Saved best bootstrap partition with SC={}", minSC);
+            String parFile = filebase + ".par";
+            try {
+                PartitionWriter.writePartition(bestPartition, parFile);
+                log.info("Saved best bootstrap partition with SC={} to {}",
+                        minSC, parFile);
+            } catch (IOException ex) {
+                throw new IOException(
+                        "Failed to save best bootstrap partition: "
+                                + ex.getMessage(),
+                        ex);
+            }
         }
 
         log.info("Bootstrap analysis complete");
@@ -241,12 +271,40 @@ public class BootstrapCommand implements BaseCommand {
 
     /**
      * Performs statistical analysis on bootstrap results.
+     * <p>
+     * The resampling count drives the number of bootstrap iterations performed
+     * over the collected stochastic-complexity values, mirroring C
+     * {@code boots_resample(f, bootstrap_i, SC, dist)}.
+     * </p>
      */
     private static void performStatisticalAnalysis(List<Double> scValues,
-            int numTrials) {
+            int numTrials, int resampleCount) {
         if (scValues.isEmpty()) {
             log.info("No trials completed");
             return;
+        }
+
+        // Bootstrap resampling over the SC values. Each iteration draws a
+        // sample
+        // with replacement and records the correlation between trial position
+        // and
+        // the resampled SC value, mirroring C boots_resample().
+        if (resampleCount > 0) {
+            Random random = new Random();
+            double sumCorrelation = 0;
+            for (int r = 1; r <= resampleCount; r++) {
+                double[] resampled = new double[numTrials];
+                for (int i = 0; i < numTrials; i++) {
+                    int idx = random.nextInt(numTrials);
+                    resampled[i] = scValues.get(idx);
+                }
+                sumCorrelation += calculateCorrelation(toDoubleList(
+                        resampled));
+            }
+            log.info("Bootstrap Resampling Summary:");
+            log.info("  Number of resamplings: {}", resampleCount);
+            log.info("  Mean correlation: "
+                    + String.format("%.4f", sumCorrelation / resampleCount));
         }
 
         // Calculate basic statistics
@@ -320,5 +378,22 @@ public class BootstrapCommand implements BaseCommand {
             return 0;
 
         return numerator / denominator;
+    }
+
+    /**
+     * Converts a primitive {@code double[]} to an immutable {@link List} of
+     * {@link Double}, boxing each element. Used so resampled SC arrays can be
+     * passed to {@link #calculateCorrelation(List)}.
+     *
+     * @param values
+     *            the primitive array to box
+     * @return a list containing one entry per array element
+     */
+    private static List<Double> toDoubleList(double[] values) {
+        List<Double> result = new ArrayList<>(values.length);
+        for (double v : values) {
+            result.add(v);
+        }
+        return result;
     }
 }

@@ -46,7 +46,7 @@ class ReportCommandTest {
             ArgumentCaptor<InfiniteCentroids> centroidsCaptor = ArgumentCaptor
                     .forClass(InfiniteCentroids.class);
 
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             // Execute
@@ -57,7 +57,8 @@ class ReportCommandTest {
 
             // Verify ReportGenerator was called with correct parameters
             mockedReportGen.verify(() -> ReportGenerator.generateReport(
-                    partitionCaptor.capture(), centroidsCaptor.capture()));
+                    partitionCaptor.capture(), centroidsCaptor.capture(),
+                    any()));
         }
     }
 
@@ -72,7 +73,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -91,7 +92,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -110,7 +111,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -129,7 +130,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -148,7 +149,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -167,7 +168,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);
@@ -191,7 +192,7 @@ class ReportCommandTest {
                 var mockedReportGen = mockStatic(ReportGenerator.class)) {
             when(DataLoader.loadVectors(anyString()))
                     .thenReturn(TestUtils.createMockVectorSet(4, 8));
-            when(ReportGenerator.generateReport(any(), any()))
+            when(ReportGenerator.generateReport(any(), any(), any()))
                     .thenReturn("Test Report");
 
             int result = command.execute(args);

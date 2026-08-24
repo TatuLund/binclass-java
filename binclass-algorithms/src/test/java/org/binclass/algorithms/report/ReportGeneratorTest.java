@@ -146,4 +146,99 @@ class ReportGeneratorTest {
         assertNotNull(report);
         assertTrue(report.contains("STATISTICAL REPORT"));
     }
+
+    private static Partition twoClusterPartition() {
+        Partition partition = new Partition(2);
+        BinaryVector v1 = new BinaryVector(new int[] { 0, 0 }, 2);
+        partition.addElement(1, v1);
+        BinaryVector v2 = new BinaryVector(new int[] { 1, 1 }, 2);
+        partition.addElement(2, v2);
+        return partition;
+    }
+
+    private static InfiniteCentroids twoClusterCentroids() {
+        double[][] centroidsData = { { 0.5, 0.5 }, { 1.0, 1.0 } };
+        return new InfiniteCentroids(centroidsData, 2);
+    }
+
+    @Test
+    void testPrintDigitsOptionEnabled() {
+        ReportOptions options = new ReportOptions(true, false, false, 0);
+        String report = ReportGenerator.generateReport(twoClusterPartition(),
+                twoClusterCentroids(), options);
+        assertTrue(report.contains("Digit:"));
+    }
+
+    @Test
+    void testPrintDigitsOptionDisabled() {
+        ReportOptions options = new ReportOptions(false, false, false, 0);
+        String report = ReportGenerator.generateReport(twoClusterPartition(),
+                twoClusterCentroids(), options);
+        assertFalse(report.contains("Digit:"));
+    }
+
+    @Test
+    void testAffinityMatrixTransform() {
+        // Hellinger distance between the centroids is 0.5; affinity maps it to
+        // (2 - 0.5) / 2 = 0.75 in the rendered matrix.
+        ReportOptions noAffinity = new ReportOptions(false, false, true, 0);
+        String reportNoAffinity = ReportGenerator.generateReport(
+                twoClusterPartition(), twoClusterCentroids(), noAffinity);
+        assertTrue(reportNoAffinity.contains("0.50"));
+        assertFalse(reportNoAffinity.contains("0.75"));
+
+        ReportOptions affinity = new ReportOptions(false, true, true, 0);
+        String reportAffinity = ReportGenerator.generateReport(
+                twoClusterPartition(), twoClusterCentroids(), affinity);
+        assertTrue(reportAffinity.contains("0.75"));
+    }
+
+    @Test
+    void testHellingerVsHammingDistance() {
+        // Same centroids: Hamming rounds both to true (distance 0), Hellinger
+        // yields 0.5, so the matrix distinguishes the two metrics.
+        ReportOptions hamming = new ReportOptions(false, false, false, 0);
+        String reportHamming = ReportGenerator.generateReport(
+                twoClusterPartition(), twoClusterCentroids(), hamming);
+        assertTrue(reportHamming.contains("0.00"));
+        assertFalse(reportHamming.contains("0.50"));
+
+        ReportOptions hellinger = new ReportOptions(false, false, true, 0);
+        String reportHellinger = ReportGenerator.generateReport(
+                twoClusterPartition(), twoClusterCentroids(), hellinger);
+        assertTrue(reportHellinger.contains("0.50"));
+    }
+
+    @Test
+    void testReportParamsTotalFrequenciesOnly() {
+        ReportOptions options = new ReportOptions(false, false, false,
+                ReportOptions.RP_TOTALFREQ);
+        String report = ReportGenerator.generateReport(twoClusterPartition(),
+                twoClusterCentroids(), options);
+        assertTrue(report.contains("TOTAL FREQUENCIES:"));
+        assertFalse(report.contains("CLASS NEARNESS MATRIX:"));
+        assertFalse(report.contains("Nearest:"));
+    }
+
+    @Test
+    void testReportParamsPerClassFrequenciesOnly() {
+        ReportOptions options = new ReportOptions(false, false, false,
+                ReportOptions.RP_FREQ);
+        String report = ReportGenerator.generateReport(twoClusterPartition(),
+                twoClusterCentroids(), options);
+        assertFalse(report.contains("TOTAL FREQUENCIES:"));
+        assertTrue(report.contains("Bit "));
+        assertFalse(report.contains("CLASS NEARNESS MATRIX:"));
+    }
+
+    @Test
+    void testReportParamsNearnessOnly() {
+        ReportOptions options = new ReportOptions(false, false, false,
+                ReportOptions.RP_NEARNESS);
+        String report = ReportGenerator.generateReport(twoClusterPartition(),
+                twoClusterCentroids(), options);
+        assertFalse(report.contains("TOTAL FREQUENCIES:"));
+        assertTrue(report.contains("CLASS NEARNESS MATRIX:"));
+        assertTrue(report.contains("Nearest:"));
+    }
 }
