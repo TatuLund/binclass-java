@@ -83,7 +83,13 @@ public record GLAConfig(
         int distanceType,
 
         /** Heuristic count parameter (-j flag) */
-        int heuristicCount) {
+        int heuristicCount,
+
+        /** filter_exact_k flag: keep only partitions with exactly k clusters */
+        boolean filterExactK,
+
+        /** require_better flag: require improving distance in trials */
+        boolean requireBetter) {
 
     /** Default configuration with standard parameters */
     public static final GLAConfig DEFAULT = new GLAConfig(
@@ -107,7 +113,9 @@ public record GLAConfig(
             0.0, // firstD (no initial distance)
             false, // bestCodeLength (false by default)
             1, // distanceType (HAM by default)
-            1 // heuristicCount (default)
+            1, // heuristicCount (default)
+            false, // filterExactK (disabled by default)
+            false // requireBetter (disabled by default)
     );
 
     /** Effective maximum iterations based on config */

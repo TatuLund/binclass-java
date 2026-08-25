@@ -200,7 +200,9 @@ public class ClassifyCommand implements BaseCommand {
                 firstD, // first distance value (-B flag)
                 bestCodeLength, // use best code length criterion (-C flag)
                 distanceType, // distance type: 1=HAM (int)
-                heuristicCount // heuristic count parameter (-j flag)
+                heuristicCount, // heuristic count parameter (-j flag)
+                false, // filterExactK (disabled by default)
+                false // requireBetter (disabled by default)
         );
 
         // Run GLA for each k value and track best classification

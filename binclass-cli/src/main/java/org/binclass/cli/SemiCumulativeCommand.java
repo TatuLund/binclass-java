@@ -93,7 +93,9 @@ public class SemiCumulativeCommand implements BaseCommand {
                 0.0, // firstD default
                 false, // bestCodeLength disabled
                 1, // distanceType (HAM)
-                joinTarget // heuristicCount from -j flag
+                joinTarget, // heuristicCount from -j flag
+                false, // filterExactK (disabled by default)
+                false // requireBetter (disabled by default)
         );
 
         // Initialize SC arrays for Join-GLA search

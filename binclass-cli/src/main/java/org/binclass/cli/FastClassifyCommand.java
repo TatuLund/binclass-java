@@ -83,7 +83,9 @@ public class FastClassifyCommand implements BaseCommand {
                 0.0, // firstD (no initial distance)
                 false, // bestCodeLength (false by default)
                 1, // distanceType (HAM by default)
-                1 // heuristicCount (default)
+                1, // heuristicCount (default)
+                false, // filterExactK (disabled by default)
+                false // requireBetter (disabled by default)
         );
 
         log.info("Running Split-GLA algorithm on {} vectors",
