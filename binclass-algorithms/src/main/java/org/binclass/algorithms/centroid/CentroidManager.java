@@ -143,6 +143,38 @@ public final class CentroidManager {
     }
 
     /**
+     * Copies centroid data from one array into another in place.
+     * <p>
+     * Equivalent to C function {@code copy_centroids()} from
+     * {@code centroid.c}. Deep copies all centroid values and weights from the
+     * source into the destination, recalculating log-probabilities of the
+     * destination in the process.
+     * </p>
+     *
+     * @param source
+     *            the source InfiniteCentroids array (must not be null)
+     * @param dest
+     *            the destination InfiniteCentroids array updated in place
+     */
+    public static void copyCentroids(InfiniteCentroids source,
+            InfiniteCentroids dest) {
+        Objects.requireNonNull(source, "Source must not be null");
+        Objects.requireNonNull(dest, "Destination must not be null");
+
+        int k = source.size(); // 1-based count
+        int l = source.get(0).getLength();
+
+        for (int i = 0; i < k; i++) {
+            Centroid srcCentroid = source.get(i);
+            double[] copiedEl = java.util.Arrays.copyOf(srcCentroid.getArray(),
+                    l);
+            dest.set(i, new Centroid(copiedEl, l, srcCentroid.getWeight()));
+        }
+
+        calculateLogs(dest);
+    }
+
+    /**
      * Calculates and caches log-probabilities for all centroids.
      * <p>
      * Equivalent to C function {@code calculate_logs()} from

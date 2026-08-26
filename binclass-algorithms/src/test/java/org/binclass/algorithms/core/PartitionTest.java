@@ -121,4 +121,22 @@ class PartitionTest {
         assertThrows(IllegalArgumentException.class, () -> new Partition(-1));
         assertThrows(IllegalArgumentException.class, () -> new Partition(0));
     }
+
+    @Test
+    void testSetSizeCompactsDroppedClusters() {
+        Partition p = new Partition(3);
+
+        BinaryVector v1 = new BinaryVector(new int[] { 0, 1 }, 2);
+        BinaryVector v3 = new BinaryVector(new int[] { 1, 0 }, 2);
+
+        p.addElement(1, v1); // cluster 1 non-empty
+        // cluster 2 left empty
+        p.addElement(3, v3); // cluster 3 non-empty
+
+        p.setSize(2); // shrink: the empty middle cluster must be compacted away
+
+        assertEquals(1, p.getSize(1));
+        assertTrue(p.contains(2, v3),
+                "vectors from a dropped slot stay accessible after compaction");
+    }
 }

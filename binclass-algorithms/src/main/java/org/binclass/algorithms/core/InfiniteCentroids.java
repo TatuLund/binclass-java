@@ -115,7 +115,16 @@ public final class InfiniteCentroids {
      *            the Centroid to set
      */
     public void set(int i, Centroid c) {
-        checkIndex(i);
+        // Bounds-check against the physical array length (kmax), not just the
+        // logical count k. removeEmpty() compacts by shifting left and calling
+        // remove(), which decrements k but leaves the backing array at its old
+        // capacity; a set beyond k into that spare tail would otherwise succeed
+        // silently, as C's infinite_centroids_set does with its kmax guard.
+        if (i < 0 || i >= centroids.length) {
+            throw new IndexOutOfBoundsException(
+                    "Index " + i + " out of bounds for infinite centroids with "
+                            + k + " clusters");
+        }
         centroids[i] = c;
     }
 
