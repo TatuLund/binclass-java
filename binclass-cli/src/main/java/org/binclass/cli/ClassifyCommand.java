@@ -347,12 +347,38 @@ public class ClassifyCommand implements BaseCommand {
             int kstop,
             GLAConfig config) {
 
+        // --- G7: maximum_class_number cap check ---------------------------
+        // Mirrors C search_classes_nonautomatic(): if the starting cluster
+        // count exceeds the tool's hard limit, report and exit(1).
+        if (kstart > AutomaticSearch.MAXIMUM_CLASS_NUMBER) {
+            log.warn("More classes requested than possible: kstart={} > {}",
+                    kstart, AutomaticSearch.MAXIMUM_CLASS_NUMBER);
+            throw new IllegalArgumentException(
+                    "More classes requested than possible");
+        }
+
         double scmin = Double.MAX_VALUE;
         int actualK = kstart;
         int noImprovementCount = 0;
         InfiniteCentroids centroids = null; // Declare outside loop for logging
         Partition bestPartition = null;
         InfiniteCentroids bestCentroids = null;
+
+        // --- G5: allocate scs[] capped at maximum_class_number ------------
+        // scs[k] holds the best SC seen for k clusters; uncomputed entries
+        // keep the 1000.0 sentinel used by C's search_classes_nonautomatic().
+        int mk = kstop + 1;
+        if (mk > AutomaticSearch.MAXIMUM_CLASS_NUMBER) {
+            mk = AutomaticSearch.MAXIMUM_CLASS_NUMBER;
+        }
+        double[] scs = new double[mk];
+        for (int i = 0; i < mk; i++) {
+            scs[i] = 1000.0;
+        }
+
+        // --- G8: elapsed-time tracking ------------------------------------
+        long startTime = System.currentTimeMillis();
+        long lastTime = startTime;
 
         // Get the actual vector length from the first vector in the set
         int vectorLength = vectorSet.size() > 0
@@ -403,6 +429,13 @@ public class ClassifyCommand implements BaseCommand {
             double sc = bestScForK;
             log.info("Classification at k={}: SC={}", k, sc);
 
+            // --- G5: record the best SC seen for this cluster count -------
+            // Mirrors C's `scs[(C->k)-1] = min(...)` update. The array is
+            // capped at maximum_class_number and printed as a table below.
+            if (k < scs.length && scs[k] > sc) {
+                scs[k] = sc;
+            }
+
             // Always update scmin to track the best SC seen so far
             if (sc < scmin) {
                 scmin = sc;
@@ -411,10 +444,24 @@ public class ClassifyCommand implements BaseCommand {
                 actualK = k;
                 noImprovementCount = 0;
                 log.info("New best classification at k={}: SC={}, clusters={}",
-                        k, sc, partition.size());
+                        k, sc, partition == null ? 0 : partition.size());
             } else {
+                // --- G6: count "tries since best" -------------------------
                 noImprovementCount++;
+                log.info(
+                        "Tries since best classification: {}",
+                        noImprovementCount);
             }
+
+            // --- G8: emit elapsed-time messages ---------------------------
+            long now = System.currentTimeMillis();
+            long secondsSinceStart = (now - startTime) / 1000;
+            long secondsSinceLast = (now - lastTime) / 1000;
+            log.info("Time ellapsed since start:                {}",
+                    formatTime(secondsSinceStart));
+            log.info(
+                    "Time ellapsed for current classification: {}",
+                    formatTime(secondsSinceLast));
 
             boolean reachedSafetyLimit = k - kstart >= config.safetyLimit();
             if (shouldTerminate(noImprovementCount, config)
@@ -423,6 +470,16 @@ public class ClassifyCommand implements BaseCommand {
                     log.info("Safety limit reached at k={}", k);
                 }
                 break;
+            }
+        }
+
+        // --- G5: print the "SC as function of k" table -------------------
+        // Mirrors C's final report: every entry below the 1000.0 sentinel is
+        // printed with the same format used by the original tool.
+        log.info("\nSC as function of k\n--");
+        for (int i = 0; i < mk; i++) {
+            if (scs[i] < 1000.0) {
+                log.info(String.format("%3d: %2.4f", i, scs[i]));
             }
         }
 
@@ -591,6 +648,25 @@ public class ClassifyCommand implements BaseCommand {
             }
         }
         return entropy / el.length; // Normalize by vector length
+    }
+
+    /**
+     * Formats a duration in seconds as days/hours/minutes/seconds, mirroring
+     * C's {@code print_time()} from bottom.c used by the range-search loop.
+     *
+     * @param totalSeconds
+     *            elapsed time expressed in whole seconds
+     * @return a formatted string such as {@code " 0d 0h 0m 3s"}
+     */
+    private static String formatTime(long totalSeconds) {
+        long days = totalSeconds / 86400;
+        long rem = Math.floorMod(totalSeconds, 86400);
+        long hours = rem / 3600;
+        rem %= 3600;
+        long minutes = rem / 60;
+        long seconds = rem % 60;
+        return String.format("%3dd %2dh %2dm %2ds", days, hours, minutes,
+                seconds);
     }
 
 }
