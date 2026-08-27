@@ -5,14 +5,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import org.binclass.algorithms.centroid.CentroidInitializer;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
+import org.binclass.algorithms.gla.AutomaticSearch;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
+import org.binclass.algorithms.gla.SearchType;
 import org.binclass.algorithms.io.CentroidWriter;
 import org.binclass.algorithms.io.PartitionWriter;
 import org.slf4j.Logger;
@@ -176,7 +179,9 @@ public class ClassifyCommand implements BaseCommand {
             kEnd = Integer.MAX_VALUE; // Will be limited by convergence check
         }
 
+        SearchType searchType = determineSearchType(opts);
         log.info("Running range search from k={} to k={}", kstart, kEnd);
+        log.info("Search type: {}", searchType);
 
         // Build GLAConfig from parsed CLI options
         GLAConfig config = new GLAConfig(
@@ -205,17 +210,34 @@ public class ClassifyCommand implements BaseCommand {
                 false // requireBetter (disabled by default)
         );
 
-        // Run GLA for each k value and track best classification
-        SearchResult result = runRangeSearch(vectorSet, kstart, kEnd, config);
+        // Dispatch to the requested search strategy. Mirrors C
+        // classify_vectors():
+        // ST_AUTO -> AutomaticSearch.run(), everything else uses the range
+        // search.
+        SearchResult result;
+        if (searchType == SearchType.AUTO) {
+            AutomaticSearch.Result autoResult = new AutomaticSearch(vectorSet,
+                    config).run();
+            log.info("GLA completed with {} clusters", autoResult.kmin());
+            log.info("Final number of clusters: {}", autoResult.kmin());
+            Partition bestPartition = autoResult.partition();
+            if (bestPartition == null) {
+                bestPartition = new Partition(kstart + 1);
+            }
+            result = new SearchResult(bestPartition,
+                    autoResult.centroids());
+        } else {
+            result = runRangeSearch(vectorSet, kstart, kEnd, config);
 
-        Partition finalPartition = result.partition();
-        if (finalPartition == null) {
-            log.warn("No partition found during range search");
-            return 1;
+            Partition finalPartition = result.partition();
+            log.info("GLA completed with {} clusters", finalPartition.size());
+            log.info("Final number of clusters: {}", finalPartition.size());
         }
 
-        log.info("GLA completed with {} clusters", finalPartition.size());
-        log.info("Final number of clusters: {}", finalPartition.size());
+        if (result.partition() == null) {
+            log.warn("No partition found during search");
+            return 1;
+        }
 
         if (centroidFile != null) {
             int code = writeCentroids(result.centroids(), centroidFile);
@@ -225,13 +247,33 @@ public class ClassifyCommand implements BaseCommand {
         }
 
         if (partitionFile != null) {
-            int code = writePartition(finalPartition, partitionFile);
+            int code = writePartition(result.partition(), partitionFile);
             if (code != 0) {
                 return code;
             }
         }
 
         return 0;
+    }
+
+    /**
+     * Determines the search strategy from parsed CLI options, mirroring C
+     * {@code parse_classify()}. The default is automatic
+     * ({@link SearchType#AUTO}); {@code -nXX} selects non-automatic range
+     * search and {@code -Lfilename} selects loaded centroids.
+     *
+     * @param opts
+     *            the parsed command options
+     * @return the resolved search type
+     */
+    private SearchType determineSearchType(Map<String, String> opts) {
+        if (opts.containsKey("-n")) {
+            return SearchType.NAUTO;
+        }
+        if (opts.containsKey("-L")) {
+            return SearchType.LCENT;
+        }
+        return SearchType.AUTO;
     }
 
     /**
@@ -317,12 +359,49 @@ public class ClassifyCommand implements BaseCommand {
                 ? vectorSet.iterator().next().getLength()
                 : 16;
 
+        int attempts = config.iterBase() > 0 ? config.iterBase() : 1;
         for (int k = kstart; k <= kstop; k++) {
-            centroids = new InfiniteCentroids(k + 1, vectorLength);
-            Partition partition = initializePartition(vectorSet, k, centroids);
+            // Run GLA up to `attempts` times per cluster count with different
+            // starting centroids, keeping the best SC so bad local minima are
+            // not
+            // counted. Mirrors C use_gla() where -a sets the number of trials.
+            double bestScForK = Double.MAX_VALUE;
+            Partition bestPartitionForK = null;
+            InfiniteCentroids bestCentroidsForK = null;
+            for (int attempt = 0; attempt < attempts; attempt++) {
+                InfiniteCentroids centroidsK;
+                Partition partitionK;
+                if (attempt == 0) {
+                    centroidsK = new InfiniteCentroids(k + 1, vectorLength);
+                    partitionK = initializePartition(vectorSet, k, centroidsK);
+                } else {
+                    // Different starting centroids per attempt to escape bad
+                    // local minima (mirrors C use_gla() random_centroids()).
+                    // Use the same cluster count as attempt 0 (k + 1) so every
+                    // trial scores on equal footing; pure random values work
+                    // regardless of n vs k. The partition must match its size
+                    // or
+                    // GLA's setSize() shrink path nulls every cluster slot and
+                    // addElement() throws.
+                    centroidsK = CentroidInitializer.randomInit(k + 1,
+                            vectorLength);
+                    partitionK = new Partition(k + 1);
+                }
 
-            double sc = runGLAAndCalculateSC(vectorSet, partition, centroids,
-                    config);
+                double scForK = runGLAAndCalculateSC(vectorSet, partitionK,
+                        centroidsK, config);
+
+                if (scForK < bestScForK) {
+                    bestScForK = scForK;
+                    bestPartitionForK = partitionK;
+                    bestCentroidsForK = centroidsK;
+                }
+            }
+
+            Partition partition = bestPartitionForK;
+            centroids = bestCentroidsForK;
+            double sc = bestScForK;
+            log.info("Classification at k={}: SC={}", k, sc);
 
             // Always update scmin to track the best SC seen so far
             if (sc < scmin) {
@@ -331,7 +410,7 @@ public class ClassifyCommand implements BaseCommand {
                 bestCentroids = centroids;
                 actualK = k;
                 noImprovementCount = 0;
-                log.debug("New best classification at k={}: SC={}, clusters={}",
+                log.info("New best classification at k={}: SC={}, clusters={}",
                         k, sc, partition.size());
             } else {
                 noImprovementCount++;

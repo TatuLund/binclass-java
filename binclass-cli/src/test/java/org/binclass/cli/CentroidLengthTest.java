@@ -56,9 +56,11 @@ class CentroidLengthTest {
             // Verify successful execution (no centroid length mismatch error)
             assertEquals(0, result);
 
-            // Verify GLA was called with correct parameters
+            // Verify GLA was called with correct parameters. The forward scan
+            // invokes GLA once per cluster count, so at least one call is
+            // expected.
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(),
-                    centroidsCaptor.capture(), any(), any()));
+                    centroidsCaptor.capture(), any(), any()), atLeastOnce());
 
             // CRITICAL: Verify the captured centroids have the same length as
             // the vector set
