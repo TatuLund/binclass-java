@@ -20,6 +20,7 @@ import java.util.*;
 public final class VectorSet implements Iterable<BinaryVector> {
 
     private final IdentityHashMap<BinaryVector, Boolean> elements;
+    private final java.util.ArrayList<BinaryVector> insertionOrder = new java.util.ArrayList<>();
 
     /**
      * Creates an empty {@code VectorSet}.
@@ -50,7 +51,11 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *         already present)
      */
     public boolean addElement(BinaryVector bv) {
-        return elements.put(bv, Boolean.TRUE) == null;
+        boolean added = elements.put(bv, Boolean.TRUE) == null;
+        if (added) {
+            insertionOrder.add(bv);
+        }
+        return added;
     }
 
     /**
@@ -64,7 +69,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return true if the set changed as a result of the call
      */
     public boolean add(BinaryVector bv) {
-        return elements.put(bv, Boolean.TRUE) == null;
+        return addElement(bv);
     }
 
     /**
@@ -79,7 +84,16 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return true if the set contained the specified element
      */
     public boolean removeElement(BinaryVector bv) {
-        return elements.remove(bv) != null;
+        boolean removed = elements.remove(bv) != null;
+        if (removed) {
+            for (int i = 0; i < insertionOrder.size(); i++) {
+                if (insertionOrder.get(i) == bv) {
+                    insertionOrder.remove(i);
+                    break;
+                }
+            }
+        }
+        return removed;
     }
 
     /**
@@ -134,7 +148,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return an iterator over the BinaryVector instances
      */
     public Iterator<BinaryVector> iterator() {
-        return elements.keySet().iterator();
+        return new ArrayList<>(insertionOrder).iterator();
     }
 
     /**
@@ -149,7 +163,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @return a new array containing all BinaryVector instances in this set
      */
     public <T> T[] toArray(T[] type) {
-        return (T[]) elements.keySet().toArray(type);
+        return (T[]) insertionOrder.toArray(type);
     }
 
     /**
@@ -178,6 +192,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      */
     public void clear() {
         elements.clear();
+        insertionOrder.clear();
     }
 
     /**

@@ -162,4 +162,66 @@ public final class LogUtils {
         }
         return TOTAL_FREQS[index];
     }
+
+    /**
+     * Reproduces the output lines printed by C's {@code calculate_criteria()}
+     * from {@code classify.c}. The {@code Results:} block maps to INFO level
+     * and the compact summary line maps to DEBUG, matching the project
+     * convention where {@code DEBUG} = verbose. When {@code verbose} is false
+     * both lines are skipped so unit tests stay quiet.
+     * <p>
+     * Equivalent C output:
+     * 
+     * <pre>{@code
+     * fprintf(f,"Results: ak  = %d\n sc  = %1.5f \n cl1 = %1.5f\n cl2 = %1.5f\n d   = %1.5f\n",...);
+     * fprintf(stdout,"ak = %2d, SC = %2.4f, I1 = %2.4f, Itp = %2.4f  (d = %2.4f)\n",...);
+     * }</pre>
+     *
+     * @param verbose
+     *            whether to emit the criteria lines at all
+     * @param ak
+     *            number of clusters minus one ({@code k - 1})
+     * @param sc
+     *            stochastic complexity value
+     * @param i1
+     *            average codelength / stored information content
+     * @param i2
+     *            Shannon entropy estimate
+     * @param d
+     *            distortion / MAE / MSE / codelength distance
+     */
+    public static void logCriteria(boolean verbose, int ak, double sc,
+            double i1, double i2, double d) {
+        if (!verbose) {
+            return;
+        }
+        logger.info("Results: ak = {} | sc = {} | cl1 = {} | cl2 = {} | d = {}",
+                ak, fmt5(sc), fmt5(i1), fmt5(i2), fmt5(d));
+        logger.debug(
+                "ak = {}, SC = {}, I1 = {}, Itp = {} (d = {})", ak, fmt4(sc),
+                fmt4(i1), fmt4(i2), fmt4(d));
+    }
+
+    /**
+     * Logs the warning emitted by C's {@code calculate_criteria()} when the
+     * current distance exceeds the previous one ({@code lasti < d}). Maps to
+     * WARN level so it is visible without enabling verbose logging.
+     * <p>
+     * Equivalent C output:
+     * 
+     * <pre>{@code
+     * fprintf(stdout, "WARNING: There might be too few trials!\n");
+     * }</pre>
+     */
+    public static void logTooFewTrials() {
+        logger.warn("There might be too few trials!");
+    }
+
+    private static String fmt5(double value) {
+        return String.format(java.util.Locale.ROOT, "%.5f", value);
+    }
+
+    private static String fmt4(double value) {
+        return String.format(java.util.Locale.ROOT, "%.4f", value);
+    }
 }

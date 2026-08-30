@@ -114,16 +114,15 @@ public final class MathUtils {
      * </p>
      *
      * @param n
-     *            the non-negative integer whose factorial's log₂ is to be
-     *            computed
+     *            the integer whose factorial's log₂ is to be computed. Negative
+     *            values are clamped to index 0, matching the C macro.
      * @return log₂(n!)
-     * @throws IllegalArgumentException
-     *             if {@code n < 0}
      */
     public static double log2Factorial(int n) {
+        // Equivalent to C macro log2_factorial(x): (x < 0) ? log2_factorials[0]
+        // : ...
         if (n < 0) {
-            throw new IllegalArgumentException(
-                    "log2Factorial requires non-negative argument, got: " + n);
+            n = 0; // clamp negative index like the C macro does
         }
         // Precomputed values for small n (0! through 20!)
         if (LOG2_FACTORIALS != null && n < LOG2_FACTORIALS.length) {

@@ -141,4 +141,28 @@ class VectorSetTest {
         assertEquals(0, set.size());
         assertNotNull(set.iterator()); // Should not throw
     }
+
+    @Test
+    void testInsertionOrderIteration() {
+        VectorSet set = new VectorSet();
+
+        BinaryVector v1 = new BinaryVector(new int[] { 0, 0 }, 2);
+        BinaryVector v2 = new BinaryVector(new int[] { 1, 1 }, 2);
+        BinaryVector v3 = new BinaryVector(new int[] { 0, 1 }, 2);
+
+        set.addElement(v1);
+        set.addElement(v2);
+        set.addElement(v3);
+
+        // toArray() and iteration must both yield insertion order, not the
+        // arbitrary order of the backing IdentityHashMap.
+        BinaryVector[] order = set.toArray(new BinaryVector[0]);
+        assertArrayEquals(new BinaryVector[] { v1, v2, v3 }, order);
+
+        int idx = 0;
+        for (BinaryVector bv : set) {
+            assertEquals(order[idx++], bv);
+        }
+        assertEquals(3, idx);
+    }
 }

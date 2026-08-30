@@ -79,6 +79,29 @@ public final class Partition {
             throw new IllegalArgumentException(
                     "Number of clusters must be positive, got: " + newSize);
         }
+        // When shrinking, compact the physical cluster array so that elements
+        // stored in dropped slots remain reachable through the public API. The
+        // internal array is sized to its capacity and may hold stale references
+        // past {@code k}; a live view over those slots would otherwise report
+        // an
+        // empty cluster even though it still holds vectors. Mirrors C
+        // {@code remove_empty_sets} compaction in {@code binset.c}.
+        if (newSize < k) {
+            int writeIdx = 0;
+            for (int readIdx = 0; readIdx < k; readIdx++) {
+                VectorSet cluster = clusters[readIdx];
+                if (cluster != null && !cluster.isEmpty()) {
+                    if (writeIdx != readIdx) {
+                        clusters[writeIdx] = cluster;
+                        clusters[readIdx] = null;
+                    }
+                    writeIdx++;
+                }
+            }
+            for (int i = writeIdx; i < k; i++) {
+                clusters[i] = null;
+            }
+        }
         this.k = newSize;
     }
 

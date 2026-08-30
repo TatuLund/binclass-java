@@ -159,4 +159,21 @@ class InfiniteCentroidsTest {
 
         assertThrows(NullPointerException.class, () -> ic.copyFrom(null));
     }
+
+    @Test
+    void testSetBoundsAgainstArrayLengthAfterRemove() {
+        InfiniteCentroids ic = new InfiniteCentroids(3, 5);
+        Centroid c = new Centroid(new double[] { 0.1, 0.2, 0.3, 0.4, 0.5 }, 5,
+                1.0);
+
+        // remove() shrinks k but leaves the backing array at its old capacity.
+        ic.remove(0);
+        assertEquals(2, ic.size());
+
+        // index 2 is beyond k (2) but within the physical array (length 3):
+        // set must accept it where a k-only bound would reject it.
+        assertDoesNotThrow(() -> ic.set(2, c));
+        // an index equal to the physical length remains out of bounds.
+        assertThrows(IndexOutOfBoundsException.class, () -> ic.set(3, c));
+    }
 }

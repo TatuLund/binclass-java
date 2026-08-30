@@ -955,7 +955,7 @@ public final class GLAEngine {
 
         // Adjust centroid count to match non-empty clusters
         if (newK != centroids.size()) {
-            logger.debug(
+            logger.trace(
                     "Adjusting centroids from {} to {} (empty cluster removal)",
                     centroids.size(), newK);
 
@@ -977,11 +977,11 @@ public final class GLAEngine {
 
         // Update partition size to match actual non-empty clusters
         if (partition.size() != newK) {
-            logger.debug("Updating partition size from {} to {}",
+            logger.trace("Updating partition size from {} to {}",
                     partition.size(), newK);
             partition.setSize(newK);
         } else {
-            logger.debug("Partition size already matches: {}", newK);
+            logger.trace("Partition size already matches: {}", newK);
         }
 
         logger.debug("Partition now has {} non-empty clusters", newK);

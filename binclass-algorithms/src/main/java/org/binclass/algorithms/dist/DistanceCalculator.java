@@ -937,4 +937,128 @@ public final class DistanceCalculator {
         }
     }
 
+    /** Hamming distance type (DT_HAM). */
+    public static final int DISTANCE_HAM = 1;
+    /** L1 (Manhattan) distance type (DT_L1). */
+    public static final int DISTANCE_L1 = 2;
+    /** L2 (Euclidean squared) distance type (DT_L2). */
+    public static final int DISTANCE_L2 = 3;
+    /** Codelength distance types use the average codelength as {@code d}. */
+    public static final int DISTANCE_CL_START = 4;
+
+    /**
+     * Computes the Shannon entropy estimate for a partition given its
+     * centroids.
+     * <p>
+     * Equivalent to C function {@code shannon_entropy()} from
+     * {@code distmin.c}. Sums the codelength of every vector to its assigned
+     * centroid, then adds correction terms for class labeling and feature
+     * labeling that together form a stochastic-complexity-style entropy
+     * estimate.
+     * </p>
+     *
+     * @param partition
+     *            the partition containing cluster assignments (1-based indices)
+     * @param centroids
+     *            the infinite centroid array defining clusters
+     * @return the Shannon entropy estimate averaged over all vectors
+     */
+    public static double shannonEntropy(Partition partition,
+            InfiniteCentroids centroids) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
+
+        int k = centroids.size(); // 1-based count
+        int l = centroids.get(0).getLength();
+        double h = 0.0;
+        int n = 0;
+
+        for (int i = 1; i < k; i++) {
+            VectorSet classVectors = partition.getElements(i); // 1-based
+            Centroid centroid = centroids.get(i - 1); // Convert to 0-based
+            for (BinaryVector vector : classVectors) {
+                h += codeLength2(vector, centroid);
+                n++;
+            }
+        }
+
+        double N = (double) n;
+
+        /* labeling of the classes */
+        for (int i = 1; i < k; i++) {
+            h -= 0.5 * MathUtils.log2(centroids.get(i - 1).getWeight());
+        }
+        h += 0.5 * (k - 1) * MathUtils.log2(N * 0.0833333);
+        h -= MathUtils.log2Factorial(k - 2);
+
+        /* labeling of the features */
+        for (int i = 1; i < k; i++) {
+            Centroid centroid = centroids.get(i - 1); // Convert to 0-based
+            for (int j = 1; j < l; j++) {
+                double p = centroid.get(j - 1); // Convert to 0-based
+                h += 0.5 * MathUtils.log2((centroid.getWeight() * N)
+                        * 0.0833333)
+                        - 0.5
+                                * (MathUtils.log2(p) + MathUtils.log2(1.0 - p));
+            }
+        }
+
+        if (n < 1) {
+            throw new ArithmeticException("Division by zero in shannonEntropy");
+        }
+        return h / N;
+    }
+
+    /**
+     * Computes the scoring breakdown for a partition, mirroring C function
+     * {@code calculate_criteria()} from {@code classify.c}.
+     * <p>
+     * Determines {@code d} (MAE/MSE/distortion for L1/L2/Hamming, or the
+     * average codelength for codelength-based distance types), {@code i1}
+     * (average codelength or stored information content), and {@code i2}
+     * (Shannon entropy). The stochastic complexity {@code sc} is supplied by
+     * the caller so it can be computed with the same prior used elsewhere in
+     * the search loop.
+     * </p>
+     *
+     * @param partition
+     *            the partition containing cluster assignments (1-based indices)
+     * @param centroids
+     *            the infinite centroid array defining clusters
+     * @param distanceType
+     *            the distance type used by the algorithm (see the
+     *            {@code DISTANCE_*} constants)
+     * @param sc
+     *            the stochastic complexity of the current clustering
+     * @return a {@link Criteria} describing the scoring breakdown
+     */
+    public static Criteria calculateCriteria(Partition partition,
+            InfiniteCentroids centroids, int distanceType, double sc) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
+
+        double d = 0.0;
+        if (distanceType == DISTANCE_HAM) {
+            d = overallDistortion(partition, centroids);
+        } else if (distanceType == DISTANCE_L1) {
+            d = overallMae(partition, centroids);
+        } else if (distanceType == DISTANCE_L2) {
+            d = overallMse(partition, centroids);
+        }
+
+        double i1;
+        double i2 = shannonEntropy(partition, centroids);
+        if (distanceType > DISTANCE_L2) {
+            // Codelength distances: reuse stored information content.
+            i1 = averageCodelength(partition, centroids);
+        } else {
+            i1 = averageCodelength(partition, centroids);
+        }
+
+        if (distanceType >= DISTANCE_CL_START) {
+            d = i1;
+        }
+
+        return new Criteria(sc, d, i1, i2);
+    }
 }
