@@ -428,7 +428,7 @@ class GLAEngineTest {
                 epsilon, 1.8, heuristic, 1, 1,
                 maxIter, 1000, 0, 20, 20, 5, false, false, false,
                 trashcan, analyseMissing, false, 0.0, false, 1, 1,
-                false, false);
+                false, false, false, false);
     }
 
     @Test
@@ -552,8 +552,7 @@ class GLAEngineTest {
                 baseConfig.logCentroids(),
                 100.0, // Very high firstD to trigger skip
                 baseConfig.bestCodeLength(), baseConfig.distanceType(),
-                baseConfig.heuristicCount(), false, false);
-
+                baseConfig.heuristicCount(), false, false, false, false);
         Partition partition = new Partition(2);
         double[] dmin = new double[1];
 
@@ -574,7 +573,7 @@ class GLAEngineTest {
         GLAConfig config = new GLAConfig(0.001, 1.8, 1, 1, 1,
                 0, 1000, 0, 20, 20, 5, false, false, false,
                 false, false, true, // logCentroids = enabled
-                0.0, false, 1, 1, false, false);
+                0.0, false, 1, 1, false, false, false, false);
 
         Partition partition = new Partition(2);
         double[] dmin = new double[1];

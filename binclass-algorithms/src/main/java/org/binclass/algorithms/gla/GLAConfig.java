@@ -89,7 +89,19 @@ public record GLAConfig(
         boolean filterExactK,
 
         /** require_better flag: require improving distance in trials */
-        boolean requireBetter) {
+        boolean requireBetter,
+
+        /**
+         * Local search cycler mode (-r7): cycle through all operators instead
+         * of using a single fixed one. Mirrors C {@code ls_heuristic_cycler}.
+         */
+        boolean lsCycler,
+
+        /**
+         * Local search adaptive mode (-r8): adaptively select operators based
+         * on success probabilities. Mirrors C {@code ls_adaptive_heuristic}.
+         */
+        boolean lsAdaptive) {
 
     /** Default configuration with standard parameters */
     public static final GLAConfig DEFAULT = new GLAConfig(
@@ -115,7 +127,9 @@ public record GLAConfig(
             1, // distanceType (HAM by default)
             1, // heuristicCount (default)
             false, // filterExactK (disabled by default)
-            false // requireBetter (disabled by default)
+            false, // requireBetter (disabled by default)
+            false, // lsCycler (disabled by default)
+            false // lsAdaptive (disabled by default)
     );
 
     /** Effective maximum iterations based on config */

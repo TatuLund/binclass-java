@@ -51,8 +51,11 @@ class MathUtilsTest {
 
     @Test
     void testLog2FactorialNegative() {
-        assertThrows(IllegalArgumentException.class,
-                () -> MathUtils.log2Factorial(-1));
+        // Negative arguments clamp to index 0 like the C macro
+        // log2_factorial(x):
+        // (x < 0) ? log2_factorials[0] : ..., which is log₂(0!) = 0.
+        assertEquals(0.0, MathUtils.log2Factorial(-1), 1e-10);
+        assertEquals(0.0, MathUtils.log2Factorial(-5), 1e-10);
     }
 
     @Test

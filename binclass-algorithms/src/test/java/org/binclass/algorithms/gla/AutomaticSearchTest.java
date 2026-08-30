@@ -91,7 +91,9 @@ class AutomaticSearchTest {
                 1, // distanceType
                 1, // heuristicCount
                 false, // filterExactK
-                false // requireBetter
+                false, // requireBetter
+                false, // lsCycler
+                false // lsAdaptive
         );
     }
 
@@ -191,7 +193,9 @@ class AutomaticSearchTest {
         GLAConfig ccl = new GLAConfig(
                 MathUtils.EPSILON, 1.8, 1, 1, 4, 0, 1000, 0, 0, 3, 5, false,
                 false,
-                false, false, false, false, 0.0, true, 1, 1, false, false);
+                false, false, false, false, 0.0, true, 1, 1, false, false,
+                false,
+                false);
 
         AutomaticSearch.Result result = new AutomaticSearch(set, ccl).run();
         assertNotNull(result.partition());

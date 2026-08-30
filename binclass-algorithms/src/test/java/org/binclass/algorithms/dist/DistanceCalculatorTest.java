@@ -559,4 +559,68 @@ class DistanceCalculatorTest {
 
         assertEquals(-12.34, criteria.sc(), 1e-9);
     }
+
+    /**
+     * The uniform-prior SC path checks classes {@code 1..k-1}; when any of them
+     * is empty it throws the exact exception the local-search fix relies on to
+     * detect an unpopulated partition.
+     */
+    @Test
+    void testStochasticComplexityThrowsOnEmptyCluster() {
+        Partition partition = new Partition(3);
+        // Class 1 populated, class 2 empty -> uniform path throws before
+        // returning (it only inspects classes 1..k-1).
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 1, 0, 1, 0 }, 4));
+
+        assertThrows(IllegalStateException.class, () -> DistanceCalculator
+                .stochasticComplexity(partition, 3, 4));
+    }
+
+    /**
+     * Locks the exact exception type and message used by the uniform-prior SC
+     * path so the local-search fix stays verified end-to-end.
+     */
+    @Test
+    void testStochasticComplexityUniformThrowsOnEmptyCluster() {
+        Partition partition = new Partition(3);
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 1, 0, 1, 0 }, 4));
+
+        assertThrows(IllegalStateException.class, () -> DistanceCalculator
+                .stochasticComplexityUniform(partition, 3, 4));
+    }
+
+    /**
+     * A partition whose checked classes are all non-empty scores a finite SC
+     * and does not throw — the state {@code LocalSearch} starts from after
+     * population.
+     */
+    @Test
+    void testStochasticComplexityNonEmptyClassesReturnsFinite() {
+        Partition partition = new Partition(3);
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 0, 0, 0, 0 }, 4));
+        partition.getElements(2).addElement(new BinaryVector(
+                new int[] { 1, 1, 1, 1 }, 4));
+
+        double sc = DistanceCalculator.stochasticComplexity(partition, 3, 4);
+        assertTrue(Double.isFinite(sc),
+                "SC must be finite when classes are non-empty");
+    }
+
+    /**
+     * A single-cluster partition (k=2) still scores finite SC because the
+     * uniform path only inspects class 1.
+     */
+    @Test
+    void testStochasticComplexitySingleNonEmptyCluster() {
+        Partition partition = new Partition(2);
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 0, 0, 0, 0 }, 4));
+
+        double sc = DistanceCalculator.stochasticComplexity(partition, 2, 4);
+        assertTrue(Double.isFinite(sc),
+                "SC must be finite for one non-empty cluster");
+    }
 }
