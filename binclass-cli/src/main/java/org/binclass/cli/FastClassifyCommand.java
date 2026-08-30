@@ -87,7 +87,10 @@ public class FastClassifyCommand implements BaseCommand {
                 false, // filterExactK (disabled by default)
                 false, // requireBetter (disabled by default)
                 false, // lsCycler (disabled by default)
-                false // lsAdaptive (disabled by default)
+                false, // lsAdaptive (disabled by default)
+                false, // decreasingEpsilon
+                true, // alternateWorstMatch (default per C vars.c)
+                false // alternateEmptyCellFix
         );
 
         log.info("Running Split-GLA algorithm on {} vectors",

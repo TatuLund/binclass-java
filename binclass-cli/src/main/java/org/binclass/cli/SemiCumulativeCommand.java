@@ -97,7 +97,10 @@ public class SemiCumulativeCommand implements BaseCommand {
                 false, // filterExactK (disabled by default)
                 false, // requireBetter (disabled by default)
                 false, // lsCycler (disabled by default)
-                false // lsAdaptive (disabled by default)
+                false, // lsAdaptive (disabled by default)
+                decreasingEpsilon, // -E two-char form
+                true, // alternateWorstMatch (default per C vars.c)
+                false // alternateEmptyCellFix
         );
 
         // Initialize SC arrays for Join-GLA search

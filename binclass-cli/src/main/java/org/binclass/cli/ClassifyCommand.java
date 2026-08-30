@@ -86,9 +86,54 @@ public class ClassifyCommand implements BaseCommand {
      *            command options
      * @return a valid epsilon value, defaulting to {@code 0.001}
      */
+    /**
+     * Detect decreasing_epsilon mode ({@code -E} without a numeric value).
+     * Mirrors C {@code parse_classify()} where a bare {@code -E} sets the flag
+     * and keeps the default epsilon threshold.
+     */
+    private boolean isDecreasingEpsilon(Map<String, String> opts) {
+        return opts.containsKey("-E")
+                && !opts.get("-E").matches("\\d+(\\.\\d+)?");
+    }
+
+    /**
+     * Map the two boolean empty-cell fix flags to the legacy integer code used
+     * by {@link GLAConfig#alternateMode()}. Mirrors C parse_classify(): 1=
+     * (false,false), 2=(true,false), 3=(false,true), 4=(true,true).
+     *
+     * @param worstMatch
+     *            alternate_worst_match flag
+     * @param emptyCellFix
+     *            alternate_empty_cell_fix flag
+     * @return the integer mode code (1..4)
+     */
+    private static int toAlternateMode(boolean worstMatch,
+            boolean emptyCellFix) {
+        if (worstMatch && emptyCellFix) {
+            return 4;
+        }
+        if (worstMatch) {
+            return 2;
+        }
+        if (emptyCellFix) {
+            return 3;
+        }
+        return 1;
+    }
+
+    /**
+     * Parse and validate the convergence threshold ({@code -E}). The value must
+     * satisfy {@code 0 < epsilon < 0.5}. A bare {@code -E} selects decreasing
+     * epsilon mode (see {@link #isDecreasingEpsilon(Map)}).
+     */
     private double parseEpsilon(Map<String, String> opts) {
-        double epsilon = parseOptionDouble(opts, "-E",
-                "Invalid epsilon value: " + opts.get("-E"), 0.001);
+        boolean decreasing = isDecreasingEpsilon(opts);
+
+        double epsilon = 0.001;
+        if (!decreasing) {
+            epsilon = parseOptionDouble(opts, "-E",
+                    "Invalid epsilon value: " + opts.get("-E"), 0.001);
+        }
         if (epsilon <= 0 || epsilon >= 0.5) {
             throw new IllegalArgumentException(
                     "Invalid epsilon value: " + opts.get("-E"));
@@ -109,6 +154,10 @@ public class ClassifyCommand implements BaseCommand {
         int kstopwhen = parseOptionInt(opts, "-S",
                 "Invalid kstopwhen value: " + opts.get("-S"));
 
+        int kcStopWhen = parseOptionInt(opts, "-W",
+                "Invalid kcStopWhen value: " + opts.get("-W"), 5);
+
+        boolean decreasingEpsilon = isDecreasingEpsilon(opts);
         double epsilon = parseEpsilon(opts);
 
         setupVerboseMode(opts);
@@ -123,8 +172,29 @@ public class ClassifyCommand implements BaseCommand {
         boolean lsAdaptive = heuristic == 8;
 
         boolean trashcan = opts.containsKey("-t");
-        int alternateMode = parseOptionInt(opts, "-e",
-                "Invalid alternate mode: " + opts.get("-e"));
+
+        // -eX selects the empty-cell / orphaned-centroid fix. Mirrors C
+        // parse_classify(): 1=(false,false), 2=(true,false), 3=(false,true),
+        // 4=(true,true). Default (no -e) is worst_match=TRUE, empty_cell_fix=
+        // FALSE per C vars.c.
+        boolean alternateWorstMatch = true;
+        boolean alternateEmptyCellFix = false;
+        if (opts.containsKey("-e")) {
+            int tmp = parseOptionInt(opts, "-e",
+                    "Invalid alternate mode: " + opts.get("-e"));
+            switch (tmp) {
+            case 2:
+            case 4:
+                alternateWorstMatch = true;
+                break;
+            default:
+                alternateWorstMatch = false;
+                break;
+            }
+            if (tmp == 3 || tmp == 4) {
+                alternateEmptyCellFix = true;
+            }
+        }
 
         boolean analyseMissing = opts.containsKey("-m");
         int centroidType = parseOptionInt(opts, "-c",
@@ -207,14 +277,15 @@ public class ClassifyCommand implements BaseCommand {
                 epsilon, // convergence threshold
                 1.8, // pnnThreshold (default)
                 heuristic, // heuristic type
-                alternateMode, // alternate mode
+                toAlternateMode(alternateWorstMatch, alternateEmptyCellFix),
+                // alternate mode (legacy int)
                 centroidType, // centroid type
                 maxIter, // max iterations (0 = use default)
                 safetyLimit, // safety limit
                 iterBase, // iteration base
                 vectorSet.size(), // n: total vectors
                 kstopwhen, // -S flag: max clusters to search
-                5, // kcStopWhen (-W flag): steps without SC improvement
+                kcStopWhen, // -W flag: steps without SC improvement
                 classWeights, // use class weights or uniform
                 roundedCentroids, // round centroids to binary values
                 jeffreysPrior, // use Jeffreys prior for stochastic complexity
@@ -228,7 +299,10 @@ public class ClassifyCommand implements BaseCommand {
                 false, // filterExactK (disabled by default)
                 requireBetter, // require better distance (-B flag)
                 lsCycler, // local search cycler mode (-r7)
-                lsAdaptive // local search adaptive mode (-r8)
+                lsAdaptive, // local search adaptive mode (-r8)
+                decreasingEpsilon, // -E two-char form
+                alternateWorstMatch, // -eX worst-match fix
+                alternateEmptyCellFix // -eX empty-cell-fix
         );
 
         // Emit the human-readable "Methods:" summary block derived from every
@@ -860,8 +934,7 @@ public class ClassifyCommand implements BaseCommand {
         }
 
         // Alternate empty-cell fix combined with class weights.
-        if ((config.alternateMode() == 3 || config.alternateMode() == 4)
-                && config.weights()) {
+        if (config.alternateEmptyCellFix() && config.weights()) {
             log.info("  Using extra iteration in orphaned centroids fix");
         }
 

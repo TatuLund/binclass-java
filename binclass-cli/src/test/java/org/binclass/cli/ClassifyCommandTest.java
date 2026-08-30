@@ -994,7 +994,8 @@ class ClassifyCommandTest {
                 VECTOR_LENGTH);
         GLAConfig config = new GLAConfig(0.001, 1.8, 7, 1, 4, 0, 500, 0,
                 N_VECTORS, 20, 5, false, false, false, false, false, false,
-                0.0, false, 1, 6, false, false, false, false);
+                0.0, false, 1, 6, false, false, false, false,
+                false, true, false);
 
         try (var mockEngine = mockStatic(GLAEngine.class)) {
             Method m = ClassifyCommand.class.getDeclaredMethod(
@@ -1038,6 +1039,231 @@ class ClassifyCommandTest {
 
             int result = command.execute(args);
             assertEquals(0, result);
+        }
+    }
+
+    // --- G12: -eX empty-cell / orphaned-centroid fix mapping ---------------
+
+    @Test
+    void testExecuteWithE2SetsWorstMatchOnly() throws Exception {
+        TestUtils.setupOptions(args, TestUtils.createOptions("-e", "2"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertTrue(capturedConfig.alternateWorstMatch());
+            assertFalse(capturedConfig.alternateEmptyCellFix());
+        }
+    }
+
+    @Test
+    void testExecuteWithE3SetsEmptyCellFixOnly() throws Exception {
+        TestUtils.setupOptions(args, TestUtils.createOptions("-e", "3"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertFalse(capturedConfig.alternateWorstMatch());
+            assertTrue(capturedConfig.alternateEmptyCellFix());
+        }
+    }
+
+    @Test
+    void testExecuteWithE4SetsBothFixes() throws Exception {
+        TestUtils.setupOptions(args, TestUtils.createOptions("-e", "4"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertTrue(capturedConfig.alternateWorstMatch());
+            assertTrue(capturedConfig.alternateEmptyCellFix());
+        }
+    }
+
+    @Test
+    void testExecuteWithDefaultESetsWorstMatchOnly() throws Exception {
+        // No -e flag: default is worst_match=TRUE, empty_cell_fix=FALSE per C
+        // vars.c.
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertTrue(capturedConfig.alternateWorstMatch());
+            assertFalse(capturedConfig.alternateEmptyCellFix());
+        }
+    }
+
+    // --- G14: decreasing_epsilon (bare -E) ----------------------------------
+
+    @Test
+    void testExecuteWithBareEpsilonDecreasingMode() throws Exception {
+        // Bare -E (non-numeric value, as produced by CliParser) selects the
+        // decreasing_epsilon mode and keeps the default epsilon.
+        TestUtils.setupOptions(args, TestUtils.createOptions("-E", "true"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertTrue(capturedConfig.decreasingEpsilon());
+            assertEquals(0.001, capturedConfig.epsilon(), 0.0);
+        }
+    }
+
+    @Test
+    void testExecuteWithNumericEpsilonNotDecreasing() throws Exception {
+        // Numeric -E keeps decreasing_epsilon disabled and uses the value.
+        TestUtils.setupOptions(args, TestUtils.createOptions("-E", "0.1"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertFalse(capturedConfig.decreasingEpsilon());
+            assertEquals(0.1, capturedConfig.epsilon(), 0.0);
+        }
+    }
+
+    // --- G16: -W kcStopWhen wiring ------------------------------------------
+
+    @Test
+    void testExecuteWithKstopwhenFlag() throws Exception {
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-W", "3"));
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertEquals(3, capturedConfig.kcStopWhen());
+        }
+    }
+
+    @Test
+    void testExecuteWithDefaultKstopwhen() throws Exception {
+        // No -W flag: kcStopWhen defaults to 5.
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(N_VECTORS,
+                VECTOR_LENGTH);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(1));
+
+            ArgumentCaptor<GLAConfig> configCaptor = ArgumentCaptor
+                    .forClass(GLAConfig.class);
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
+                    any(), configCaptor.capture()), atLeastOnce());
+
+            GLAConfig capturedConfig = configCaptor.getValue();
+            assertEquals(5, capturedConfig.kcStopWhen());
         }
     }
 }

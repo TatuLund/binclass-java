@@ -132,7 +132,10 @@ public class BootstrapCommand implements BaseCommand {
                 false, // filterExactK (disabled by default)
                 false, // requireBetter (disabled by default)
                 false, // lsCycler (disabled by default)
-                false // lsAdaptive (disabled by default)
+                false, // lsAdaptive (disabled by default)
+                false, // decreasingEpsilon
+                true, // alternateWorstMatch (default per C vars.c)
+                false // alternateEmptyCellFix
         );
 
         // Number of bootstrap trials mirrors C bootstraper(): the number of

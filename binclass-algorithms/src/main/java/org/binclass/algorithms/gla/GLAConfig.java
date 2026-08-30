@@ -101,7 +101,26 @@ public record GLAConfig(
          * Local search adaptive mode (-r8): adaptively select operators based
          * on success probabilities. Mirrors C {@code ls_adaptive_heuristic}.
          */
-        boolean lsAdaptive) {
+        boolean lsAdaptive,
+
+        /**
+         * decreasing_epsilon (-E two-char form): reset and halve the epsilon
+         * threshold each GLA iteration. Mirrors C {@code decreasing_epsilon}.
+         */
+        boolean decreasingEpsilon,
+
+        /**
+         * alternate_worst_match (-eX): fill an empty cell with the absolute
+         * worst-match vector instead of the class-distance worst match.
+         * Mirrors C {@code alternate_worst_match}.
+         */
+        boolean alternateWorstMatch,
+
+        /**
+         * alternate_empty_cell_fix (-eX): run a local repartition after filling
+         * an empty cell. Mirrors C {@code alternate_empty_cell_fix}.
+         */
+        boolean alternateEmptyCellFix) {
 
     /** Default configuration with standard parameters */
     public static final GLAConfig DEFAULT = new GLAConfig(
@@ -129,7 +148,10 @@ public record GLAConfig(
             false, // filterExactK (disabled by default)
             false, // requireBetter (disabled by default)
             false, // lsCycler (disabled by default)
-            false // lsAdaptive (disabled by default)
+            false, // lsAdaptive (disabled by default)
+            false, // decreasingEpsilon (-E two-char form)
+            true, // alternateWorstMatch (TRUE by default per C vars.c)
+            false // alternateEmptyCellFix (FALSE by default per C vars.c)
     );
 
     /** Effective maximum iterations based on config */

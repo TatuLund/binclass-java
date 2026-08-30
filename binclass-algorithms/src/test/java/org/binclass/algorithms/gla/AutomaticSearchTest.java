@@ -93,7 +93,10 @@ class AutomaticSearchTest {
                 false, // filterExactK
                 false, // requireBetter
                 false, // lsCycler
-                false // lsAdaptive
+                false, // lsAdaptive (disabled by default)
+                false, // decreasingEpsilon
+                true, // alternateWorstMatch (default per C vars.c)
+                false // alternateEmptyCellFix
         );
     }
 
@@ -195,7 +198,7 @@ class AutomaticSearchTest {
                 false,
                 false, false, false, false, 0.0, true, 1, 1, false, false,
                 false,
-                false);
+                false, false, true, false);
 
         AutomaticSearch.Result result = new AutomaticSearch(set, ccl).run();
         assertNotNull(result.partition());
