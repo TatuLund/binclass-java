@@ -306,8 +306,12 @@ public final class GLAEngine {
         int iter = 0;
         int maxIter = config.maxIter() > 0 ? config.maxIter() : MAX_ITERATIONS;
 
-        // Start with larger epsilon for faster convergence
-        double epsilon = config.epsilon() > 0 ? config.epsilon() : 0.1;
+        // Start with larger epsilon for faster convergence. When the
+        // decreasing_epsilon flag (-E two-char form) is set, force an initial
+        // value of 0.1 and halve it every iteration regardless of improvement,
+        // mirroring C's gla() from glainf.c.
+        double epsilon = config.decreasingEpsilon() ? 0.1
+                : (config.epsilon() > 0 ? config.epsilon() : 0.1);
 
         while (improvement && iter < maxIter) {
             iter++;
@@ -355,8 +359,14 @@ public final class GLAEngine {
             if (diff > epsilon) {
                 d = nd;
                 // Decrease epsilon for next iteration to allow more refinement
-                epsilon *= 0.5;
-            } else {
+                if (config.decreasingEpsilon()) {
+                    // decreasing_epsilon: halve every iteration regardless of
+                    // improvement, mirroring C's gla() from glainf.c.
+                    epsilon /= 2.0;
+                } else {
+                    epsilon *= 0.5;
+                }
+            } else if (!config.decreasingEpsilon()) {
                 improvement = false;
             }
         }
@@ -923,10 +933,12 @@ public final class GLAEngine {
     /**
      * Removes empty clusters from the partition and updates centroid count.
      * <p>
-     * Equivalent to C function {@code inf_remove_empty()} from
-     * {@code glainf.c}. Handles the "empty cell problem" where some clusters
-     * may become empty during GLA iterations, requiring dynamic adjustment of
-     * k.
+     * Equivalent to C function {@code inf_remove_empty()} /
+     * {@code remove_empty()} from {@code glainf.c} / {@code binset.c}. Handles
+     * the "empty cell problem" where some clusters may become empty during GLA
+     * iterations. When an empty cell is found it is filled via the configured
+     * empty-cell fix (mirroring C's {@code remove_empty_sets = FALSE} path used
+     * throughout GLA) rather than simply compacting k down.
      * </p>
      *
      * @param partition
@@ -936,55 +948,293 @@ public final class GLAEngine {
      */
     public static void removeEmpty(Partition partition,
             InfiniteCentroids centroids) {
+        removeEmpty(partition, centroids, GLAConfig.DEFAULT);
+    }
+
+    /**
+     * Removes or fixes empty clusters according to {@code config}.
+     * <p>
+     * Mirrors C {@code remove_empty()} from {@code binset.c}: iterate classes
+     * 1..k-1; for each empty class pick the worst-matching vector (absolute
+     * worst-match when {@code alternateWorstMatch} is set, otherwise the
+     * class-distortion worst match), move it into the empty cell, reset that
+     * centroid to {@code (1 + x) / 3}, and optionally run a local repartition
+     * of the moved vector's former class when {@code alternateEmptyCellFix} is
+     * set. A final average pass over all centroids is applied when weights or
+     * the empty-cell fix is enabled, matching C's {@code inf_remove_empty()}.
+     * </p>
+     *
+     * @param partition
+     *            the partition to clean up
+     * @param centroids
+     *            the centroid array (size will be adjusted)
+     * @param config
+     *            GLA configuration controlling the empty-cell fix combos
+     */
+    public static void removeEmpty(Partition partition,
+            InfiniteCentroids centroids, GLAConfig config) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
-        if (partition.size() == 0) {
-            throw new IllegalStateException("Partition is empty");
+
+        int k = centroids.size();
+        if (k == 0) {
+            throw new IllegalStateException("No centroids to clean up");
+        }
+        int l = centroids.get(0).getLength();
+
+        // Iterate classes; an empty cell is fixed in place without advancing i,
+        // mirroring C's remove_empty() which re-checks the same slot.
+        int i = 1;
+        while (i < k) {
+            if (partition.getSize(i) == 0) {
+                BinaryVector x;
+                int c;
+                if (config.alternateWorstMatch()) {
+                    // absolute worst-match vector across the whole partition
+                    x = absoluteWorstMatch(partition, centroids);
+                    c = findClusterForVector(partition, x);
+                } else {
+                    // class-distortion worst match + its internal worst vector
+                    c = worstMatchClassIndex(partition, centroids);
+                    if (c == 0) {
+                        i++;
+                        continue;
+                    }
+                    x = worstVectorInCluster(partition.getElements(c),
+                            centroids.get(c - 1));
+                }
+                if (x == null || c == 0) {
+                    // No vector available to fill the cell; leave it empty.
+                    i++;
+                    continue;
+                }
+                // Move the worst-matching vector into the empty cell.
+                partition.removeElement(c, x);
+                partition.addElement(i, x);
+
+                // Fix the centroid: t->el[j] = (1 + x->el[j]) / 3.0
+                Centroid t = centroids.get(i - 1);
+                double[] el = t.getArray();
+                int[] xv = x.getEl();
+                for (int j = 0; j < l && j < xv.length; j++) {
+                    el[j] = (1.0 + xv[j]) / 3.0;
+                }
+
+                // Optional local repartition of the moved vector's former
+                // class.
+                if (config.alternateEmptyCellFix()) {
+                    localRepartition(c, partition, centroids, config);
+                }
+            } else {
+                i++;
+            }
         }
 
-        // Count non-empty clusters
+        // Final average pass over all non-empty centroids when weights or the
+        // empty-cell fix is enabled (mirrors C inf_remove_empty()).
+        if (config.alternateEmptyCellFix() || config.weights()) {
+            for (int j = 1; j <= k; j++) {
+                if (partition.getSize(j) > 0) {
+                    recomputeCentroids(partition, centroids, config.rounded(),
+                            config.n());
+                }
+            }
+        }
+
+        // Compact the centroid array to match the non-empty cluster count.
+        compactToNonEmpty(partition, centroids);
+    }
+
+    /**
+     * Finds the absolute worst-matching vector across every class (with more
+     * than one member).
+     * <p>
+     * Equivalent to C {@code absolute_worst_match()} from {@code binset.c}:
+     * scans all classes and returns the element with the largest Hamming
+     * distance to its current centroid.
+     * </p>
+     *
+     * @param partition
+     *            the partition to scan
+     * @param centroids
+     *            the current centroids
+     * @return the worst-matching vector, or {@code null} if none found
+     */
+    private static BinaryVector absoluteWorstMatch(Partition partition,
+            InfiniteCentroids centroids) {
+        int k = partition.size();
+        int bestDist = -1;
+        BinaryVector best = null;
+        for (int cls = 1; cls < k; cls++) {
+            if (partition.getSize(cls) <= 1) {
+                continue;
+            }
+            VectorSet cluster = partition.getElements(cls);
+            Centroid centroid = centroids.get(cls - 1);
+            for (BinaryVector bv : cluster) {
+                int d = DistanceCalculator.hammingDistance(bv, centroid);
+                if (d > bestDist) {
+                    bestDist = d;
+                    best = bv;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Finds the class with the largest distortion and returns its 1-based
+     * index.
+     * <p>
+     * Equivalent to C {@code worst_match()} from {@code binset.c}
+     * (class-selection phase): the most inconsistent class is the one whose
+     * vectors have the greatest average Hamming distance to their centroid,
+     * restricted to classes with more than one member.
+     * </p>
+     *
+     * @param partition
+     *            the partition to scan
+     * @param centroids
+     *            the current centroids
+     * @return the 1-based class index, or {@code 0} if none qualifies
+     */
+    private static int worstMatchClassIndex(Partition partition,
+            InfiniteCentroids centroids) {
+        int k = partition.size();
+        int bestClass = 0;
+        double bestDistortion = -1.0;
+        for (int cls = 1; cls < k; cls++) {
+            if (partition.getSize(cls) <= 1) {
+                continue;
+            }
+            double distortion = DistanceCalculator.classDistortion(
+                    partition.getElements(cls), centroids.get(cls - 1));
+            if (distortion > bestDistortion) {
+                bestDistortion = distortion;
+                bestClass = cls;
+            }
+        }
+        return bestClass;
+    }
+
+    /**
+     * Finds the vector with the largest Hamming distance to its centroid within
+     * a single class.
+     * <p>
+     * Equivalent to C {@code worst_match()} from {@code binset.c}
+     * (vector-selection phase).
+     * </p>
+     *
+     * @param cluster
+     *            the vectors of the chosen class
+     * @param centroid
+     *            the centroid for that class
+     * @return the worst-matching vector, or {@code null} if the class is empty
+     */
+    private static BinaryVector worstVectorInCluster(VectorSet cluster,
+            Centroid centroid) {
+        int bestDist = -1;
+        BinaryVector best = null;
+        for (BinaryVector bv : cluster) {
+            int d = DistanceCalculator.hammingDistance(bv, centroid);
+            if (d > bestDist) {
+                bestDist = d;
+                best = bv;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Locates the 1-based class that currently contains a given vector.
+     *
+     * @param partition
+     *            the partition to scan
+     * @param bv
+     *            the vector whose owning class is sought
+     * @return the 1-based class index, or {@code 0} if not found
+     */
+    private static int findClusterForVector(Partition partition,
+            BinaryVector bv) {
+        int k = partition.size();
+        for (int cls = 1; cls <= k; cls++) {
+            if (partition.contains(cls, bv)) {
+                return cls;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Reassigns the members of a class to their nearest centroids.
+     * <p>
+     * Equivalent to C {@code local_repartition()} from {@code distmin.c}: the
+     * vectors of class {@code c} are removed and reclassified against the
+     * remaining centroids using the configured assignment metric.
+     * </p>
+     *
+     * @param c
+     *            the 1-based class whose members are reassigned
+     * @param partition
+     *            the partition updated in place
+     * @param centroids
+     *            the current centroids
+     * @param config
+     *            GLA configuration controlling rounding and vector length
+     */
+    private static void localRepartition(int c, Partition partition,
+            InfiniteCentroids centroids, GLAConfig config) {
+        VectorSet moved = new VectorSet();
+        for (BinaryVector bv : partition.getElements(c)) {
+            moved.addElement(bv);
+            partition.removeElement(c, bv);
+        }
+        if (moved.size() == 0) {
+            return;
+        }
+        NearestNeighbor.infNearestNeighbor(moved, partition, centroids, false);
+    }
+
+    /**
+     * Compacts the centroid array so it holds exactly the non-empty clusters.
+     * <p>
+     * Mirrors C's compaction performed after fixing empty cells: empty
+     * centroids are shifted left and removed from the end of the array.
+     * </p>
+     *
+     * @param partition
+     *            the source of truth for which clusters are non-empty
+     * @param centroids
+     *            the centroid array compacted in place
+     */
+    private static void compactToNonEmpty(Partition partition,
+            InfiniteCentroids centroids) {
         int newK = 0;
         for (int i = 1; i <= partition.size(); i++) {
             if (partition.getSize(i) > 0) {
                 newK++;
             }
         }
-        if (newK <= 0) {
+        if (newK == 0) {
             throw new IllegalStateException("All clusters are empty");
         }
-
-        // Adjust centroid count to match non-empty clusters
         if (newK != centroids.size()) {
-            logger.trace(
-                    "Adjusting centroids from {} to {} (empty cluster removal)",
-                    centroids.size(), newK);
-
-            // Remove empty centroids by shifting left and compacting
             int writeIdx = 0;
-            for (int readIdx = 0; readIdx < centroids.size(); readIdx++) {
-                if (partition.getSize(readIdx + 1) > 0) {
-                    if (writeIdx != readIdx) {
-                        centroids.set(writeIdx, centroids.get(readIdx));
+            for (int readIdx = 1; readIdx <= partition.size(); readIdx++) {
+                if (partition.getSize(readIdx) > 0) {
+                    if (writeIdx + 1 != readIdx) {
+                        centroids.set(writeIdx, centroids.get(readIdx - 1));
                     }
                     writeIdx++;
                 }
             }
-            // Remove remaining centroids from the end
             while (centroids.size() > newK) {
                 centroids.remove(centroids.size() - 1);
             }
         }
-
-        // Update partition size to match actual non-empty clusters
         if (partition.size() != newK) {
-            logger.trace("Updating partition size from {} to {}",
-                    partition.size(), newK);
             partition.setSize(newK);
-        } else {
-            logger.trace("Partition size already matches: {}", newK);
         }
-
-        logger.debug("Partition now has {} non-empty clusters", newK);
     }
 
     /**

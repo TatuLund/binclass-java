@@ -111,8 +111,8 @@ public record GLAConfig(
 
         /**
          * alternate_worst_match (-eX): fill an empty cell with the absolute
-         * worst-match vector instead of the class-distance worst match.
-         * Mirrors C {@code alternate_worst_match}.
+         * worst-match vector instead of the class-distance worst match. Mirrors
+         * C {@code alternate_worst_match}.
          */
         boolean alternateWorstMatch,
 

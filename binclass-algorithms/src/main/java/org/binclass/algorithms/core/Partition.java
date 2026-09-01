@@ -98,7 +98,12 @@ public final class Partition {
                     writeIdx++;
                 }
             }
-            for (int i = writeIdx; i < k; i++) {
+            // Only clear slots beyond the new size. Slots within
+            // [0, newSize) keep their allocated VectorSet so that a fresh
+            // partition shrunk to a smaller count still has usable clusters
+            // (otherwise an all-empty shrink would null every slot and the
+            // next addElement() would NPE).
+            for (int i = newSize; i < k; i++) {
                 clusters[i] = null;
             }
         }

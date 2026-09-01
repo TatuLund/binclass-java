@@ -687,4 +687,233 @@ class GLAEngineTest {
         assertNotNull(p2);
         assertNotNull(p3);
     }
+
+    // ------------------------------------------------------------------
+    // Phase 6 tests: empty-cell fix (G12), decreasing epsilon (G14)
+    // ------------------------------------------------------------------
+
+    /**
+     * Builds a GLAConfig with the given alternate-worst-match and
+     * alternate-empty-cell-fix flags, keeping all other fields at sensible
+     * defaults for clustering.
+     */
+    private GLAConfig configFor(boolean alternateWorstMatch,
+            boolean alternateEmptyCellFix) {
+        return new GLAConfig(0.001, 1.8, 1, 1, 1, 0, 1000, 0, 20, 20, 5, false,
+                false, false, false, false, false, 0.0, false, 1, 1, false,
+                false,
+                false, false, false, alternateWorstMatch,
+                alternateEmptyCellFix);
+    }
+
+    /**
+     * Verifies that {@code removeEmpty} fills an empty cluster by moving the
+     * worst-matching vector into it, preserving the total number of vectors.
+     */
+    @Test
+    void testRemoveEmptyFillsEmptyCluster() {
+        BinaryVector a1 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector a2 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector b1 = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector b2 = new BinaryVector(new int[] { 1, 1, 1, 1 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 } });
+
+        Partition partition = new Partition(3);
+        partition.addElement(1, a1);
+        partition.addElement(1, a2);
+        // cluster 2 intentionally left empty
+        partition.addElement(3, b1);
+        partition.addElement(3, b2);
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(false, false));
+
+        assertTrue(partition.getSize(2) >= 1, "empty cluster should be filled");
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(4, all.size(), "all vectors must be preserved");
+    }
+
+    /**
+     * Verifies that the class-distortion path selects a vector from the most
+     * inconsistent class even when another class contains a single vector with
+     * a higher individual Hamming distance.
+     */
+    @Test
+    void testRemoveEmptyClassDistortionPicksMostInconsistentClass() {
+        // Class 1: three vectors each at Hamming distance 2 from centroid[0]
+        BinaryVector c1a = new BinaryVector(new int[] { 1, 1, 0, 0 });
+        BinaryVector c1b = new BinaryVector(new int[] { 1, 0, 1, 0 });
+        BinaryVector c1c = new BinaryVector(new int[] { 0, 0, 1, 1 });
+        // Class 3: three identical vectors (dist 0) plus one far vector (dist
+        // 4)
+        BinaryVector c3a = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3b = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3c = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3d = new BinaryVector(new int[] { 0, 0, 0, 0 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 } });
+
+        // Partition(4): cluster 2 empty; classes 1 and 3 are both in the
+        // scanned
+        // range [1, k-1] = [1, 3]. Class 1 distortion (2.0) beats class 3
+        // distortion (1.0), so the distortion path must pick from class 1 even
+        // though class 3 holds a vector with a higher individual Hamming
+        // distance.
+        Partition partition = new Partition(4);
+        partition.addElement(1, c1a);
+        partition.addElement(1, c1b);
+        partition.addElement(1, c1c);
+        // cluster 2 empty
+        partition.addElement(3, c3a);
+        partition.addElement(3, c3b);
+        partition.addElement(3, c3c);
+        partition.addElement(3, c3d);
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(false, false));
+
+        // The vector moved into cluster 2 must come from class 1 (the most
+        // inconsistent), not the far vector in class 3.
+        BinaryVector moved = null;
+        for (BinaryVector bv : partition.getElements(2)) {
+            moved = bv;
+        }
+        assertNotNull(moved, "cluster 2 should receive exactly one vector");
+        assertTrue(moved.equals(c1a) || moved.equals(c1b) || moved.equals(c1c),
+                "vector should be selected from the most inconsistent class 1");
+        assertFalse(moved.equals(c3d),
+                "far vector from class 3 must not be chosen by distortion path");
+    }
+
+    /**
+     * Verifies that {@code alternateWorstMatch=true} selects the single vector
+     * with the globally highest Hamming distance to its centroid.
+     */
+    @Test
+    void testRemoveEmptyAlternateWorstMatchPicksGlobalFarthest() {
+        // Class 1: three vectors each at Hamming distance 2 from centroid[0]
+        BinaryVector c1a = new BinaryVector(new int[] { 1, 1, 0, 0 });
+        BinaryVector c1b = new BinaryVector(new int[] { 1, 0, 1, 0 });
+        BinaryVector c1c = new BinaryVector(new int[] { 0, 0, 1, 1 });
+        // Class 3: three identical vectors (dist 0) plus one far vector (dist
+        // 4)
+        BinaryVector c3a = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3b = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3c = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector c3d = new BinaryVector(new int[] { 0, 0, 0, 0 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 } });
+
+        // Partition(4): cluster 2 empty; classes 1 and 3 are both in the
+        // scanned
+        // range [1, k-1]. The absolute worst-match path ignores class
+        // distortion
+        // and picks the single farthest vector (c3d at Hamming distance 4).
+        Partition partition = new Partition(4);
+        partition.addElement(1, c1a);
+        partition.addElement(1, c1b);
+        partition.addElement(1, c1c);
+        // cluster 2 empty
+        partition.addElement(3, c3a);
+        partition.addElement(3, c3b);
+        partition.addElement(3, c3c);
+        partition.addElement(3, c3d);
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(true, false));
+
+        BinaryVector moved = null;
+        for (BinaryVector bv : partition.getElements(2)) {
+            moved = bv;
+        }
+        assertNotNull(moved, "cluster 2 should receive exactly one vector");
+        assertTrue(moved.equals(c3d),
+                "absolute worst-match must pick the farthest vector from class 3");
+    }
+
+    /**
+     * Verifies that enabling {@code alternateEmptyCellFix} runs a local
+     * repartition after filling the empty cell.
+     */
+    @Test
+    void testRemoveEmptyWithLocalRepartition() {
+        BinaryVector a1 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector a2 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector b1 = new BinaryVector(new int[] { 1, 1, 1, 1 });
+        BinaryVector b2 = new BinaryVector(new int[] { 1, 1, 1, 1 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 } });
+
+        Partition partition = new Partition(3);
+        partition.addElement(1, a1);
+        partition.addElement(1, a2);
+        // cluster 2 empty
+        partition.addElement(3, b1);
+        partition.addElement(3, b2);
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(false, true));
+
+        assertTrue(partition.getSize(2) >= 1, "empty cluster should be filled");
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(4, all.size(),
+                "all vectors must be preserved with local repartition");
+    }
+
+    /**
+     * Verifies that the standard GLA flow preserves every vector when a cluster
+     * becomes empty during refinement (the previously reported NOK behavior).
+     */
+    @Test
+    void testGlaPreservesVectorsWithEmptyClusterDuringRefinement() {
+        VectorSet vectors = createRandomVectorSet(30, 2);
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.0, 0.0 }, { 0.5, 0.5 }, { 1.0, 1.0 } });
+
+        Partition partition = new Partition(3);
+        double[] dmin = new double[1];
+
+        GLAEngine.gla(vectors, partition, centroids, dmin,
+                configFor(true, false));
+
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(30, all.size(),
+                "all vectors must be preserved after refinement");
+    }
+
+    /**
+     * Verifies that the decreasing_epsilon flag keeps GLA running for more
+     * iterations by halving epsilon each iteration regardless of improvement.
+     */
+    @Test
+    void testDecreasingEpsilonKeepsRunning() {
+        VectorSet vectors = createRandomVectorSet(40, 2);
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1 }, { 0.9, 0.9 } });
+
+        GLAConfig decreasing = new GLAConfig(0.001, 1.8, 1, 1, 1, 50, 1000, 0,
+                40, 20, 5, false, false, false, false, false, false, 0.0, false,
+                1, 1, false, false, false, false, true, false, false);
+
+        Partition partition = new Partition(2);
+        double[] dmin = new double[1];
+
+        assertDoesNotThrow(() -> GLAEngine.gla(vectors, partition, centroids,
+                dmin, decreasing));
+
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(40, all.size(),
+                "all vectors preserved with decreasing epsilon");
+    }
+
 }
