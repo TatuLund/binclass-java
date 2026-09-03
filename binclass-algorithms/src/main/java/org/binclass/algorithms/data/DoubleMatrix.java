@@ -5,6 +5,7 @@
 package org.binclass.algorithms.data;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -345,7 +346,7 @@ public final class DoubleMatrix {
             for (int j = 0; j < el[i].length; j++) {
                 if (j > 0)
                     sb.append(", ");
-                sb.append(String.format("%8.4f", el[i][j]));
+                sb.append(String.format(Locale.ROOT, "%8.4f", el[i][j]));
             }
             sb.append("]");
         }

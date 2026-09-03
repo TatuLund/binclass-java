@@ -4,6 +4,7 @@
  */
 package org.binclass.algorithms.report;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -128,8 +129,8 @@ public final class ReportGenerator {
                         }
                     }
                 }
-                sb.append(String.format("Nearest: %d (%.2f)%n", nearestClass,
-                        nearestDist));
+                sb.append(String.format(Locale.ROOT, "Nearest: %d (%.2f)%n",
+                        nearestClass, nearestDist));
             }
 
             // Per-class frequencies (RP_FREQ)
@@ -325,8 +326,8 @@ public final class ReportGenerator {
             double percentage = count > 0
                     ? (double) count / freqs.getTotal() * 100.0
                     : 0.0;
-            sb.append(String.format("  Bit %2d: %4d (%5.1f%%)%n", i, count,
-                    percentage));
+            sb.append(String.format(Locale.ROOT, "  Bit %2d: %4d (%5.1f%%)%n",
+                    i, count, percentage));
 
             if (printDigits) {
                 double probability = freqs.getTotal() > 0
@@ -420,7 +421,7 @@ public final class ReportGenerator {
                 if (i == j) {
                     sb.append(String.format("%6s", "---"));
                 } else {
-                    sb.append(String.format("%6.2f", matrix[i][j]));
+                    sb.append(String.format(Locale.ROOT, "%6.2f", matrix[i][j]));
                 }
             }
             sb.append("%n");
