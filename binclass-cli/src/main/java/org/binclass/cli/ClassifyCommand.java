@@ -372,6 +372,13 @@ public class ClassifyCommand implements BaseCommand {
         if (opts.containsKey("-L")) {
             return SearchType.LCENT;
         }
+        if (opts.containsKey("-b") || opts.containsKey("-s")) {
+            // A fixed k-range was requested, so bind to range search instead
+            // of the automatic scan. The automatic path ignores -b/-s and
+            // always starts at k=1, which makes them ineffective when combined
+            // with local search (-r/-j).
+            return SearchType.NAUTO;
+        }
         return SearchType.AUTO;
     }
 

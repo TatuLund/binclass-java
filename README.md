@@ -108,6 +108,53 @@ mvn exec:java -pl binclass-cli -Dexec.mainClass="org.binclass.cli.BinClass" -- <
 ./binclass.sh report result.par -o report.txt
 ```
 
+### Classify: Automatic Search and Local Search
+
+The `classify` command runs the automatic SC-minimizer by default (it scans from k=1 forward until no improvement in `kstopwhen` steps, keeping the best stochastic-complexity partition). Pass `-b`/`-s` (or `-n`) to force a fixed range search instead. A fixed k-range is honored automatically — you do not need `-n` for it.
+
+**Automatic search with repeated GLA (`-a`)**
+
+Run GLA several times per cluster count from different starting centroids, keeping the best SC so bad local minima are not counted (mirrors C `use_gla()` where `-a` sets the number of trials):
+
+```bash
+# Automatic scan; 5 GLA attempts per k value with different seeds
+./binclass.sh classify -a 5 data/entero
+
+# Restrict the scan to k = 2..10 and write the best partition out
+./binclass.sh classify -b 2 -s 10 -a 3 -P entero.partition data/entero
+```
+
+**Local search (`-r7` / `-r8`)**
+
+After GLA, a multi-operator local-search driver refines each cluster count. Choose the strategy with `-r`:
+
+```bash
+# Cycler: cycle through every operator (mirrors ls_heuristic_cycler = TRUE)
+./binclass.sh classify -r 7 data/entero
+
+# Adaptive: adaptively select operators by success probability
+./binclass.sh classify -r 8 data/entero
+
+# Combine local search with repeated GLA and a partition output file
+./binclass.sh classify -r 8 -a 3 -P entero.partition data/entero
+```
+
+Both modes print `Using local search (...)` to the log when active. Local search only runs for cluster counts greater than three, matching C's `use_gla()` gate (`C->k > 3`).
+
+**Local search within a fixed k-range (`-b` / `-s`)**
+
+Passing `-b` and/or `-s` forces range search, so local search runs for each cluster count in that range. This is the way to combine local search with an explicit k-range — without it, the automatic scan starts at k=1 and ignores `-b`/`-s`:
+
+```bash
+# Local search (cycler) for every k from 60 to 75, 10 iterations per k
+./binclass.sh classify -b 60 -s 75 -j 10 -r 7 data/entero
+
+# Adaptive local search over a fixed range with repeated GLA and partition output
+./binclass.sh classify -b 2 -s 10 -a 3 -j 5 -r 8 -P entero.partition data/entero
+```
+
+The `-j` value sets the number of local-search iterations per cluster count (the CLI adds one, so `-j 10` runs ten iterations). Local search still only activates for k > 3.
+
 ## Development
 
 ### Run Tests

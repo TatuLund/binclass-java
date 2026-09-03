@@ -62,10 +62,13 @@ public final class PartitionWriter {
                 // classname (9 chars) + padding to col 15 + strain (7 chars) +
                 // padding to col 23 + binary string
                 for (var element : cluster) {
-                    String classname = "ESCH COLI";
                     String strain = element.getStrain();
 
-                    // Build the line with proper alignment
+                    // Build the line with proper alignment. The class-name
+                    // field
+                    // is read from each vector (mirrors C pic_write_bv(), which
+                    // writes x->clasname, not a single hardcoded value).
+                    String classname = element.getClassName();
                     StringBuilder line = new StringBuilder();
                     line.append(classname);
                     // Pad to column 15 (idoffs)

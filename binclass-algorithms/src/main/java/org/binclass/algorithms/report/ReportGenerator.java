@@ -421,7 +421,8 @@ public final class ReportGenerator {
                 if (i == j) {
                     sb.append(String.format("%6s", "---"));
                 } else {
-                    sb.append(String.format(Locale.ROOT, "%6.2f", matrix[i][j]));
+                    sb.append(
+                            String.format(Locale.ROOT, "%6.2f", matrix[i][j]));
                 }
             }
             sb.append("%n");

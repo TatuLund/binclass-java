@@ -90,8 +90,13 @@ public class DataLoader {
                     // Extract strain identifier from position idoffs to vecoffs
                     String strain = extractStrain(line, header);
 
+                    // Extract the class-name string (leading field of the data
+                    // line). Mirrors C pic_write_bv() which writes x->clasname,
+                    // the first name_len characters of each input line.
+                    String className = extractClassName(line, header);
+
                     BinaryVector bv = new BinaryVector(values, 0, length, 0,
-                            strain != null ? strain : "");
+                            strain != null ? strain : "", className);
                     vectorSet.addElement(bv);
                     loadedCount++;
                 }
@@ -124,6 +129,36 @@ public class DataLoader {
         if (idoffs < line.length() && vecoffs <= line.length()) {
             return line.substring(idoffs, Math.min(vecoffs, line.length()))
                     .trim();
+        }
+        return "";
+    }
+
+    /**
+     * Extracts the class-name string from a data line.
+     * <p>
+     * Mirrors C {@code pic_write_bv()} / {@code bv_set_name()}, which stores the
+     * first {@code name_len} characters of each input line as the class name
+     * (e.g. {@code "BUDV AQUA"}). When {@code nameLen} is unset, falls back to
+     * trimming everything before the ID offset.
+     * </p>
+     *
+     * @param line
+     *            the complete line from the data file
+     * @param header
+     *            parsed format header with idoffs and nameLen positions
+     * @return the class-name string, or empty string if not found
+     */
+    private static String extractClassName(String line,
+            FormatParser.Header header) {
+        int nameLen = header.getNameLen() > 0 ? header.getNameLen() : 0;
+        int idOffs = header.getIdOffs() > 0 ? header.getIdOffs() : 15;
+
+        if (nameLen > 0 && line.length() >= nameLen) {
+            return line.substring(0, nameLen);
+        }
+        // Fallback: everything before the ID offset, trimmed.
+        if (idOffs <= line.length()) {
+            return line.substring(0, idOffs).trim();
         }
         return "";
     }

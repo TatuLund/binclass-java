@@ -35,6 +35,7 @@ public final class BinaryVector {
     private final int length;
     private int classname;
     private String strain;
+    private String className;
     private boolean trashcan;
 
     /**
@@ -62,6 +63,30 @@ public final class BinaryVector {
         this.length = length;
         this.classname = classname;
         this.strain = strain;
+    }
+
+    /**
+     * Creates a new {@code BinaryVector} with the given data and class-name
+     * string.
+     *
+     * @param el
+     *            the bit values (0 or 1)
+     * @param miss
+     *            the missing value bitmask
+     * @param length
+     *            the number of elements
+     * @param classname
+     *            initial cluster assignment (0 = unassigned)
+     * @param strain
+     *            identifier string for this vector
+     * @param className
+     *            class-name string extracted from the input data line, or null
+     *            to default to empty string
+     */
+    public BinaryVector(int[] el, int miss, int length, int classname,
+            String strain, String className) {
+        this(el, miss, length, classname, strain);
+        this.className = className != null ? className : "";
     }
 
     /**
@@ -210,6 +235,32 @@ public final class BinaryVector {
     }
 
     /**
+     * Returns the class-name string for this vector — the leading field of the
+     * input data line (e.g. {@code "BUDV AQUA"}), distinct from the cluster
+     * assignment stored in {@link #getClassname()}.
+     * <p>
+     * Mirrors C {@code x->clasname} written by {@code pic_write_bv()} from
+     * {@code binstuff.c}. Defaults to an empty string when not populated.
+     * </p>
+     *
+     * @return the class-name string, or empty string if not set
+     */
+    public String getClassName() {
+        return className != null ? className : "";
+    }
+
+    /**
+     * Sets the class-name string for this vector.
+     *
+     * @param className
+     *            the class-name string extracted from the input data line, or
+     *            empty/null to clear it
+     */
+    public void setClassName(String className) {
+        this.className = className != null ? className : "";
+    }
+
+    /**
      * Returns whether this vector is in the trashcan (outlier) class.
      * <p>
      * When {@code trashcan} mode is enabled, vectors that don't fit well in any
@@ -245,7 +296,7 @@ public final class BinaryVector {
      * @return a deep copy of this BinaryVector
      */
     public BinaryVector copy() {
-        return new BinaryVector(el, miss, length, classname, strain);
+        return new BinaryVector(el, miss, length, classname, strain, className);
     }
 
     /**

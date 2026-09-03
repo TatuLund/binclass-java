@@ -7,6 +7,9 @@ package org.binclass.algorithms.gla;
 import java.util.Objects;
 import java.util.Random;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -39,6 +42,9 @@ public final class LocalSearch {
 
     /** Initial weight forgetting rate (Eq. 16). */
     public static final double BETA_INIT = 0.2;
+
+    private static final Logger log = LoggerFactory
+            .getLogger(LocalSearch.class);
 
     private static final String VECTOR_SET_MUST_NOT_NULL = "VectorSet must not be null";
 
@@ -127,6 +133,33 @@ public final class LocalSearch {
             }
         }
         return new BinaryVector[] { x, y };
+    }
+
+    /**
+     * Resilient variant of {@link #worstMatchingVectors} used by the split
+     * operators. C's {@code worst_matching_vectors()} handles a singleton class
+     * gracefully (returning the single element paired with itself), so an empty
+     * or one-vector cluster never aborts local search. Mirrors that behaviour.
+     *
+     * @param cluster
+     *            the cluster to search within (may hold fewer than two vectors)
+     * @param random
+     *            the random number generator
+     * @return a two-element array {@code [x, y]} where {@code x} is a vector
+     *         from the cluster and {@code y} is its worst match; when the
+     *         cluster has fewer than two vectors both entries are that single
+     *         vector
+     */
+    private static BinaryVector[] safeWorstMatchingVectors(VectorSet cluster,
+            Random random) {
+        int n = cluster.size();
+        if (n < 2) {
+            // Singleton or empty class: pair the lone element with itself so
+            // the split step still produces two distinct centroids.
+            BinaryVector[] all = cluster.toArray(new BinaryVector[0]);
+            return new BinaryVector[] { all[0], all[0] };
+        }
+        return worstMatchingVectors(cluster, random);
     }
 
     /**
@@ -253,6 +286,12 @@ public final class LocalSearch {
         for (BinaryVector bv : toJoin) {
             dest.addElement(bv);
         }
+        // Remove the joined elements from jmin so they are not duplicated in
+        // two clusters. Mirrors C join_class() which del_element()s each moved
+        // vector, keeping every element in exactly one cluster.
+        for (BinaryVector bv : toJoin) {
+            src.removeElement(bv);
+        }
         VectorSet last = partition.getElements(k);
         BinaryVector[] toMove = last.toArray(new BinaryVector[0]);
         for (BinaryVector bv : toMove) {
@@ -316,8 +355,8 @@ public final class LocalSearch {
                 imax = i;
             }
         }
-        BinaryVector[] pair = worstMatchingVectors(partition.getElements(imax),
-                random);
+        BinaryVector[] pair = safeWorstMatchingVectors(
+                partition.getElements(imax), random);
         double[] lastEl = centroids.get(k - 1).getArray();
         double[] imaxEl = centroids.get(imax - 1).getArray();
         for (int i = 0; i < l; i++) {
@@ -390,8 +429,8 @@ public final class LocalSearch {
                 imax = i;
             }
         }
-        BinaryVector[] pair = worstMatchingVectors(partition.getElements(imax),
-                random);
+        BinaryVector[] pair = safeWorstMatchingVectors(
+                partition.getElements(imax), random);
         double[] lastEl = centroids.get(k - 1).getArray();
         double[] imaxEl = centroids.get(imax - 1).getArray();
         for (int i = 0; i < l; i++) {
@@ -649,6 +688,11 @@ public final class LocalSearch {
                 centroids.size(), l, jeffreysPrior);
         int gt = 0;
 
+        log.debug(
+                "Local search starting: k={}, iterations={}, vector length={}, n={}",
+                partition.size(), count - 1, l, n);
+        log.debug("Local search initial stochastic complexity = {}", sc);
+
         for (int i = 1; i < count; i++) {
             LocalSearchOperator op = operators[i % 6];
             applyOperator(op, partition.size(), l, n, centroids, partition,
@@ -659,6 +703,10 @@ public final class LocalSearch {
 
             double scn = DistanceCalculator.stochasticComplexity(partition,
                     centroids.size(), l, jeffreysPrior);
+
+            log.debug(
+                    "Local search iteration {}: applied {} -> SC = {} (best so far = {}, improved = {})",
+                    i, op, scn, sc, scn < sc);
 
             for (int j = 0; j < 5; j++) {
                 if ((w[j] - beta) >= 0.0) {
@@ -699,6 +747,8 @@ public final class LocalSearch {
         if (scn > sc) {
             CentroidManager.copyCentroids(cmin, centroids);
         }
+
+        log.debug("Local search finished: best stochastic complexity = {}", sc);
 
         gt += 2;
         return gt;

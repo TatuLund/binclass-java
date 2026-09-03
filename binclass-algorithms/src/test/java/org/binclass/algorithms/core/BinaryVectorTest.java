@@ -71,6 +71,31 @@ class BinaryVectorTest {
     }
 
     @Test
+    void testClassName() {
+        BinaryVector bv = new BinaryVector(new int[] { 0, 1 }, 0, 2, 0,
+                "strain_A", "BUDV AQUA");
+
+        assertEquals("BUDV AQUA", bv.getClassName());
+
+        // Default is empty string when not supplied via the 5-arg constructor
+        BinaryVector noName = new BinaryVector(new int[] { 1, 0 }, 2);
+        assertEquals("", noName.getClassName());
+
+        bv.setClassName("CITR AMA1");
+        assertEquals("CITR AMA1", bv.getClassName());
+    }
+
+    @Test
+    void testCopyPreservesClassName() {
+        BinaryVector original = new BinaryVector(new int[] { 0, 1 }, 0, 2, 0,
+                "strain_A", "BUDV AQUA");
+
+        BinaryVector copy = original.copy();
+
+        assertEquals("BUDV AQUA", copy.getClassName());
+    }
+
+    @Test
     void testCopy() {
         int[] el = { 0, 1, 1 };
         BinaryVector original = new BinaryVector(el, 3);

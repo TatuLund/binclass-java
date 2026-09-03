@@ -79,6 +79,7 @@ public final class FormatParser {
         int length = -1;
         int vecOffs = 0;
         int idOffs = 15; // Default ID offset
+        int nameLen = 0;
 
         String[] lines = content.split("\\n");
         for (String line : lines) {
@@ -104,6 +105,9 @@ public final class FormatParser {
                 case "idoffs" -> {
                     idOffs = Integer.parseInt(value);
                 }
+                case "namelen" -> {
+                    nameLen = Integer.parseInt(value);
+                }
                 default -> {
                     /* ignore other keys */ }
                 }
@@ -117,7 +121,7 @@ public final class FormatParser {
 
         // If n_vectors not in header, use -1 to indicate it should be
         // determined from data file
-        return new Header(nVectors, length, null, vecOffs, idOffs);
+        return new Header(nVectors, length, null, vecOffs, idOffs, nameLen);
     }
 
     /**
@@ -326,6 +330,7 @@ public final class FormatParser {
         private final int vecOffs; // Offset to start of binary portion in data
                                    // lines
         private final int idOffs; // Offset to start of ID string
+        private final int nameLen; // Length of the class-name field (0 = unset)
 
         /**
          * Creates a new Header with the given metadata.
@@ -374,11 +379,34 @@ public final class FormatParser {
          */
         public Header(int nVectors, int length, String[] strains, int vecOffs,
                 int idOffs) {
+            this(nVectors, length, strains, vecOffs, idOffs, 0);
+        }
+
+        /**
+         * Creates a new Header with the given metadata including vecOffs,
+         * idOffs and nameLen.
+         *
+         * @param nVectors
+         *            total number of vectors in the dataset
+         * @param length
+         *            length of each binary vector (number of bits)
+         * @param strains
+         *            optional strain identifiers, or null if not present
+         * @param vecOffs
+         *            offset to start of binary portion in data lines
+         * @param idOffs
+         *            offset to start of ID string
+         * @param nameLen
+         *            length of the class-name field (0 = unset)
+         */
+        public Header(int nVectors, int length, String[] strains, int vecOffs,
+                int idOffs, int nameLen) {
             this.nVectors = nVectors;
             this.length = length;
             this.strains = strains != null ? strains.clone() : null;
             this.vecOffs = vecOffs;
             this.idOffs = idOffs;
+            this.nameLen = nameLen;
         }
 
         /**
@@ -415,6 +443,16 @@ public final class FormatParser {
          */
         public int getIdOffs() {
             return idOffs;
+        }
+
+        /**
+         * Returns the length of the class-name field (the leading text column
+         * before the strain ID, e.g. {@code "BUDV AQUA"}).
+         *
+         * @return nameLen value from header metadata, or 0 if unset
+         */
+        public int getNameLen() {
+            return nameLen;
         }
 
         /**

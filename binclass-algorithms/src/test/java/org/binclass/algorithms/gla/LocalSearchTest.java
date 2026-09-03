@@ -177,12 +177,10 @@ class LocalSearchTest {
         LocalSearch.splitAndJoin(3, L, totalVectors(p), c, p, new Random(5));
 
         assertEquals(3, p.size(), "split and join keeps the cluster count");
-        // joinClusters concatenates the joined cluster into its neighbour
-        // without
-        // removing it (IdentityHashMap keyed by object reference), so two of
-        // the
-        // three clusters grow to six vectors each.
-        assertEquals(12, totalVectors(p), "join duplicates the merged cluster");
+        // joinClusters moves each element from the merged cluster into its
+        // neighbour and removes it (mirrors C join_class()/del_element()), so
+        // no vector is duplicated across clusters.
+        assertEquals(9, totalVectors(p), "join preserves every vector once");
         assertNotEquals(before[0], c.get(2).getArray()[0],
                 "last centroid should be modified by the split step");
     }
@@ -195,8 +193,10 @@ class LocalSearchTest {
         LocalSearch.splitAndJoin2(3, L, totalVectors(p), c, p, new Random(9));
 
         assertEquals(3, p.size(), "split and join 2 keeps the cluster count");
-        // Same join-duplication behaviour as splitAndJoin.
-        assertEquals(12, totalVectors(p), "join duplicates the merged cluster");
+        // Each element is moved from the merged cluster into its neighbour and
+        // removed (mirrors C join_class()/del_element()), so no vector is
+        // duplicated across clusters.
+        assertEquals(9, totalVectors(p), "join preserves every vector once");
     }
 
     @Test
@@ -304,5 +304,68 @@ class LocalSearchTest {
 
         assertEquals(4, ret, "count == 1 runs no loop iterations");
         assertEquals(n, totalVectors(p), "vector count preserved after driver");
+    }
+
+    @Test
+    void testSafeWorstMatchingVectorsSingleton() throws Exception {
+        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+                "safeWorstMatchingVectors", VectorSet.class, Random.class);
+        m.setAccessible(true);
+
+        // A singleton cluster pairs the lone element with itself instead of
+        // throwing IllegalArgumentException like the guarded
+        // worstMatchingVectors() does. This is what lets the split operators
+        // survive a pong-phase rescan that selects an empty class.
+        VectorSet singleton = new VectorSet();
+        BinaryVector only = new BinaryVector(new int[] { 1, 0, 1, 0 }, L);
+        singleton.addElement(only);
+
+        BinaryVector[] pair = (BinaryVector[]) m.invoke(null, singleton,
+                new Random(2));
+        assertNotNull(pair[0]);
+        assertEquals(1, pair[0].getElement(0));
+        assertSame(pair[0], pair[1], "singleton should pair with itself");
+    }
+
+    @Test
+    void testSafeWorstMatchingVectorsNormal() throws Exception {
+        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+                "safeWorstMatchingVectors", VectorSet.class, Random.class);
+        m.setAccessible(true);
+
+        // With two or more vectors the resilient variant behaves like the
+        // guarded one and returns a valid pair.
+        VectorSet cluster = new VectorSet();
+        BinaryVector z = new BinaryVector(new int[] { 0, 0, 0, 0 }, L);
+        BinaryVector o = new BinaryVector(new int[] { 1, 1, 1, 1 }, L);
+        cluster.addElement(z);
+        cluster.addElement(o);
+
+        BinaryVector[] pair = (BinaryVector[]) m.invoke(null, cluster,
+                new Random(3));
+        assertNotNull(pair[0]);
+        assertNotNull(pair[1]);
+        assertEquals(L, DistanceCalculator.hammingDistanceVectors(pair[0],
+                pair[1]), "worst match should maximise Hamming distance");
+    }
+
+    @Test
+    void testSplitAndJoinSurvivesSingletonCluster() {
+        // A partition whose largest-distortion class may be a singleton must
+        // not throw when the split operator calls safeWorstMatchingVectors on
+        // it. Run several times with different seeds to exercise both branches.
+        Partition p = buildThreeClusterPartition();
+        InfiniteCentroids c = buildThreeCentroids();
+        for (int seed = 1; seed <= 5; seed++) {
+            LocalSearch.splitAndJoin(3, L, totalVectors(p), c, p,
+                    new Random(seed));
+            assertEquals(3, p.size(), "cluster count is preserved");
+            // joinClusters moves each element from the merged cluster into its
+            // neighbour and removes it (mirrors C join_class()/del_element()),
+            // so across seeds no vector is duplicated; the total stays at nine.
+            assertEquals(totalVectors(buildThreeClusterPartition()),
+                    totalVectors(p),
+                    "split and join preserves every vector once");
+        }
     }
 }

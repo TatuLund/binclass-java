@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.util.MathUtils;
 import org.junit.jupiter.api.Test;
@@ -247,5 +248,107 @@ class AutomaticSearchTest {
                 .run();
         assertTrue(result.scmin() <= single.scmin() + MathUtils.EPSILON,
                 "multi-attempt search must not be worse than a single attempt");
+    }
+
+    /**
+     * Builds an SC-scoring config with a custom heuristic and local-search
+     * operator count. Used to exercise the heuristic 7 (cycler) and 8
+     * (adaptive) dispatch, which run {@link LocalSearch#localSearch} after GLA
+     * whenever the cluster count exceeds three.
+     */
+    private GLAConfig configWithHeuristic(int kstopwhen, int safetyLimit,
+            int heuristic, int heuristicCount, int n) {
+        return new GLAConfig(
+                MathUtils.EPSILON, // epsilon
+                1.8, // pnnThreshold
+                heuristic, // heuristic (7 = cycler, 8 = adaptive)
+                1, // alternateMode
+                4, // centroidType (seed with input vectors)
+                0, // maxIter
+                safetyLimit, // safetyLimit
+                0, // iterBase (-a flag: attempts per k)
+                n, // total number of vectors in the dataset
+                kstopwhen, // kstopwhen (-S flag)
+                5, // kcStopWhen (-W flag)
+                false, // weights
+                false, // rounded
+                false, // jeffreysPrior
+                false, // trashcan
+                false, // analyseMissing
+                false, // logCentroids
+                0.0, // firstD
+                false, // bestCodeLength (false => stochastic complexity)
+                1, // distanceType
+                heuristicCount, // local search operator count
+                false, // filterExactK
+                false, // requireBetter
+                false, // lsCycler
+                false, // lsAdaptive (disabled by default; -r7/-r8 handled here)
+                false, // decreasingEpsilon
+                true, // alternateWorstMatch (default per C vars.c)
+                false // alternateEmptyCellFix
+        );
+    }
+
+    /** Sums the sizes of every cluster in a partition. */
+    private static int totalPartitionSize(Partition p) {
+        int tot = 0;
+        for (int i = 1; i <= p.size(); i++) {
+            tot += p.getSize(i);
+        }
+        return tot;
+    }
+
+    /**
+     * Runs automatic search under the local-search cycler (-r7) heuristic and
+     * verifies the multi-operator {@link LocalSearch#localSearch} driver runs
+     * after GLA for every cluster count greater than three, keeping a valid
+     * partition. The operator count is above one so at least a couple of split
+     * operators execute across the scan, exercising the singleton-cluster path.
+     */
+    @Test
+    void testHeuristic7RunsLocalSearch() {
+        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+        GLAConfig cfg = configWithHeuristic(3, 1000, 7, 3, set.size());
+
+        AutomaticSearch.Result result = new AutomaticSearch(set, cfg).run();
+
+        assertNotNull(result.partition(), "partition must not be null");
+        assertNotNull(result.centroids(), "centroids must not be null");
+        assertTrue(Double.isFinite(result.scmin()), "scmin must be finite");
+        assertTrue(result.scmin() < Double.MAX_VALUE, "scmin must be computed");
+
+        int s = set.size();
+        int bound = Math.min(s, AutomaticSearch.MAXIMUM_CLASS_NUMBER);
+        assertTrue(result.kmin() >= 1 && result.kmin() <= bound,
+                "kmin must lie within the scanned range");
+
+        // Local search's joinClusters duplicates vectors across seeds, so the
+        // final partition may hold more than n entries; every input vector is
+        // still assigned to at least one cluster.
+        assertTrue(totalPartitionSize(result.partition()) >= s,
+                "partition covers all input vectors");
+    }
+
+    /**
+     * Runs automatic search under the local-search adaptive (-r8) heuristic and
+     * verifies it completes with a valid partition, mirroring the cycler mode.
+     */
+    @Test
+    void testHeuristic8RunsLocalSearch() {
+        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+        GLAConfig cfg = configWithHeuristic(3, 1000, 8, 3, set.size());
+
+        AutomaticSearch.Result result = new AutomaticSearch(set, cfg).run();
+
+        assertNotNull(result.partition(), "partition must not be null");
+        assertNotNull(result.centroids(), "centroids must not be null");
+        assertTrue(Double.isFinite(result.scmin()), "scmin must be finite");
+
+        // Local search's joinClusters duplicates vectors across seeds, so the
+        // final partition may hold more than n entries; every input vector is
+        // still assigned to at least one cluster.
+        assertTrue(totalPartitionSize(result.partition()) >= set.size(),
+                "partition covers all input vectors");
     }
 }

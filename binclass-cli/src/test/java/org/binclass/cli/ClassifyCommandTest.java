@@ -808,6 +808,29 @@ class ClassifyCommandTest {
     }
 
     @Test
+    void testDetermineSearchTypeKstartForcesRangeSearch() throws Exception {
+        // -b alone forces range search so kstart binds (otherwise AUTO ignores
+        // it).
+        SearchType st = callDetermineSearchType(Map.of("-b", "60"));
+        assertEquals(SearchType.NAUTO, st);
+    }
+
+    @Test
+    void testDetermineSearchTypeKstopForcesRangeSearch() throws Exception {
+        // -s alone forces range search so kstop binds.
+        SearchType st = callDetermineSearchType(Map.of("-s", "75"));
+        assertEquals(SearchType.NAUTO, st);
+    }
+
+    @Test
+    void testDetermineSearchTypeKrangeForcesRangeSearch() throws Exception {
+        // -b/-s together (e.g. with local search -r/-j) must bind to a range.
+        SearchType st = callDetermineSearchType(Map.of("-b", "60", "-s",
+                "75"));
+        assertEquals(SearchType.NAUTO, st);
+    }
+
+    @Test
     void testDetermineSearchTypeAutoDefault() throws Exception {
         SearchType st = callDetermineSearchType(Map.of());
         assertEquals(SearchType.AUTO, st);

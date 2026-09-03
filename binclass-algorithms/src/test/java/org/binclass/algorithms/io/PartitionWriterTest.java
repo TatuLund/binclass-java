@@ -166,4 +166,39 @@ public class PartitionWriterTest {
         assertTrue(class1Pos < class2Pos && class2Pos < class3Pos,
                 "Largest cluster should appear first in output (sorted by size)");
     }
+
+    /**
+     * Verifies that each vector's own class-name string is written to the
+     * partition output rather than a single hardcoded value. Mirrors C
+     * {@code pic_write_bv()} which writes x->clasname per vector.
+     */
+    @Test
+    void testWritePartitionUsesPerVectorClassName() throws IOException {
+        Partition partition = new Partition(1);
+
+        BinaryVector bv1 = new BinaryVector(new int[] { 1, 0 }, 0, 2, 1,
+                "STRAIN_A", "BUDV AQUA");
+        BinaryVector bv2 = new BinaryVector(new int[] { 0, 1 }, 0, 2, 1,
+                "STRAIN_B", "CITR AMA1");
+
+        partition.addElement(1, bv1);
+        partition.addElement(1, bv2);
+
+        Path outputFile = tempDir.resolve("classname.partition");
+        PartitionWriter.writePartition(partition, outputFile.toString());
+
+        String content = Files.readString(outputFile);
+
+        // Both distinct class names must appear (not a single hardcoded value)
+        assertTrue(content.contains("BUDV AQUA"),
+                "Output should contain the first vector's class name BUDV AQUA");
+        assertTrue(content.contains("CITR AMA1"),
+                "Output should contain the second vector's class name CITR AMA1");
+        // The class-name field is written at column 0 of each data row, so with
+        // two distinct per-vector names no row starts with the old fallback.
+        long eschCount = content.lines().filter(l -> l.startsWith("ESCH COLI"))
+                .count();
+        assertEquals(0, eschCount,
+                "Rows should use per-vector names, not a single hardcoded value");
+    }
 }

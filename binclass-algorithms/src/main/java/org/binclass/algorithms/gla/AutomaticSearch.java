@@ -13,6 +13,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.centroid.CentroidInitializer;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
+import org.binclass.algorithms.dist.NearestNeighbor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -316,6 +317,25 @@ public final class AutomaticSearch {
         case 6 -> GLAEngine.maeGla(vectorSet, partition, centroids, dmin,
                 config);
         default -> GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+        }
+
+        // Local search cycler (-r7) and adaptive (-r8) modes run the
+        // multi-operator local_search() driver after GLA, mirroring C's
+        // use_gla() which calls local_search() only when the cluster count
+        // exceeds 3. An MSE nearest-neighbor repartition seeds the partition
+        // first (as range search does), then the driver keeps the best
+        // partition/centroids it finds, so we score that instead of the plain
+        // GLA result.
+        if ((config.heuristic() == 7 || config.heuristic() == 8)
+                && centroids.size() > 3) {
+            NearestNeighbor.mseNearestNeighbor(vectorSet, partition,
+                    centroids);
+            GLAEngine.removeEmpty(partition, centroids);
+            GLAEngine.recomputeCentroids(partition, centroids, config.rounded(),
+                    config.n());
+            LocalSearch.localSearch(partition, centroids,
+                    config.heuristicCount(), vectorLength(), config.n(),
+                    config.jeffreysPrior(), new java.util.Random());
         }
 
         double sc = score(partition, centroids);

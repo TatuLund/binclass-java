@@ -55,8 +55,15 @@ public class CliParser {
         String command = args[1];
         Map<String, String> options = new HashMap<>();
 
-        for (int i = 2; i < args.length && i < MAX_ARGS; i++) {
-            parseArg(args, i, options);
+        int i = 2;
+        while (i < args.length && i < MAX_ARGS) {
+            int next = parseArg(args, i, options);
+            if (next > i) {
+                // A value-taking option consumed the following token; skip it.
+                i = next;
+            } else {
+                i++;
+            }
         }
 
         return new CommandArgsImpl(command, options);
@@ -72,20 +79,21 @@ public class CliParser {
      * @param options
      *            map to populate with parsed options
      */
-    private void parseArg(String[] args, int index,
+    private int parseArg(String[] args, int index,
             Map<String, String> options) {
         String arg = args[index];
         if (arg.startsWith("--")) {
-            parseLongOption(arg, index, args, options);
+            return parseLongOption(arg, index, args, options);
         } else if (arg.startsWith("-") && arg.length() > 1) {
-            parseShortOption(arg, index, args, options);
+            return parseShortOption(arg, index, args, options);
         } else if (arg.equals("help") || arg.equals("--help")
                 || arg.equals("-h")) {
             options.put("help", "true");
-        } else {
-            // Positional argument - treat as filebase
-            options.put("filebase", arg);
+            return index;
         }
+        // Positional argument - treat as filebase
+        options.put("filebase", arg);
+        return index;
     }
 
     /**
@@ -99,20 +107,22 @@ public class CliParser {
      *            the raw arguments array
      * @param options
      *            map to populate with parsed options
+     * @return the next index to parse after this option and its value
      */
-    private void parseLongOption(String arg, int index, String[] args,
+    private int parseLongOption(String arg, int index, String[] args,
             Map<String, String> options) {
         int eqIdx = arg.indexOf('=');
         if (eqIdx > 0) {
             options.put(arg.substring(2, eqIdx), arg.substring(eqIdx + 1));
-        } else {
-            String flag = arg.substring(2);
-            if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
-                options.put(flag, args[++index]);
-            } else {
-                options.put(flag, "true");
-            }
+            return index;
         }
+        String flag = arg.substring(2);
+        if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
+            options.put(flag, args[++index]);
+            return index + 1;
+        }
+        options.put(flag, "true");
+        return index;
     }
 
     /**
@@ -126,8 +136,9 @@ public class CliParser {
      *            the raw arguments array
      * @param options
      *            map to populate with parsed options
+     * @return the next index to parse after this option and its value
      */
-    private void parseShortOption(String arg, int index, String[] args,
+    private int parseShortOption(String arg, int index, String[] args,
             Map<String, String> options) {
         String flag = arg.substring(0, 2);
         String value = arg.substring(2);
@@ -135,12 +146,13 @@ public class CliParser {
         if (value.isEmpty()) {
             if (index + 1 < args.length && !args[index + 1].startsWith("-")) {
                 options.put(flag, args[++index]);
-            } else {
-                options.put(flag, "true");
+                return index + 1;
             }
-        } else {
-            options.put(flag, value);
+            options.put(flag, "true");
+            return index;
         }
+        options.put(flag, value);
+        return index;
     }
 
     /**
