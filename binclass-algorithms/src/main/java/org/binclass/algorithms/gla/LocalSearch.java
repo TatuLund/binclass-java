@@ -153,10 +153,48 @@ public final class LocalSearch {
     private static BinaryVector[] safeWorstMatchingVectors(VectorSet cluster,
             Random random) {
         int n = cluster.size();
+        if (n < 2 && n > 0) {
+            // Singleton — infer the vector length from the lone element.
+            return safeWorstMatchingVectors(cluster,
+                    cluster.toArray(new BinaryVector[0])[0].getLength(), random);
+        }
+        // Empty class: no vector to infer length from; synthesize a zero-length
+        // fallback so the guarded path still returns a valid pair. Callers that
+        // need a concrete length use the overload with an explicit l.
+        return safeWorstMatchingVectors(cluster, 0, random);
+    }
+
+    /**
+     * Resilient variant of {@link #worstMatchingVectors} used by the split
+     * operators. C's {@code worst_matching_vectors()} handles a singleton class
+     * gracefully (returning the single element paired with itself), so an empty
+     * or one-vector cluster never aborts local search. Mirrors that behaviour.
+     *
+     * @param cluster
+     *            the cluster to search within (may hold fewer than two vectors)
+     * @param length
+     *            vector length, used when synthesizing a fallback for an empty
+     *            class with no element to infer it from
+     * @param random
+     *            the random number generator
+     * @return a two-element array {@code [x, y]} where {@code x} is a vector
+     *         from the cluster and {@code y} is its worst match; when the
+     *         cluster has fewer than two vectors both entries are that single
+     *         vector (or a zero-filled fallback for an empty class)
+     */
+    private static BinaryVector[] safeWorstMatchingVectors(VectorSet cluster,
+            int length, Random random) {
+        Objects.requireNonNull(cluster, VECTOR_SET_MUST_NOT_NULL);
+        int n = cluster.size();
         if (n < 2) {
-            // Singleton or empty class: pair the lone element with itself so
-            // the split step still produces two distinct centroids.
+            // Singleton or empty class: pair the lone element with itself so the
+            // split step still produces two distinct centroids. An empty class has
+            // no vector to infer length from, so synthesize a zero-filled fallback.
             BinaryVector[] all = cluster.toArray(new BinaryVector[0]);
+            if (all.length == 0) {
+                BinaryVector fallback = new BinaryVector(new int[length], length);
+                return new BinaryVector[] { fallback, fallback };
+            }
             return new BinaryVector[] { all[0], all[0] };
         }
         return worstMatchingVectors(cluster, random);
@@ -356,7 +394,7 @@ public final class LocalSearch {
             }
         }
         BinaryVector[] pair = safeWorstMatchingVectors(
-                partition.getElements(imax), random);
+                partition.getElements(imax), l, random);
         double[] lastEl = centroids.get(k - 1).getArray();
         double[] imaxEl = centroids.get(imax - 1).getArray();
         for (int i = 0; i < l; i++) {
@@ -430,7 +468,7 @@ public final class LocalSearch {
             }
         }
         BinaryVector[] pair = safeWorstMatchingVectors(
-                partition.getElements(imax), random);
+                partition.getElements(imax), l, random);
         double[] lastEl = centroids.get(k - 1).getArray();
         double[] imaxEl = centroids.get(imax - 1).getArray();
         for (int i = 0; i < l; i++) {
@@ -831,12 +869,16 @@ public final class LocalSearch {
             InfiniteCentroids centroids, int n) {
         clearPartition(partition);
         NearestNeighbor.mseNearestNeighbor(vectors, partition, centroids);
-        GLAEngine.removeEmpty(partition, centroids);
+        if (!isEmptyPartition(partition)) {
+            GLAEngine.removeEmpty(partition, centroids);
+        }
         GLAEngine.recomputeCentroids(partition, centroids, true, n);
         VectorSet v = GLAEngine.partitionToSet(partition);
         clearPartition(partition);
         NearestNeighbor.mseNearestNeighbor(v, partition, centroids);
-        GLAEngine.removeEmpty(partition, centroids);
+        if (!isEmptyPartition(partition)) {
+            GLAEngine.removeEmpty(partition, centroids);
+        }
         return 2;
     }
 
@@ -845,5 +887,25 @@ public final class LocalSearch {
         for (int i = 1; i <= partition.size(); i++) {
             partition.getElements(i).clear();
         }
+    }
+
+    /**
+     * Returns whether every cluster in the partition is empty. Used to make
+     * {@link #mseGla2} tolerant of a fully emptied partition (for example when a
+     * split/join operator merges the last remaining cluster into itself), which
+     * C's {@code MSE_gla2()} tolerates by leaving the partition empty rather than
+     * throwing.
+     *
+     * @param partition
+     *            the partition to inspect
+     * @return {@code true} if no cluster holds any vector, {@code false} otherwise
+     */
+    private static boolean isEmptyPartition(Partition partition) {
+        for (int i = 1; i <= partition.size(); i++) {
+            if (partition.getSize(i) > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -76,6 +76,7 @@ public class BinClass {
 
         } catch (Exception e) {
             log.error("Error: {}", e.getMessage());
+            e.printStackTrace();
             System.exit(1);
         }
     }

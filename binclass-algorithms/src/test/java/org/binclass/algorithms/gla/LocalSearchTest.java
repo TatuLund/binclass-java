@@ -350,6 +350,45 @@ class LocalSearchTest {
     }
 
     @Test
+    void testSafeWorstMatchingVectorsEmptySynthesizesFallback() throws Exception {
+        // The length-aware overload must handle an empty cluster (n == 0),
+        // which is what the k == 1 SPLITJOIN2 path produces. It synthesises a
+        // zero-filled fallback instead of throwing ArrayIndexOutOfBounds on
+        // all[0].
+        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+                "safeWorstMatchingVectors", VectorSet.class, int.class,
+                Random.class);
+        m.setAccessible(true);
+
+        VectorSet empty = new VectorSet();
+        BinaryVector[] pair = (BinaryVector[]) m.invoke(null, empty, L,
+                new Random(1));
+        assertNotNull(pair[0]);
+        assertSame(pair[0], pair[1], "empty cluster should synthesize one fallback");
+        assertEquals(L, pair[0].getLength());
+        assertEquals(0, pair[0].getElement(0), "fallback is zero-filled");
+    }
+
+    @Test
+    void testMseGla2ToleratesEmptyPartition() throws Exception {
+        // Reproduces the k == 1 crash: SPLITJOIN2 empties the sole cluster and
+        // mseGla2 reassigns an empty vector set. The guarded removeEmpty must
+        // not throw "All clusters are empty" before reaching
+        // recomputeCentroids.
+        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+                "mseGla2", VectorSet.class, Partition.class,
+                InfiniteCentroids.class, int.class);
+        m.setAccessible(true);
+
+        Partition p = new Partition(1);
+        InfiniteCentroids c = new InfiniteCentroids(new double[][] { { 0.5, 0.5,
+                0.5, 0.5 } }, 1);
+
+        int ret = (int) m.invoke(null, new VectorSet(), p, c, 0);
+        assertEquals(2, ret);
+    }
+
+    @Test
     void testSplitAndJoinSurvivesSingletonCluster() {
         // A partition whose largest-distortion class may be a singleton must
         // not throw when the split operator calls safeWorstMatchingVectors on
