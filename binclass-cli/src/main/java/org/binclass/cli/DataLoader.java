@@ -3,7 +3,6 @@ package org.binclass.cli;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -136,10 +135,10 @@ public class DataLoader {
     /**
      * Extracts the class-name string from a data line.
      * <p>
-     * Mirrors C {@code pic_write_bv()} / {@code bv_set_name()}, which stores the
-     * first {@code name_len} characters of each input line as the class name
-     * (e.g. {@code "BUDV AQUA"}). When {@code nameLen} is unset, falls back to
-     * trimming everything before the ID offset.
+     * Mirrors C {@code pic_write_bv()} / {@code bv_set_name()}, which stores
+     * the first {@code name_len} characters of each input line as the class
+     * name (e.g. {@code "BUDV AQUA"}). When {@code nameLen} is unset, falls
+     * back to trimming everything before the ID offset.
      * </p>
      *
      * @param line

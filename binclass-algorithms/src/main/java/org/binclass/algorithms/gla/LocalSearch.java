@@ -156,7 +156,8 @@ public final class LocalSearch {
         if (n < 2 && n > 0) {
             // Singleton — infer the vector length from the lone element.
             return safeWorstMatchingVectors(cluster,
-                    cluster.toArray(new BinaryVector[0])[0].getLength(), random);
+                    cluster.toArray(new BinaryVector[0])[0].getLength(),
+                    random);
         }
         // Empty class: no vector to infer length from; synthesize a zero-length
         // fallback so the guarded path still returns a valid pair. Callers that
@@ -187,12 +188,16 @@ public final class LocalSearch {
         Objects.requireNonNull(cluster, VECTOR_SET_MUST_NOT_NULL);
         int n = cluster.size();
         if (n < 2) {
-            // Singleton or empty class: pair the lone element with itself so the
-            // split step still produces two distinct centroids. An empty class has
-            // no vector to infer length from, so synthesize a zero-filled fallback.
+            // Singleton or empty class: pair the lone element with itself so
+            // the
+            // split step still produces two distinct centroids. An empty class
+            // has
+            // no vector to infer length from, so synthesize a zero-filled
+            // fallback.
             BinaryVector[] all = cluster.toArray(new BinaryVector[0]);
             if (all.length == 0) {
-                BinaryVector fallback = new BinaryVector(new int[length], length);
+                BinaryVector fallback = new BinaryVector(new int[length],
+                        length);
                 return new BinaryVector[] { fallback, fallback };
             }
             return new BinaryVector[] { all[0], all[0] };
@@ -891,14 +896,15 @@ public final class LocalSearch {
 
     /**
      * Returns whether every cluster in the partition is empty. Used to make
-     * {@link #mseGla2} tolerant of a fully emptied partition (for example when a
-     * split/join operator merges the last remaining cluster into itself), which
-     * C's {@code MSE_gla2()} tolerates by leaving the partition empty rather than
-     * throwing.
+     * {@link #mseGla2} tolerant of a fully emptied partition (for example when
+     * a split/join operator merges the last remaining cluster into itself),
+     * which C's {@code MSE_gla2()} tolerates by leaving the partition empty
+     * rather than throwing.
      *
      * @param partition
      *            the partition to inspect
-     * @return {@code true} if no cluster holds any vector, {@code false} otherwise
+     * @return {@code true} if no cluster holds any vector, {@code false}
+     *         otherwise
      */
     private static boolean isEmptyPartition(Partition partition) {
         for (int i = 1; i <= partition.size(); i++) {

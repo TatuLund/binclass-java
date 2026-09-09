@@ -1,10 +1,13 @@
 package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,6 +16,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.report.ReportGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.mockito.ArgumentCaptor;
 
@@ -233,6 +237,90 @@ class ReportCommandTest {
             org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
                     () -> command.execute(args),
                     "Non-numeric epsilon should throw exception");
+        }
+    }
+
+    @Test
+    void testExecuteWritesDefaultReportFile(@TempDir Path tempDir)
+            throws Exception {
+        // With no -o flag the report must be written next to the input as
+        // <filebase>.report, mirroring C's generate_report(). This is what was
+        // missing before: a plain `report data/test` produced no file.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedReportGen = mockStatic(ReportGenerator.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+            when(ReportGenerator.generateReport(any(), any(), any()))
+                    .thenReturn("Test Report");
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.report");
+            assertTrue(Files.exists(expected),
+                    "default <filebase>.report should be written");
+            assertEquals("Test Report", Files.readString(expected));
+        }
+    }
+
+    @Test
+    void testExecuteAffinityMatrixWritesReport(@TempDir Path tempDir)
+            throws Exception {
+        // The -a affinity matrix must also be persisted to the default report
+        // file (not just computed in memory). Previously the whole report was
+        // dropped when no -o flag was supplied.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-a", "");
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedReportGen = mockStatic(ReportGenerator.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+            when(ReportGenerator.generateReport(any(), any(), any()))
+                    .thenReturn("Affinity Report");
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.report");
+            assertTrue(Files.exists(expected),
+                    "affinity report should be written to <filebase>.report");
+            assertEquals("Affinity Report", Files.readString(expected));
+        }
+    }
+
+    @Test
+    void testExecuteHonoursExplicitOutputFlag(@TempDir Path tempDir)
+            throws Exception {
+        // An explicit -o path still overrides the default <filebase>.report.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-o", tempDir.resolve("custom.report").toString());
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedReportGen = mockStatic(ReportGenerator.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+            when(ReportGenerator.generateReport(any(), any(), any()))
+                    .thenReturn("Custom Report");
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("custom.report");
+            assertTrue(Files.exists(expected),
+                    "explicit -o path should be used");
+            assertEquals("Custom Report", Files.readString(expected));
         }
     }
 }

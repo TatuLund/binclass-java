@@ -93,65 +93,87 @@ public final class ReportGenerator {
                                               // centroid
 
         // Header
-        sb.append("STATISTICAL REPORT%n");
-        sb.append("==================%n%n");
+        sb.append("STATISTICAL REPORT\n");
+        sb.append("==================\n\n");
 
         // Collect frequencies across all vectors
         FrequencyList freqs = collectFrequencies(partition, k);
 
         // Total frequencies section (RP_TOTALFREQ)
         if (options.showTotalFrequencies()) {
-            sb.append("TOTAL FREQUENCIES:%n");
-            sb.append("-----------------%n%n");
+            sb.append("TOTAL FREQUENCIES:\n");
+            sb.append("-----------------\n\n");
             writeFrequencies(sb, freqs, l, options.printDigits());
         }
 
         // Per-class breakdown
-        sb.append("%nLIST OF CLASSES:%n");
-        sb.append("---------------%n%n");
+        sb.append("\nLIST OF CLASSES:\n");
+        sb.append("---------------\n\n");
 
         for (int i = 1; i <= k; i++) {
-            sb.append(String.format("Class: %d / %d%n", i, k - 1));
-            sb.append(String.format("Size: %d%n", partition.getSize(i)));
-
-            // Compute class nearness with other clusters when the nearness
-            // section is enabled (RP_NEARNESS)
-            if (options.showNearness()) {
-                double nearestDist = Double.MAX_VALUE;
-                int nearestClass = -1;
-                for (int j = 1; j <= k; j++) {
-                    if (j != i) {
-                        double d = classNearness(partition, centroids, i, j,
-                                options.useHellinger());
-                        if (d < nearestDist) {
-                            nearestDist = d;
-                            nearestClass = j;
-                        }
-                    }
-                }
-                sb.append(String.format(Locale.ROOT, "Nearest: %d (%.2f)%n",
-                        nearestClass, nearestDist));
-            }
-
-            // Per-class frequencies (RP_FREQ)
-            if (options.showPerClassFrequencies()) {
-                FrequencyList classFreqs = collectFrequenciesByClass(partition,
-                        i);
-                writeFrequencies(sb, classFreqs, l, options.printDigits());
-                sb.append("%n");
-            }
+            writeClassSection(sb, partition, centroids, options, i, k);
         }
 
         // Class nearness matrix (RP_NEARNESS)
         if (options.showNearness()) {
-            sb.append("%nCLASS NEARNESS MATRIX:%n");
-            sb.append("---------------------%n%n");
+            sb.append("\nCLASS NEARNESS MATRIX:\n");
+            sb.append("--------------------\n\n");
             double[][] nearnessMatrix = generateNearnessMatrix(partition,
                     centroids, options);
             writeNearnessMatrix(sb, nearnessMatrix, k);
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Writes a single class's section: its size, nearest neighbour (when
+     * nearness is enabled) and per-class frequencies.
+     *
+     * @param sb
+     *            the string builder to append to
+     * @param partition
+     *            the partition being reported on
+     * @param centroids
+     *            the centroid array defining cluster probabilities
+     * @param options
+     *            reporting options controlling which sections are emitted
+     * @param i
+     *            1-based index of the class to write
+     * @param k
+     *            total number of clusters (1-based)
+     */
+    private static void writeClassSection(StringBuilder sb, Partition partition,
+            InfiniteCentroids centroids, ReportOptions options, int i, int k) {
+        sb.append(String.format("Class: %d / %d%n", i, k - 1));
+        sb.append(String.format("Size: %d%n", partition.getSize(i)));
+
+        // Compute class nearness with other clusters when the nearness section
+        // is enabled (RP_NEARNESS)
+        if (options.showNearness()) {
+            double nearestDist = Double.MAX_VALUE;
+            int nearestClass = -1;
+            for (int j = 1; j <= k; j++) {
+                if (j != i) {
+                    double d = classNearness(partition, centroids, i, j,
+                            options.useHellinger());
+                    if (d < nearestDist) {
+                        nearestDist = d;
+                        nearestClass = j;
+                    }
+                }
+            }
+            sb.append(String.format(Locale.ROOT, "Nearest: %d (%.2f)%n",
+                    nearestClass, nearestDist));
+        }
+
+        // Per-class frequencies (RP_FREQ)
+        if (options.showPerClassFrequencies()) {
+            FrequencyList classFreqs = collectFrequenciesByClass(partition, i);
+            int l = centroids.get(0).getLength();
+            writeFrequencies(sb, classFreqs, l, options.printDigits());
+            sb.append("\n");
+        }
     }
 
     /**
@@ -408,11 +430,11 @@ public final class ReportGenerator {
     private static void writeNearnessMatrix(StringBuilder sb, double[][] matrix,
             int k) {
         // Header row
-        sb.append("       ");
+        sb.append("       \n");
         for (int j = 1; j <= k; j++) {
             sb.append(String.format("%6d", j));
         }
-        sb.append("%n");
+        sb.append("\n");
 
         // Matrix rows
         for (int i = 1; i <= k; i++) {
@@ -425,7 +447,7 @@ public final class ReportGenerator {
                             String.format(Locale.ROOT, "%6.2f", matrix[i][j]));
                 }
             }
-            sb.append("%n");
+            sb.append("\n");
         }
     }
 

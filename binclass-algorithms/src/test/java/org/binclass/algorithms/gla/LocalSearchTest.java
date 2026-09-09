@@ -350,7 +350,8 @@ class LocalSearchTest {
     }
 
     @Test
-    void testSafeWorstMatchingVectorsEmptySynthesizesFallback() throws Exception {
+    void testSafeWorstMatchingVectorsEmptySynthesizesFallback()
+            throws Exception {
         // The length-aware overload must handle an empty cluster (n == 0),
         // which is what the k == 1 SPLITJOIN2 path produces. It synthesises a
         // zero-filled fallback instead of throwing ArrayIndexOutOfBounds on
@@ -364,7 +365,8 @@ class LocalSearchTest {
         BinaryVector[] pair = (BinaryVector[]) m.invoke(null, empty, L,
                 new Random(1));
         assertNotNull(pair[0]);
-        assertSame(pair[0], pair[1], "empty cluster should synthesize one fallback");
+        assertSame(pair[0], pair[1],
+                "empty cluster should synthesize one fallback");
         assertEquals(L, pair[0].getLength());
         assertEquals(0, pair[0].getElement(0), "fallback is zero-filled");
     }
