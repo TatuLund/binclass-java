@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.List;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.DynamicPartition;
@@ -60,30 +59,10 @@ public final class DynamicPartitionWriter {
                 .append("\n");
         sb.append("\n");
 
-        // Write cluster assignments and frequencies
         int k = dynPartition.size();
 
         for (int i = 1; i <= k; i++) {
-            Collection<BinaryVector> clusterElements = dynPartition
-                    .getCluster(i).getElements();
-            sb.append("Class ").append(i).append("\n");
-            sb.append("Size: ").append(clusterElements.size()).append("\n");
-
-            // Write frequency table for this cluster
-            int[][] freqs = dynPartition.getFrequencies();
-            if (freqs != null && i <= freqs.length) {
-                sb.append("Frequencies:\n");
-                for (int bitPos = 0; bitPos < freqs[i - 1].length; bitPos++) {
-                    sb.append("  Bit ").append(bitPos).append(": ")
-                            .append(freqs[i - 1][bitPos]).append("\n");
-                }
-            }
-
-            // Write cluster elements (binary vectors)
-            for (BinaryVector bv : clusterElements) {
-                sb.append(bv.toString()).append("\n");
-            }
-            sb.append("\n");
+            writeCluster(sb, dynPartition, i);
         }
 
         // Write Hamming distance matrix if available
@@ -98,7 +77,10 @@ public final class DynamicPartitionWriter {
                     }
                     row.append(String.format("%.4f", hammingDistances[i][j]));
                 }
-                sb.append("Cluster ").append(i + 1).append(": ")
+                // Prefix with a space so the standard partition reader
+                // (which skips lines starting with a space) treats these as
+                // metadata rather than vector lines.
+                sb.append(" Cluster ").append(i + 1).append(": ")
                         .append(row.toString()).append("\n");
             }
         }
@@ -112,5 +94,41 @@ public final class DynamicPartitionWriter {
 
         Files.writeString(path, sb.toString());
         logger.info("Dynamic partition written successfully");
+    }
+
+    /**
+     * Appends the header, frequency table and PIC-format vector lines for a
+     * single cluster.
+     *
+     * @param sb
+     *            the string builder to append to
+     * @param dynPartition
+     *            the dynamic partition being written
+     * @param i
+     *            the 1-based cluster index
+     */
+    private static void writeCluster(StringBuilder sb,
+            DynamicPartition dynPartition, int i) {
+        Collection<BinaryVector> clusterElements = dynPartition
+                .getCluster(i).getElements();
+        sb.append("Class ").append(i).append("\n");
+        sb.append("Size: ").append(clusterElements.size()).append("\n");
+
+        // Write frequency table for this cluster
+        int[][] freqs = dynPartition.getFrequencies();
+        if (freqs != null && i <= freqs.length) {
+            sb.append("Frequencies:\n");
+            for (int bitPos = 0; bitPos < freqs[i - 1].length; bitPos++) {
+                sb.append("  Bit ").append(bitPos).append(": ")
+                        .append(freqs[i - 1][bitPos]).append("\n");
+            }
+        }
+
+        // Write cluster elements as PIC-format lines so the file round-trips
+        // through the standard BinClass partition reader.
+        for (BinaryVector bv : clusterElements) {
+            sb.append(PartitionWriter.formatPicLine(bv)).append("\n");
+        }
+        sb.append("\n");
     }
 }

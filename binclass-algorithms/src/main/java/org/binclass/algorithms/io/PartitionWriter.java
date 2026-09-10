@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,39 +59,9 @@ public final class PartitionWriter {
             var cluster = sorted.getElements(i);
             if (!cluster.isEmpty()) {
                 sb.append("Class ").append(i).append("\n");
-                // Write elements in PIC format matching input data:
-                // classname (9 chars) + padding to col 15 + strain (7 chars) +
-                // padding to col 23 + binary string
+                // Write elements in PIC format matching input data.
                 for (var element : cluster) {
-                    String strain = element.getStrain();
-
-                    // Build the line with proper alignment. The class-name
-                    // field
-                    // is read from each vector (mirrors C pic_write_bv(), which
-                    // writes x->clasname, not a single hardcoded value).
-                    String classname = element.getClassName();
-                    StringBuilder line = new StringBuilder();
-                    line.append(classname);
-                    // Pad to column 15 (idoffs)
-                    for (int j = classname.length(); j < 15; j++) {
-                        line.append(' ');
-                    }
-                    line.append(strain != null ? strain : "");
-                    // Pad to column 23 (vecoffs)
-                    int strainLen = strain != null ? strain.length() : 0;
-                    for (int j = 15 + strainLen; j < 23; j++) {
-                        line.append(' ');
-                    }
-
-                    // Append binary vector as continuous string of 0s and 1s
-                    for (int j = 0; j < element.getLength(); j++) {
-                        if (!element.isMissing(j)) {
-                            line.append(element.get(j));
-                        } else {
-                            line.append('x');
-                        }
-                    }
-                    sb.append(line).append("\n");
+                    sb.append(formatPicLine(element)).append("\n");
                 }
             }
         }
@@ -149,5 +120,46 @@ public final class PartitionWriter {
         }
 
         return sorted;
+    }
+
+    /**
+     * Formats a single binary vector as a PIC-format partition line.
+     * <p>
+     * Layout mirrors C's {@code pic_write_bv()}: the class name occupies the
+     * leading field padded to column 15 (idOffs), the strain identifier
+     * follows and is padded to column 23 (vecoffs), and each bit is written as
+     * a single character ('0', '1', or 'x' for missing values).
+     * </p>
+     *
+     * @param element
+     *            the binary vector to format
+     * @return the PIC-format line without a trailing newline
+     */
+    public static String formatPicLine(BinaryVector element) {
+        String strain = element.getStrain();
+        String classname = element.getClassName();
+
+        StringBuilder line = new StringBuilder();
+        line.append(classname);
+        // Pad to column 15 (idoffs)
+        for (int j = classname.length(); j < 15; j++) {
+            line.append(' ');
+        }
+        line.append(strain != null ? strain : "");
+        // Pad to column 23 (vecoffs)
+        int strainLen = strain != null ? strain.length() : 0;
+        for (int j = 15 + strainLen; j < 23; j++) {
+            line.append(' ');
+        }
+
+        // Append binary vector as continuous string of 0s and 1s
+        for (int j = 0; j < element.getLength(); j++) {
+            if (!element.isMissing(j)) {
+                line.append(element.get(j));
+            } else {
+                line.append('x');
+            }
+        }
+        return line.toString();
     }
 }

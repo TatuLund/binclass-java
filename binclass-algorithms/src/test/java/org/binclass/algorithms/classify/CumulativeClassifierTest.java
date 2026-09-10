@@ -576,4 +576,82 @@ class CumulativeClassifierTest {
         assertNotNull(partition);
         assertEquals(dynPart.size(), partition.size());
     }
+
+    @Test
+    void testCalculateBayesianDistanceNoLogNegative() {
+        // Regression for the dp_bj fix: it must use the evaluated class's own
+        // frequency table so that nij <= s and log2 never receives a negative
+        // argument. Before the fix dp_bj hard-coded getFreqs(1), which produced
+        // a negative argument when a tiny class was evaluated against a large
+        // cluster-1 frequency table.
+        int[] el = { 1, 1, 1 };
+        BinaryVector vOnes = new BinaryVector(el, 3);
+        DynamicPartition dynPart = CumulativeClassifier.createNewWithSize(2, 3);
+        for (int i = 0; i < 20; i++) {
+            CumulativeClassifier.assignToClass(dynPart, vOnes, 1);
+        }
+
+        BinaryVector vZeros = new BinaryVector(new int[] { 0, 0, 0 }, 3);
+        CumulativeClassifier.assignToClass(dynPart, vZeros, 2);
+
+        double dist = CumulativeClassifier.calculateBayesianDistance(dynPart,
+                vZeros, 2);
+
+        assertFalse(Double.isNaN(dist), "distance must be a finite number");
+        assertFalse(Double.isInfinite(dist));
+    }
+
+    @Test
+    void testCumNoNewClassesBayesianReturnsExistingClass() {
+        // Regression for findBestBayesianClass ignoring cum_no_new_classes.
+        // With the flag set, Bayesian selection must always return an existing
+        // class (>= 1), never -1, so no new classes are created regardless of
+        // how poorly a vector fits.
+        VectorSet vectors = new VectorSet();
+        vectors.addElement(new BinaryVector(new int[] { 0, 0 }, 2));
+        vectors.addElement(new BinaryVector(new int[] { 1, 1 }, 2));
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withCumNoNewClasses(true);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertEquals(1, result.size(),
+                "Bayesian cum_no_new_classes must never create a new class");
+    }
+
+    @Test
+    void testSCModeSelectionReturnsValidClass() {
+        // Regression for findBestSCClass (previously referenced an undefined
+        // config variable and had an undefined freqs local). SC mode must run
+        // without throwing and return a valid partition.
+        VectorSet vectors = new VectorSet();
+        vectors.addElement(new BinaryVector(new int[] { 0, 0 }, 2));
+        vectors.addElement(new BinaryVector(new int[] { 1, 1 }, 2));
+
+        CumulativeConfig config = CumulativeConfig.defaults()
+                .withBayesianPredictive(false);
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(vectors, config);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1);
+    }
+
+    @Test
+    void testBayesianNonCumCanCreateMultipleClasses() {
+        // Ensure the cum_no_new_classes short-circuit did not break normal new
+        // class creation: distinct vectors must split into multiple classes in
+        // Bayesian mode.
+        VectorSet vectors = new VectorSet();
+        vectors.addElement(new BinaryVector(new int[] { 0, 0 }, 2));
+        vectors.addElement(new BinaryVector(new int[] { 1, 1 }, 2));
+
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(
+                        vectors, CumulativeConfig.defaults());
+
+        assertTrue(result.size() >= 2,
+                "Distinct vectors should create at least two classes in Bayesian mode");
+    }
 }

@@ -84,7 +84,9 @@ public final class CumulativeClassifier {
 
         for (int i = 1; i < n; i++) {
             BinaryVector bv = vectorArray[i];
-            processVector(dynPart, bv, i, n, config);
+            // extendWithNewClass returns a new DynamicPartition, so the caller
+            // must reassign to keep growing the partition.
+            dynPart = processVector(dynPart, bv, i, n, config);
         }
 
         logger.info(
@@ -97,20 +99,21 @@ public final class CumulativeClassifier {
      * Processes a single vector through the cumulative classification
      * algorithm.
      */
-    private static void processVector(DynamicPartition dynPart, BinaryVector bv,
-            int i, int n, CumulativeConfig config) {
+    private static DynamicPartition processVector(DynamicPartition dynPart,
+            BinaryVector bv, int i, int n, CumulativeConfig config) {
         if (dynPart.size() == 0) {
-            extendWithNewClass(dynPart, bv);
+            return extendWithNewClass(dynPart, bv);
+        }
+
+        int bestClass = findBestClassForVector(dynPart, bv, config);
+        if (bestClass == -1) {
+            // A new class was created; extendWithNewClass returns a fresh
+            // DynamicPartition that must replace the current one.
+            dynPart = extendWithNewClass(dynPart, bv);
+            logger.debug("Vector {} created new class", i + 1);
         } else {
-            int bestClass = findBestClassForVector(dynPart, bv, config);
-            if (bestClass == -1) {
-                extendWithNewClass(dynPart, bv);
-                logger.debug("Vector {} created new class", i + 1);
-            } else {
-                assignToClass(dynPart, bv, bestClass);
-                logger.debug("Vector {} assigned to class {}", i + 1,
-                        bestClass);
-            }
+            assignToClass(dynPart, bv, bestClass);
+            logger.debug("Vector {} assigned to class {}", i + 1, bestClass);
         }
 
         applyCumulativeAnalysisCheckpoint(i, config.cumulativeAnalysis());
@@ -121,6 +124,7 @@ public final class CumulativeClassifier {
         if (config.cumSaveByPf() && i % 10 == 0) {
             logger.debug("Predictive fit checkpoint at vector {}", i + 1);
         }
+        return dynPart;
     }
 
     /**
@@ -128,10 +132,115 @@ public final class CumulativeClassifier {
      */
     private static int findBestClassForVector(DynamicPartition dynPart,
             BinaryVector bv, CumulativeConfig config) {
-        if (config.cumNoNewClasses()) {
-            return findBestClass(dynPart, bv, 0, config.epsilon());
+        if (config.bayesianPredictive()) {
+            // Default mode mirrors C's dp_find_class: Bayesian predictive
+            // identification. Always returns an existing class index; a new
+            // class is created only when every existing class fits worse than
+            // the initial-probability cost of starting one.
+            return findBestBayesianClass(dynPart, bv, config);
         }
-        return findBestClass(dynPart, bv, config.delta(), config.epsilon());
+        // -S mode: stochastic complexity selection (dp_find_class_sc).
+        return findBestSCClass(dynPart, bv, config);
+    }
+
+    /**
+     * Bayesian predictive class selection. Mirrors C {@code dp_find_class} with
+     * {@code bayesian_predictive=true}. Returns the existing class index with
+     * minimum predictive distance, or -1 when creating a new class is cheaper
+     * than any existing class (bounded by delta).
+     */
+    private static int findBestBayesianClass(DynamicPartition dynPart,
+            BinaryVector bv, CumulativeConfig config) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        // cum_no_new_classes mirrors C's dp_find_class: start with class 1 as
+        // the incumbent and never fall back to a new class.
+        if (config.cumNoNewClasses()) {
+            return findBestExistingClass(dynPart, bv, config.epsilon());
+        }
+
+        int l = bv.getLength();
+        double newClassCost = calculateInitialProb(l - 1,
+                Math.max(config.delta(), 1));
+        double bestDist = newClassCost;
+        int bestClass = -1;
+
+        for (int i = 1; i <= dynPart.size(); i++) {
+            double dist = calculateBayesianDistance(dynPart, bv, i);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestClass = i;
+            }
+        }
+        return bestClass;
+    }
+
+    /**
+     * Stochastic complexity class selection. Mirrors C
+     * {@code dp_find_class_sc}. Returns the existing class index with minimum
+     * SC increase, or -1 when creating a new class is cheaper than any existing
+     * class (bounded by delta).
+     */
+    private static int findBestSCClass(DynamicPartition dynPart,
+            BinaryVector bv, CumulativeConfig config) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        // Mirrors C's dp_find_class_sc. In cum_no_new_classes mode the
+        // incumbent
+        // starts as "new class" (0) with cost SC_xnew; otherwise it starts at
+        // class 1 and only existing classes are compared against, so a new
+        // class
+        // is never returned.
+        if (config.cumNoNewClasses()) {
+            double dmin = calculateStochasticComplexityXnew(dynPart, bv);
+            int imin = 0;
+            for (int i = 1; i <= dynPart.size(); i++) {
+                double d = calculateSCIncrease(dynPart, bv, i,
+                        config.epsilon());
+                if (d < dmin) {
+                    dmin = d;
+                    imin = i;
+                }
+            }
+            return imin;
+        }
+
+        int imin = 1;
+        double dmin = calculateSCIncrease(dynPart, bv, 1, config.epsilon());
+        for (int i = 2; i <= dynPart.size(); i++) {
+            double d = calculateSCIncrease(dynPart, bv, i, config.epsilon());
+            if (d < dmin) {
+                dmin = d;
+                imin = i;
+            }
+        }
+        return imin;
+    }
+
+    /**
+     * Finds the existing class with the minimum stochastic complexity increase
+     * without ever creating a new class.
+     * <p>
+     * Equivalent to C {@code dp_find_class} in {@code cum_no_new_classes} mode.
+     * </p>
+     */
+    private static int findBestExistingClass(DynamicPartition dynPart,
+            BinaryVector bv, double epsilon) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        int bestClass = 1;
+        double bestSC = calculateSCIncrease(dynPart, bv, 1, epsilon);
+        for (int i = 2; i <= dynPart.size(); i++) {
+            double scIncrease = calculateSCIncrease(dynPart, bv, i, epsilon);
+            if (scIncrease < bestSC) {
+                bestSC = scIncrease;
+                bestClass = i;
+            }
+        }
+        return bestClass;
     }
 
     /**
@@ -439,6 +548,133 @@ public final class CumulativeClassifier {
 
         // entropy formula: H(p) = -p*log2(p) - (1-p)*log2(1-p)
         return -(p * MathUtils.log2(p) + (1.0 - p) * MathUtils.log2(1.0 - p));
+    }
+
+    /**
+     * Returns the majority vote bit for a class given its frequency table and
+     * size.
+     * <p>
+     * Equivalent to C {@code dp_update_freq} where {@code hmo[i] = (freq/s &lt;
+     * 0.5) ? 0 : 1}.
+     * </p>
+     */
+    private static int majorityBit(int[] freqs, int size) {
+        double p = (double) freqs[0] / size;
+        return (p < 0.5) ? 0 : 1;
+    }
+
+    /**
+     * Returns the Hamming-distance count {@code nij} for a single bit position:
+     * the number of vectors in the class whose bit differs from the majority
+     * vote ({@code hmo}).
+     */
+    private static int nijCount(int[] freqs, int size) {
+        int hmo = majorityBit(freqs, size);
+        // If majority is 1, mismatches are the zeros (size - freq); if majority
+        // is 0, mismatches are the ones (freq).
+        return hmo == 1 ? (size - freqs[0]) : freqs[0];
+    }
+
+    /**
+     * Bayesian predictive distance {@code dp_wij(s,n)} = log2(n+1) -
+     * log2(s-n+1).
+     */
+    private static double dpWij(int s, int n) {
+        return MathUtils.log2(n + 1) - MathUtils.log2(s - n + 1);
+    }
+
+    /**
+     * Bayesian predictive term {@code dp_lambdaj(s)} = log2(s+1).
+     */
+    private static double dpLambdaj(int s) {
+        return MathUtils.log2(s + 1);
+    }
+
+    /**
+     * Bayesian predictive term {@code dp_bj(P,s,l)} = sum of [log2(s-nij[i]+1)
+     * - log2(s+2)] over bit positions.
+     * <p>
+     * The frequency table is taken from the class being evaluated so that each
+     * {@code nij} stays within {@code [0, s]} and never produces a negative
+     * argument to {@link MathUtils#log2(double)}.
+     * </p>
+     */
+    private static double dpBj(int[] freqs, int s, int l) {
+        double bj = 0.0;
+        for (int i = 0; i < l && i < freqs.length; i++) {
+            int hmo = (freqs[i] / (double) s < 0.5) ? 0 : 1;
+            int nij = (hmo == 0) ? freqs[i] : (s - freqs[i]);
+            bj += MathUtils.log2(s - nij + 1) - MathUtils.log2(s + 2);
+        }
+        return bj;
+    }
+
+    /**
+     * Calculates the Bayesian predictive distance {@code dp_prob} for assigning
+     * a vector to an existing class.
+     * <p>
+     * Equivalent to C function {@code dp_prob()} from {@code cumulat.c}. Lower
+     * values indicate a better fit; the caller returns the class (or new-class
+     * option) with the minimum distance.
+     * </p>
+     */
+    public static double calculateBayesianDistance(DynamicPartition dynPart,
+            BinaryVector bv, int classIndex) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        int s = dynPart.getClusterSize(classIndex);
+        if (s == 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        int l = bv.getLength();
+        int[] freqs = dynPart.getFreqs(classIndex);
+        double d = 0.0;
+        for (int i = 0; i < l && i < freqs.length; i++) {
+            int hmo = (freqs[i] / (double) s < 0.5) ? 0 : 1;
+            int nij = (hmo == 1) ? (s - freqs[i]) : freqs[i];
+            d += dpWij(s, nij) * ((bv.get(i) != hmo) ? 1.0 : 0.0);
+        }
+        d += dpBj(freqs, s, l);
+        d += dpLambdaj(s);
+        return -d;
+    }
+
+    /**
+     * Calculates the initial probability cost of creating a new class,
+     * {@code dp_initial_prob(l,d)} = l - log2(d).
+     */
+    public static double calculateInitialProb(int l, int d) {
+        return l - MathUtils.log2(d);
+    }
+
+    /**
+     * Calculates the stochastic complexity of creating a new class with one
+     * vector using the exact C {@code dp_stochastic_complexity_xnew()} formula.
+     * <p>
+     * Unlike {@link #calculateNewClassSC}, this uses log₂(factorial) terms so
+     * deterministic vectors incur a meaningful, non-zero cost.
+     * </p>
+     */
+    public static double calculateStochasticComplexityXnew(
+            DynamicPartition dynPart, BinaryVector bv) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        int l = bv.getLength();
+        int k = dynPart.size();
+        int[] freqs = dynPart.getFreqs(1);
+        int n = dynPart.getClusterSize(1) + 1; // total vectors after adding x
+        double sc2 = 0.0;
+        for (int bit = 0; bit < l && bit < freqs.length; bit++) {
+            sc2 += MathUtils.log2Factorial(2);
+            sc2 -= MathUtils.log2Factorial(bv.get(bit));
+            sc2 -= MathUtils.log2Factorial(1 - bv.get(bit));
+        }
+        double sc1 = MathUtils.log2Factorial(n);
+        sc1 += MathUtils.log2Factorial(n + k); // n+k-1 with k already 0-based
+                                               // count+...
+        return (sc1 + sc2) / (double) n;
     }
 
     /**
