@@ -76,8 +76,7 @@ public final class CumulativeClassifier {
             logger.debug("Processing vectors in input order (inOrder=true)");
         }
 
-        DynamicPartition dynPart = initializeFromVector(vectorArray[0],
-                config.delta());
+        DynamicPartition dynPart = initializeFromVector(vectorArray[0]);
 
         logger.debug("Initialized with {} classes from first vector",
                 dynPart.size());
@@ -86,7 +85,7 @@ public final class CumulativeClassifier {
             BinaryVector bv = vectorArray[i];
             // extendWithNewClass returns a new DynamicPartition, so the caller
             // must reassign to keep growing the partition.
-            dynPart = processVector(dynPart, bv, i, n, config);
+            dynPart = processVector(dynPart, bv, i, config);
         }
 
         logger.info(
@@ -100,7 +99,7 @@ public final class CumulativeClassifier {
      * algorithm.
      */
     private static DynamicPartition processVector(DynamicPartition dynPart,
-            BinaryVector bv, int i, int n, CumulativeConfig config) {
+            BinaryVector bv, int i, CumulativeConfig config) {
         if (dynPart.size() == 0) {
             return extendWithNewClass(dynPart, bv);
         }
@@ -119,7 +118,7 @@ public final class CumulativeClassifier {
         applyCumulativeAnalysisCheckpoint(i, config.cumulativeAnalysis());
         applySamplingCheckpoint(i, config.cumulativeSamples());
         if (config.testFeatureSignificance()) {
-            testAndLogFeatureSignificance(bv);
+            testAndLogFeatureSignificance();
         }
         if (config.cumSaveByPf() && i % 10 == 0) {
             logger.debug("Predictive fit checkpoint at vector {}", i + 1);
@@ -188,29 +187,30 @@ public final class CumulativeClassifier {
         Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
 
         // Mirrors C's dp_find_class_sc. In cum_no_new_classes mode the
-        // incumbent
-        // starts as "new class" (0) with cost SC_xnew; otherwise it starts at
-        // class 1 and only existing classes are compared against, so a new
-        // class
-        // is never returned.
+        // incumbent starts as "new class" with cost SC_xnew and is returned as
+        // -1 when no existing class beats it (matching processVector's
+        // new-class
+        // sentinel); otherwise it starts at class 1 and only existing classes
+        // are compared against, so a new class is never returned.
         if (config.cumNoNewClasses()) {
             double dmin = calculateStochasticComplexityXnew(dynPart, bv);
-            int imin = 0;
+            int imin = -1;
             for (int i = 1; i <= dynPart.size(); i++) {
-                double d = calculateSCIncrease(dynPart, bv, i,
-                        config.epsilon());
+                double d = calculateStochasticComplexityX(dynPart, i, bv);
                 if (d < dmin) {
                     dmin = d;
                     imin = i;
                 }
             }
+            logger.debug("SC-n: newclass={} bestClass={} bestCost={}",
+                    dmin, imin == -1 ? "NEW" : String.valueOf(imin), dmin);
             return imin;
         }
 
         int imin = 1;
-        double dmin = calculateSCIncrease(dynPart, bv, 1, config.epsilon());
+        double dmin = calculateStochasticComplexityX(dynPart, 1, bv);
         for (int i = 2; i <= dynPart.size(); i++) {
-            double d = calculateSCIncrease(dynPart, bv, i, config.epsilon());
+            double d = calculateStochasticComplexityX(dynPart, i, bv);
             if (d < dmin) {
                 dmin = d;
                 imin = i;
@@ -265,7 +265,7 @@ public final class CumulativeClassifier {
     /**
      * Tests and logs feature significance for the given vector.
      */
-    private static void testAndLogFeatureSignificance(BinaryVector bv) {
+    private static void testAndLogFeatureSignificance() {
         // Placeholder for feature significance testing logic
     }
 
@@ -284,7 +284,7 @@ public final class CumulativeClassifier {
      * @return a DynamicPartition with one class containing the first vector
      */
     public static DynamicPartition initializeFromVector(
-            BinaryVector firstVector, int delta) {
+            BinaryVector firstVector) {
         Objects.requireNonNull(firstVector, "First vector must not be null");
 
         int l = firstVector.getLength();
@@ -544,35 +544,10 @@ public final class CumulativeClassifier {
         double p = (double) count1 / total;
 
         // Clamp to avoid log(0)
-        p = Math.max(epsilon, Math.min(1.0 - epsilon, p));
+        p = Math.clamp(p, epsilon, 1.0 - epsilon);
 
         // entropy formula: H(p) = -p*log2(p) - (1-p)*log2(1-p)
         return -(p * MathUtils.log2(p) + (1.0 - p) * MathUtils.log2(1.0 - p));
-    }
-
-    /**
-     * Returns the majority vote bit for a class given its frequency table and
-     * size.
-     * <p>
-     * Equivalent to C {@code dp_update_freq} where {@code hmo[i] = (freq/s &lt;
-     * 0.5) ? 0 : 1}.
-     * </p>
-     */
-    private static int majorityBit(int[] freqs, int size) {
-        double p = (double) freqs[0] / size;
-        return (p < 0.5) ? 0 : 1;
-    }
-
-    /**
-     * Returns the Hamming-distance count {@code nij} for a single bit position:
-     * the number of vectors in the class whose bit differs from the majority
-     * vote ({@code hmo}).
-     */
-    private static int nijCount(int[] freqs, int size) {
-        int hmo = majorityBit(freqs, size);
-        // If majority is 1, mismatches are the zeros (size - freq); if majority
-        // is 0, mismatches are the ones (freq).
-        return hmo == 1 ? (size - freqs[0]) : freqs[0];
     }
 
     /**
@@ -674,7 +649,79 @@ public final class CumulativeClassifier {
         double sc1 = MathUtils.log2Factorial(n);
         sc1 += MathUtils.log2Factorial(n + k); // n+k-1 with k already 0-based
                                                // count+...
-        return (sc1 + sc2) / (double) n;
+        return (sc1 + sc2) / n;
+    }
+
+    /**
+     * Calculates the stochastic complexity of adding a vector {@code x} to an
+     * existing class, using the exact C {@code dp_stochastic_complexity_x()}
+     * factorial coding scheme.
+     * <p>
+     * Unlike {@link #calculateSCIncrease}, which uses Shannon entropy deltas on
+     * a much smaller scale, this mirrors C's {@code dp_stochastic_complexity_x}
+     * so the existing-class cost is directly comparable to the new-class cost
+     * returned by {@link #calculateStochasticComplexityXnew}. This is what lets
+     * stochastic-complexity mode ({@code -S}) create multiple classes on skewed
+     * data instead of collapsing to a single class.
+     * </p>
+     *
+     * @param dynPart
+     *            the current dynamic partition
+     * @param classIndex
+     *            the 1-based index of the existing class being evaluated
+     * @param bv
+     *            the binary vector being considered for assignment
+     * @return the stochastic complexity per vector of adding {@code bv} to the
+     *         given class
+     */
+    public static double calculateStochasticComplexityX(
+            DynamicPartition dynPart, int classIndex, BinaryVector bv) {
+        Objects.requireNonNull(dynPart, DYNAMIC_PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(bv, BINARY_VECTOR_MUST_NOT_BE_NULL);
+
+        int l = bv.getLength();
+        int k = dynPart.size(); // total number of existing classes (C's final
+                                // k)
+        double sc2 = 0.0;
+        int n = 0;
+        for (int i = 1; i <= k; i++) {
+            int[] f = dynPart.getFreqs(i);
+            int size = dynPart.getClusterSize(i);
+            if (i == classIndex) {
+                // case 1: x is added to this class
+                n += size + 1;
+                for (int bit = 0; bit < l && bit < f.length; bit++) {
+                    sc2 += MathUtils.log2Factorial(size + 2);
+                    int newCount1 = f[bit] + bv.get(bit);
+                    sc2 -= MathUtils.log2Factorial(newCount1);
+                    sc2 -= MathUtils.log2Factorial((size + 1) - newCount1);
+                }
+            } else {
+                // case 2: class is unchanged
+                n += size;
+                for (int bit = 0; bit < l && bit < f.length; bit++) {
+                    sc2 += MathUtils.log2Factorial(size + 1);
+                    sc2 -= MathUtils.log2Factorial(f[bit]);
+                    sc2 -= MathUtils.log2Factorial(size - f[bit]);
+                }
+            }
+        }
+
+        // coding of the codebook
+        double sc1 = MathUtils.log2Factorial(n);
+        for (int i = 1; i <= k; i++) {
+            int size = dynPart.getClusterSize(i);
+            if (i == classIndex) {
+                sc1 -= MathUtils.log2Factorial(size + 1);
+            } else {
+                sc1 -= MathUtils.log2Factorial(size);
+            }
+        }
+        sc1 += MathUtils.log2Factorial(n + k - 1);
+        sc1 -= MathUtils.log2Factorial(n);
+        sc1 -= MathUtils.log2Factorial(k - 1);
+
+        return (sc1 + sc2) / n;
     }
 
     /**

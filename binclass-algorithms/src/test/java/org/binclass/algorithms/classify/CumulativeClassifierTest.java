@@ -239,8 +239,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0, 1 };
         BinaryVector v = new BinaryVector(el, 3);
 
-        DynamicPartition result = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition result = CumulativeClassifier.initializeFromVector(v);
 
         assertNotNull(result);
         assertEquals(1, result.size()); // Single class
@@ -255,8 +254,8 @@ class CumulativeClassifierTest {
         int[] el1 = { 0, 1 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v1,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier
+                .initializeFromVector(v1);
         assertEquals(1, dynPart.size());
 
         // Add a second vector as a new class
@@ -285,8 +284,8 @@ class CumulativeClassifierTest {
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v1,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier
+                .initializeFromVector(v1);
 
         // Add another similar vector to the same class
         int[] el2 = { 0, 0 };
@@ -309,8 +308,8 @@ class CumulativeClassifierTest {
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v1,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier
+                .initializeFromVector(v1);
 
         // Add a very different vector to the same class
         int[] el2 = { 1, 1 };
@@ -338,8 +337,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         // Add another vector to class 1
         int[] el2 = { 1, 1 };
@@ -358,8 +356,8 @@ class CumulativeClassifierTest {
         int[] el1 = { 0, 0 };
         BinaryVector v1 = new BinaryVector(el1, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v1,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier
+                .initializeFromVector(v1);
 
         // Add another similar vector
         int[] el2 = { 0, 0 };
@@ -381,8 +379,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0, 1 };
         BinaryVector v = new BinaryVector(el, 3);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         // Calculate SC for creating a new class with this vector
         double sc = CumulativeClassifier.calculateNewClassSC(dynPart, v);
@@ -421,7 +418,7 @@ class CumulativeClassifierTest {
     @Test
     void testInitializeFromVectorNull() {
         assertThrows(NullPointerException.class,
-                () -> CumulativeClassifier.initializeFromVector(null, 0));
+                () -> CumulativeClassifier.initializeFromVector(null));
     }
 
     @Test
@@ -432,8 +429,7 @@ class CumulativeClassifierTest {
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.extendWithNewClass(null, v));
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.extendWithNewClass(dynPart, null));
     }
@@ -443,8 +439,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.findBestClass(null, v, 0,
@@ -460,8 +455,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.assignToClass(null, v, 1));
@@ -475,8 +469,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.calculateSCIncrease(null, v, 1,
@@ -491,8 +484,7 @@ class CumulativeClassifierTest {
         int[] el = { 1, 0 };
         BinaryVector v = new BinaryVector(el, 2);
 
-        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v,
-                0);
+        DynamicPartition dynPart = CumulativeClassifier.initializeFromVector(v);
 
         assertThrows(NullPointerException.class,
                 () -> CumulativeClassifier.calculateNewClassSC(null, v));
@@ -653,5 +645,110 @@ class CumulativeClassifierTest {
 
         assertTrue(result.size() >= 2,
                 "Distinct vectors should create at least two classes in Bayesian mode");
+    }
+
+    @Test
+    void testCalculateStochasticComplexityXPrefersBetterClass() {
+        // calculateStochasticComplexityX must pick the class a vector fits
+        // best:
+        // an all-zeros vector costs less to add to the zeros class than to the
+        // ones class. This is what lets -S -n create multiple classes instead
+        // of
+        // collapsing everything into one.
+        int L = 5;
+        DynamicPartition dynPart = CumulativeClassifier.createNewWithSize(2, L);
+        for (int i = 0; i < 10; i++) {
+            CumulativeClassifier.assignToClass(dynPart,
+                    new BinaryVector(new int[] { 0, 0, 0, 0, 0 }, L), 1);
+            CumulativeClassifier.assignToClass(dynPart,
+                    new BinaryVector(new int[] { 1, 1, 1, 1, 1 }, L), 2);
+        }
+
+        BinaryVector zeros = new BinaryVector(new int[] { 0, 0, 0, 0, 0 }, L);
+        double scZerosClass = CumulativeClassifier
+                .calculateStochasticComplexityX(
+                        dynPart, 1, zeros);
+        double scOnesClass = CumulativeClassifier
+                .calculateStochasticComplexityX(
+                        dynPart, 2, zeros);
+
+        assertFalse(Double.isNaN(scZerosClass));
+        assertFalse(Double.isInfinite(scZerosClass));
+        assertTrue(scZerosClass < scOnesClass,
+                "All-zeros vector should fit the zeros class better than the ones class");
+    }
+
+    @Test
+    void testCalculateStochasticComplexityXNewComparableScale() {
+        // The new-class cost (xnew) must be on a comparable scale to
+        // existing-class
+        // SC so that -S -n can create classes when beneficial rather than
+        // always
+        // returning the first class. For a good fit, an existing class should
+        // beat
+        // xnew; for a poor fit it should not.
+        int L = 5;
+        DynamicPartition dynPart = CumulativeClassifier.createNewWithSize(2, L);
+        for (int i = 0; i < 10; i++) {
+            CumulativeClassifier.assignToClass(dynPart,
+                    new BinaryVector(new int[] { 0, 0, 0, 0, 0 }, L), 1);
+            CumulativeClassifier.assignToClass(dynPart,
+                    new BinaryVector(new int[] { 1, 1, 1, 1, 1 }, L), 2);
+        }
+
+        BinaryVector zeros = new BinaryVector(new int[] { 0, 0, 0, 0, 0 }, L);
+        double xnew = CumulativeClassifier.calculateStochasticComplexityXnew(
+                dynPart, zeros);
+        double scZerosClass = CumulativeClassifier
+                .calculateStochasticComplexityX(
+                        dynPart, 1, zeros);
+
+        assertFalse(Double.isNaN(xnew));
+        assertTrue(scZerosClass < xnew,
+                "Existing class cost should beat new-class cost for a good fit");
+    }
+
+    @Test
+    void testSCModeNonCumCreatesMultipleClasses() {
+        // SC -n mode (bayesianPredictive=false, cumNoNewClasses=true) must
+        // create
+        // multiple classes on distinct vectors rather than collapsing to one.
+        // This
+        // exercises the calculateStochasticComplexityX branch of
+        // findBestSCClass.
+        int dim = 5;
+        VectorSet vectors = new VectorSet();
+        // all-zeros cluster plus each unit vector, repeated so clusters are
+        // real
+        for (int rep = 0; rep < 6; rep++) {
+            vectors.addElement(new BinaryVector(new int[dim], dim));
+            for (int b = 0; b < dim; b++) {
+                int[] el = new int[dim];
+                el[b] = 1;
+                vectors.addElement(new BinaryVector(el, dim));
+            }
+        }
+
+        DynamicPartition result = CumulativeClassifier
+                .doCumulativeClassification(
+                        vectors, CumulativeConfig.defaults()
+                                .withBayesianPredictive(false)
+                                .withCumNoNewClasses(true));
+
+        assertTrue(result.size() >= 2,
+                "SC -n mode should create at least two classes for distinct vectors");
+    }
+
+    @Test
+    void testCalculateStochasticComplexityXNullChecks() {
+        BinaryVector v = new BinaryVector(new int[] { 0, 0 }, 2);
+        DynamicPartition dynPart = CumulativeClassifier.createNewWithSize(1, 2);
+
+        assertThrows(NullPointerException.class,
+                () -> CumulativeClassifier.calculateStochasticComplexityX(null,
+                        1, v));
+        assertThrows(NullPointerException.class,
+                () -> CumulativeClassifier
+                        .calculateStochasticComplexityX(dynPart, 1, null));
     }
 }
