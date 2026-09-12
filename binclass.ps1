@@ -3,9 +3,12 @@
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building BinClass..." -ForegroundColor Cyan
-mvn clean package -DskipTests -q
+# Write-Host "Building BinClass..." -ForegroundColor Cyan
+# mvn clean package -DskipTests -q
 
 $argString = ($args -join ' ')
 Write-Host "Running: binclass $argString" -ForegroundColor Green
-mvn exec:java -pl binclass-cli -Dexec.mainClass="org.binclass.cli.BinClass" -Dexec.args="binclass $argString" --quiet
+mvn exec:java -pl binclass-cli `
+    "-Dexec.mainClass=org.binclass.cli.BinClass" `
+    "-Dexec.args=binclass $argString" `
+    --quiet
