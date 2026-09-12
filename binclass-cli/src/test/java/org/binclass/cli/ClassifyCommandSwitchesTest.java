@@ -7,6 +7,9 @@ import static org.mockito.Mockito.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -92,9 +95,15 @@ class ClassifyCommandSwitchesTest {
 
     @Test
     void testCentroidFileWithInvalidPath() throws Exception {
-        // Setup - with invalid centroid file path
+        // Setup - with invalid centroid file path. Use a temporary regular
+        // file as the parent directory so that Files.createDirectories()
+        // fails with a NotADirectoryException regardless of OS or whether the
+        // tests run as root (on Windows, C:\ is writable by everyone).
+        Path tempParent = Files.createTempFile("centroids", ".tmp");
+        String centroidFile = tempParent.resolve("centroids.txt").toString();
+
         Map<String, String> opts = new HashMap<>();
-        opts.put("-L", "/invalid/path/centroids.txt");
+        opts.put("-L", centroidFile);
         args.setOptions(opts);
 
         try (var mockedLoader = mockStatic(DataLoader.class)) {

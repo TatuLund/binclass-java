@@ -11,4 +11,4 @@ cd "$SCRIPT_DIR"
 # mvn clean package -DskipTests -q
 
 echo "Running: binclass $*"
-mvn exec:java -pl binclass-cli -Dexec.mainClass="org.binclass.cli.BinClass" -Dexec.args="binclass $*" --quiet
+mvn exec:java -pl binclass-cli -Dexec.mainClass="org.binclass.cli.BinClass" -Dexec.args="binclass $*" -Dexec.argumentSplitMode=posix --quiet

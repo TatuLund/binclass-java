@@ -10,5 +10,5 @@ $argString = ($args -join ' ')
 Write-Host "Running: binclass $argString" -ForegroundColor Green
 mvn exec:java -pl binclass-cli `
     "-Dexec.mainClass=org.binclass.cli.BinClass" `
-    "-Dexec.args=binclass $argString" `
+    "-Dexec.args=binclass $argString" -Dexec.argumentSplitMode=posix `
     --quiet

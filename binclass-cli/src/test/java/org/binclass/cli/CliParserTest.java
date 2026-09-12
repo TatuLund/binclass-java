@@ -183,6 +183,25 @@ class CliParserTest {
                             "--filebase=mydata" });
             assertEquals("mydata", args.options().get("filebase"));
         }
+
+        @Test
+        void parseAttachedPartitionValue() {
+            // "-Ptest.partition" (attached) must keep the full value, not just
+            // "est.partition". This is the form used on Windows where
+            // PowerShell
+            // / Maven may pass it as a single token.
+            CommandArgs args = parser.parse(new String[] {
+                    "binclass", "classify", "-Ptest.partition", "test" });
+            assertEquals("test.partition", args.options().get("-P"));
+        }
+
+        @Test
+        void parseSeparatedPartitionValue() {
+            // "-P test.partition" (separated) must also yield the full value.
+            CommandArgs args = parser.parse(new String[] {
+                    "binclass", "classify", "-P", "test.partition", "test" });
+            assertEquals("test.partition", args.options().get("-P"));
+        }
     }
 
     // ── Validation ─────────────────────────────────────────────────────

@@ -126,9 +126,9 @@ public final class PartitionWriter {
      * Formats a single binary vector as a PIC-format partition line.
      * <p>
      * Layout mirrors C's {@code pic_write_bv()}: the class name occupies the
-     * leading field padded to column 15 (idOffs), the strain identifier
-     * follows and is padded to column 23 (vecoffs), and each bit is written as
-     * a single character ('0', '1', or 'x' for missing values).
+     * leading field padded to column 15 (idOffs), the strain identifier follows
+     * and is padded to column 23 (vecoffs), and each bit is written as a single
+     * character ('0', '1', or 'x' for missing values).
      * </p>
      *
      * @param element
