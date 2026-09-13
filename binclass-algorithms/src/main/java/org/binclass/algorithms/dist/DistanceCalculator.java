@@ -43,6 +43,7 @@ public final class DistanceCalculator {
     private static final String CENTROID_MUST_NOT_BE_NULL = "Centroid must not be null";
     private static final String BINARY_VECTOR_MUST_NOT_BE_NULL = "BinaryVector must not be null";
     private static final String PARTITION_MUST_NOT_BE_NULL = "Partition must not be null";
+    private static final String VECTOR_SET_MUST_NOT_BE_NULL = "VectorSet must not be null";
 
     /** Module-level flag for weighted codelength calculations. */
     private static boolean useClassWeightsFlag = false;
@@ -322,7 +323,7 @@ public final class DistanceCalculator {
      */
     public static double classDistortion(VectorSet classVectors,
             Centroid centroid) {
-        Objects.requireNonNull(classVectors, "VectorSet must not be null");
+        Objects.requireNonNull(classVectors, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         int totalDist = 0;
@@ -510,7 +511,7 @@ public final class DistanceCalculator {
      *         count of 1-bits at position {@code i} across all vectors
      */
     private static int[] computeBitFrequencies(VectorSet vectors, int d) {
-        Objects.requireNonNull(vectors, "VectorSet must not be null");
+        Objects.requireNonNull(vectors, VECTOR_SET_MUST_NOT_BE_NULL);
 
         int[] freqs = new int[d]; // indices 0..d-1 (C uses 1..d)
         for (BinaryVector vector : vectors) {
@@ -564,8 +565,13 @@ public final class DistanceCalculator {
             t += classSizes[j];
         }
 
-        double kVal = k - 1;
-        double dVal = d - 1;
+        if (t == 0) {
+            throw new ArithmeticException(
+                    "Division by zero in stochasticComplexityJeffreys");
+        }
+
+        double kVal = (double) k - 1;
+        double dVal = (double) d - 1;
 
         // The part for coding the class no
         double h = ((dVal * kVal) + (kVal / 2.0)) * LPI;
@@ -576,8 +582,7 @@ public final class DistanceCalculator {
         }
 
         // The part for coding the bits
-        int[] bitFreqs = new int[d]; // bit frequencies (indices 0..d-1, C uses
-                                     // 1..d)
+        int[] bitFreqs;
         for (int j = 1; j < k; j++) {
             VectorSet classVectors = partition.getElements(j);
             bitFreqs = computeBitFrequencies(classVectors, d);
@@ -641,10 +646,14 @@ public final class DistanceCalculator {
         // k is one too big, thus minus extra one
         h1 -= MathUtils.log2Factorial(k - 2);
 
+        if (t == 0) {
+            throw new ArithmeticException(
+                    "Division by zero in stochasticComplexityUniform");
+        }
+
         // The part for coding the bits
         double h2 = 0.0;
-        int[] bitFreqs = new int[d]; // bit frequencies (indices 0..d-1, C uses
-                                     // 1..d)
+        int[] bitFreqs;
         for (int j = 1; j < k; j++) {
             VectorSet classVectors = partition.getElements(j);
             bitFreqs = computeBitFrequencies(classVectors, d);
@@ -766,10 +775,10 @@ public final class DistanceCalculator {
 
         // Add MDL cost: data encoding cost based on distortion
         // Use small epsilon to avoid log(0) when distortion is very small
-        double D = Math.max(averageDistortion,
+        double d = Math.max(averageDistortion,
                 AlgorithmConfig.NUMERICAL_STABILITY_EPSILON);
         double dataCost = (totalElements / 2.0)
-                * MathUtils.log2(D / totalElements);
+                * MathUtils.log2(d / totalElements);
         sc += dataCost;
 
         // Add complexity penalty: model encoding cost for k clusters and l
@@ -895,7 +904,7 @@ public final class DistanceCalculator {
      */
     private static void infAverage(VectorSet vectorSet, Centroid centroid,
             boolean rounded, int totalVectors) {
-        Objects.requireNonNull(vectorSet, "VectorSet must not be null");
+        Objects.requireNonNull(vectorSet, VECTOR_SET_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroid, CENTROID_MUST_NOT_BE_NULL);
 
         // Get length from first vector (mirrors C: l = V->el->length)
@@ -928,7 +937,7 @@ public final class DistanceCalculator {
         }
         centroid.setWeight(weight);
 
-        // Optionally round to 0 or 1 (mirrors C: if (rounded) ...)
+        // Optionally round each probability to 0 or 1 when requested.
         if (rounded) {
             for (int i = 0; i < numBits; i++) {
                 double value = centroid.get(i);
@@ -982,13 +991,13 @@ public final class DistanceCalculator {
             }
         }
 
-        double N = (double) n;
+        double nn = n;
 
         /* labeling of the classes */
         for (int i = 1; i < k; i++) {
             h -= 0.5 * MathUtils.log2(centroids.get(i - 1).getWeight());
         }
-        h += 0.5 * (k - 1) * MathUtils.log2(N * 0.0833333);
+        h += 0.5 * (k - 1) * MathUtils.log2(nn * 0.0833333);
         h -= MathUtils.log2Factorial(k - 2);
 
         /* labeling of the features */
@@ -996,7 +1005,7 @@ public final class DistanceCalculator {
             Centroid centroid = centroids.get(i - 1); // Convert to 0-based
             for (int j = 1; j < l; j++) {
                 double p = centroid.get(j - 1); // Convert to 0-based
-                h += 0.5 * MathUtils.log2((centroid.getWeight() * N)
+                h += 0.5 * MathUtils.log2((centroid.getWeight() * nn)
                         * 0.0833333)
                         - 0.5
                                 * (MathUtils.log2(p) + MathUtils.log2(1.0 - p));
@@ -1006,7 +1015,7 @@ public final class DistanceCalculator {
         if (n < 1) {
             throw new ArithmeticException("Division by zero in shannonEntropy");
         }
-        return h / N;
+        return h / nn;
     }
 
     /**
@@ -1048,12 +1057,9 @@ public final class DistanceCalculator {
 
         double i1;
         double i2 = shannonEntropy(partition, centroids);
-        if (distanceType > DISTANCE_L2) {
-            // Codelength distances: reuse stored information content.
-            i1 = averageCodelength(partition, centroids);
-        } else {
-            i1 = averageCodelength(partition, centroids);
-        }
+        // Codelength distances reuse the stored information content; other
+        // distance types also report it as-is.
+        i1 = averageCodelength(partition, centroids);
 
         if (distanceType >= DISTANCE_CL_START) {
             d = i1;
