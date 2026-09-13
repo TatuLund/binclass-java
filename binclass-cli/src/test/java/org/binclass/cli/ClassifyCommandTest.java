@@ -24,6 +24,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.GLAEngine;
+import org.binclass.algorithms.gla.RangeSearch;
 import org.binclass.algorithms.gla.LocalSearch;
 import org.binclass.algorithms.gla.SearchType;
 import org.binclass.algorithms.util.MathUtils;
@@ -951,11 +952,12 @@ class ClassifyCommandTest {
 
     private Object callInitializePartition(VectorSet vs, int k,
             InfiniteCentroids seed, int type) throws Exception {
-        Method m = ClassifyCommand.class.getDeclaredMethod(
+        Method m = RangeSearch.class.getDeclaredMethod(
                 "initializePartition", VectorSet.class, int.class,
                 InfiniteCentroids.class, int.class);
         m.setAccessible(true);
-        return m.invoke(command, vs, k, seed, type);
+        RangeSearch rs = new RangeSearch(vs, GLAConfig.DEFAULT);
+        return m.invoke(rs, vs, k, seed, type);
     }
 
     @Test
@@ -983,8 +985,9 @@ class ClassifyCommandTest {
             Object p1 = callInitializePartition(vs, N_VECTORS - 1, seed, 1);
             InfiniteCentroids c1 = asCentroids(p1);
             assertSame(rRandom, c1);
-            assertEquals(N_VECTORS, ((Partition) p1.getClass().getMethod(
-                    "partition").invoke(p1)).size());
+            Method partMethod = p1.getClass().getMethod("partition");
+            partMethod.setAccessible(true);
+            assertEquals(N_VECTORS, ((Partition) partMethod.invoke(p1)).size());
 
             // type 2/3 (semi-random) -> semiRandomInit
             Object p2 = callInitializePartition(vs, N_VECTORS - 1, seed, 2);
@@ -1004,8 +1007,9 @@ class ClassifyCommandTest {
 
     private InfiniteCentroids asCentroids(Object partitionInit)
             throws Exception {
-        return (InfiniteCentroids) partitionInit.getClass().getMethod(
-                "centroids").invoke(partitionInit);
+        Method m = partitionInit.getClass().getMethod("centroids");
+        m.setAccessible(true);
+        return (InfiniteCentroids) m.invoke(partitionInit);
     }
 
     @Test
@@ -1021,7 +1025,7 @@ class ClassifyCommandTest {
                 false, true, false);
 
         try (var mockEngine = mockStatic(GLAEngine.class)) {
-            Method m = ClassifyCommand.class.getDeclaredMethod(
+            Method m = RangeSearch.class.getDeclaredMethod(
                     "populatePartitionForLocalSearch", VectorSet.class,
                     Partition.class, InfiniteCentroids.class, GLAConfig.class);
             m.setAccessible(true);
