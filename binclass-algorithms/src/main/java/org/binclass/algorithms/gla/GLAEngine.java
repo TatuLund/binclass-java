@@ -202,8 +202,8 @@ public final class GLAEngine {
             Centroid centroid = centroids.get(i - 1);
             double entropy = calculateEntropy(centroid, config.rounded());
 
-            logger.info("Cluster {}: size={}, entropy={:.4f}",
-                    i, size, entropy);
+            logger.info("Cluster {}: size={}, entropy={}", i, size,
+                    String.format("%.4f", entropy));
         }
     }
 
@@ -225,10 +225,7 @@ public final class GLAEngine {
         double entropy = 0.0;
 
         for (double val : el) {
-            if (rounded) {
-                // Binary case: p=0 or p=1 → entropy=0
-                continue;
-            } else {
+            if (!rounded) {
                 // Probabilistic case: use binary entropy formula
                 double p = val;
                 if (p > 0 && p < 1) {
@@ -310,8 +307,8 @@ public final class GLAEngine {
         // decreasing_epsilon flag (-E two-char form) is set, force an initial
         // value of 0.1 and halve it every iteration regardless of improvement,
         // mirroring C's gla() from glainf.c.
-        double epsilon = config.decreasingEpsilon() ? 0.1
-                : (config.epsilon() > 0 ? config.epsilon() : 0.1);
+        double baseEpsilon = config.epsilon() > 0 ? config.epsilon() : 0.1;
+        double epsilon = config.decreasingEpsilon() ? 0.1 : baseEpsilon;
 
         while (improvement && iter < maxIter) {
             iter++;
@@ -340,18 +337,6 @@ public final class GLAEngine {
                     config.n());
 
             double nd = averageCodelength(partition, centroids, true);
-
-            // Debug: show cluster sizes and weights for first few iterations
-            if (iter <= 3) {
-                StringBuilder debugSb = new StringBuilder();
-                for (int i = 1; i <= k && i <= 5; i++) {
-                    Centroid c = centroids.get(i - 1);
-                    int size = partition.getSize(i);
-                    double weight = c.getWeight();
-                    debugSb.append(String.format("C%d: size=%d, weight=%.4f ",
-                            i, size, weight));
-                }
-            }
 
             // Log precise diff to see if it's truly zero or just very small
             double diff = Math.abs(nd - d);
@@ -527,12 +512,8 @@ public final class GLAEngine {
         applyTrashcan(vectors, centroids, config);
 
         double d = averageCodelength(partition, centroids, config.weights());
-        d = averageCodelength(partition, centroids, config.weights()); // Double
-                                                                       // computation
-                                                                       // for
-                                                                       // stability
-        // computation for
-        // stability
+        // Double computation of average codelength for stability
+        d = averageCodelength(partition, centroids, config.weights());
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;
@@ -630,12 +611,8 @@ public final class GLAEngine {
         applyTrashcan(vectors, centroids, config);
 
         double d = averageCodelength(partition, centroids, config.weights());
-        d = averageCodelength(partition, centroids, config.weights()); // Double
-                                                                       // computation
-                                                                       // for
-                                                                       // stability
-        // computation for
-        // stability
+        // Double computation of average codelength for stability
+        d = averageCodelength(partition, centroids, config.weights());
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;
@@ -1023,7 +1000,7 @@ public final class GLAEngine {
                 // Optional local repartition of the moved vector's former
                 // class.
                 if (config.alternateEmptyCellFix()) {
-                    localRepartition(c, partition, centroids, config);
+                    localRepartition(c, partition, centroids);
                 }
             } else {
                 i++;
@@ -1183,7 +1160,7 @@ public final class GLAEngine {
      *            GLA configuration controlling rounding and vector length
      */
     private static void localRepartition(int c, Partition partition,
-            InfiniteCentroids centroids, GLAConfig config) {
+            InfiniteCentroids centroids) {
         VectorSet moved = new VectorSet();
         for (BinaryVector bv : partition.getElements(c)) {
             moved.addElement(bv);
