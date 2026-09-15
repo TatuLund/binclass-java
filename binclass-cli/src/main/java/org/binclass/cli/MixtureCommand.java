@@ -7,6 +7,7 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.io.CentroidWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,6 +92,15 @@ public class MixtureCommand implements BaseCommand {
 
         log.info("EM algorithm complete with {} components",
                 result.size());
+
+        // Persist the fitted centroids (default <filebase>.centroids,
+        // override with -L)
+        String outputFile = opts.getOrDefault("-L", null);
+        if (outputFile == null || outputFile.isEmpty()) {
+            outputFile = filebase + ".centroids";
+        }
+        CentroidWriter.save(result, outputFile);
+        log.info("Saved {} centroids to {}", result.size(), outputFile);
 
         return 0;
     }

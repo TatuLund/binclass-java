@@ -1,5 +1,8 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -9,6 +12,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.SplitGLA;
+import org.binclass.algorithms.io.PartitionWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,9 +117,6 @@ public class FastClassifyCommand implements BaseCommand {
             idx++;
         }
 
-        // Create initial partition with two classes
-        Partition partition = new Partition(2);
-
         // Run Split-GLA algorithm to find optimal number of clusters
         double[] scmin = new double[1];
         double[] scs = new double[vectorSet.size() + 1];
@@ -124,6 +125,44 @@ public class FastClassifyCommand implements BaseCommand {
 
         log.info("Split-GLA complete: found {} clusters", result.size());
 
+        // Persist the resulting partition (default <filebase>.partition,
+        // override with -P)
+        String partitionFile = opts.getOrDefault("-P", null);
+        if (partitionFile == null || partitionFile.isEmpty()) {
+            partitionFile = filebase + ".partition";
+        }
+        int code = writePartition(result, partitionFile);
+        if (code != 0) {
+            return code;
+        }
+
         return 0;
+    }
+
+    /**
+     * Writes a partition to the given path, creating parent directories as
+     * needed.
+     *
+     * @param partition
+     *            the partition to persist
+     * @param partitionFile
+     *            destination file path
+     * @return 0 on success, 1 if writing failed
+     */
+    private int writePartition(Partition partition, String partitionFile) {
+        try {
+            Path path = Path.of(partitionFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            PartitionWriter.writePartition(partition, partitionFile);
+            log.info("Partition written to {}", partitionFile);
+            return 0;
+        } catch (IOException e) {
+            log.warn("Failed to write partition to {}: {}", partitionFile,
+                    e.getMessage());
+            return 1;
+        }
     }
 }

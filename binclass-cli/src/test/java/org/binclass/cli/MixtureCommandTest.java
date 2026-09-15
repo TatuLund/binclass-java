@@ -7,7 +7,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.binclass.algorithms.classify.MixtureClassifier;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -15,6 +18,7 @@ import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.mockito.ArgumentCaptor;
 
@@ -194,6 +198,75 @@ class MixtureCommandTest {
     @Test
     void testGetName() {
         assertEquals("mixture", command.getName());
+    }
+
+    @Test
+    void testExecuteWritesCentroidsToFile(@TempDir Path tempDir)
+            throws Exception {
+        // With no -L flag, the fitted centroids must be written to
+        // <filebase>.centroids, mirroring C's write_centroids(). This is what
+        // was missing before: a plain `mixture data/test` produced no file.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedMixtureClassifier = mockStatic(
+                        MixtureClassifier.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            InfiniteCentroids resultCentroids = new InfiniteCentroids(2, 8);
+            resultCentroids.get(0).setEl(new int[] { 1, 0, 1, 0, 1, 0, 1, 0 });
+            resultCentroids.get(1).setEl(new int[] { 0, 1, 0, 1, 0, 1, 0, 1 });
+            when(MixtureClassifier.applyMixtureClassifier(any(), any(),
+                    anyInt()))
+                    .thenReturn(resultCentroids);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.centroids");
+            assertTrue(Files.exists(expected),
+                    "default <filebase>.centroids should be written");
+            String content = Files.readString(expected);
+            assertTrue(content.contains("# BinClass Centroid File"),
+                    "centroids file should contain the header");
+            assertTrue(content.contains("Centroid 1:"),
+                    "centroids file should contain centroid entries");
+        }
+    }
+
+    @Test
+    void testExecuteHonoursExplicitCentroidFlag(@TempDir Path tempDir)
+            throws Exception {
+        // An explicit -L path overrides the default <filebase>.centroids.
+        String filebase = tempDir.resolve("data").toString();
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-L", tempDir.resolve(
+                        "custom.centroids").toString(), "filebase",
+                        filebase));
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedMixtureClassifier = mockStatic(
+                        MixtureClassifier.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            InfiniteCentroids resultCentroids = new InfiniteCentroids(2, 8);
+            resultCentroids.get(0).setEl(new int[] { 1, 0, 1, 0, 1, 0, 1, 0 });
+            when(MixtureClassifier.applyMixtureClassifier(any(), any(),
+                    anyInt()))
+                    .thenReturn(resultCentroids);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("custom.centroids");
+            assertTrue(Files.exists(expected),
+                    "explicit -L path should be used");
+        }
     }
 
     @Test

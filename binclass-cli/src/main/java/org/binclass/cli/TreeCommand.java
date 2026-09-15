@@ -1,5 +1,8 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.classify.Classifier;
@@ -86,7 +89,105 @@ public class TreeCommand implements BaseCommand {
             log.warn("No tree generated - partition may be empty");
         }
 
+        // Persist the resulting dendrogram (default <filebase>.tree, override
+        // with -o). Mirrors C traverse_tree(): in-order traversal with
+        // depth-based indentation.
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile == null || outputFile.isEmpty()) {
+            outputFile = filebase + ".tree";
+        }
+        int code = writeTree(root, outputFile);
+        if (code != 0) {
+            return code;
+        }
+
         return 0;
+    }
+
+    /**
+     * Writes a dendrogram to the given path, creating parent directories as
+     * needed. The tree is serialized with an in-order traversal matching the C
+     * traverse_tree() output: leaves print their name and internal nodes print
+     * their merge cost (SC) alongside a label.
+     *
+     * @param root
+     *            the root node of the dendrogram (may be null)
+     * @param outputFile
+     *            destination file path
+     * @return 0 on success, 1 if writing failed
+     */
+    private int writeTree(TreeNode root, String outputFile) {
+        try {
+            Path path = Path.of(outputFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(path, serializeTree(root));
+            log.info("Tree written to {}", outputFile);
+            return 0;
+        } catch (IOException e) {
+            log.warn("Failed to write tree to {}: {}", outputFile,
+                    e.getMessage());
+            return 1;
+        }
+    }
+
+    /**
+     * Serializes a dendrogram using an in-order traversal matching the C
+     * traverse_tree() format. Leaves print their name prefixed with a marker;
+     * internal nodes print their merge cost (SC) and label. Each line is
+     * indented by its depth to convey hierarchy.
+     *
+     * @param root
+     *            the root node of the dendrogram (may be null)
+     * @return the serialized tree text
+     */
+    private String serializeTree(TreeNode root) {
+        StringBuilder sb = new StringBuilder();
+        serializeNode(root, 1, sb);
+        return sb.toString();
+    }
+
+    /**
+     * Recursively appends a node and its subtree to the builder using an
+     * in-order traversal (left child, node, right child).
+     *
+     * @param node
+     *            the current tree node
+     * @param depth
+     *            the 1-based depth of the node within the tree
+     * @param sb
+     *            the builder to append to
+     */
+    private void serializeNode(TreeNode node, int depth, StringBuilder sb) {
+        if (node == null) {
+            return;
+        }
+
+        String indent = " ".repeat(Math.max(0, depth - 1));
+
+        // Traverse left subtree first
+        if (node.getLeft() != null) {
+            serializeNode(node.getLeft(), depth + 1, sb);
+        }
+
+        // Emit the current node. Leaves are marked with '*' and print their
+        // name; internal nodes print their merge cost (SC) and label.
+        if (node.isLeaf()) {
+            String prefix = (depth == 1) ? "*[" : " [";
+            sb.append(indent).append(prefix)
+                    .append(String.format("%.4f, %s]%n", node.getSC(),
+                            node.getName()));
+        } else {
+            sb.append(indent).append(node.getName())
+                    .append(String.format(" [%.4f]%n", node.getSC()));
+        }
+
+        // Traverse right subtree last
+        if (node.getRight() != null) {
+            serializeNode(node.getRight(), depth + 1, sb);
+        }
     }
 
     /**

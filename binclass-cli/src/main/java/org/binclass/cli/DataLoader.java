@@ -15,7 +15,8 @@ import org.binclass.algorithms.util.MathUtils;
  */
 public class DataLoader {
 
-    public DataLoader() {
+    private DataLoader() {
+        // Utility class with only static methods; never instantiated.
     }
 
     /**
@@ -49,53 +50,14 @@ public class DataLoader {
 
         int loadedCount = 0;
         for (int i = 0; i < lines.size(); i++) {
+            // If n_vectors is specified and we've reached the limit, stop
+            if (nVectors > 0 && loadedCount >= nVectors) {
+                break;
+            }
             String line = lines.get(i);
             if (!line.isEmpty()) {
-                // If n_vectors is specified and we've reached the limit, stop
-                if (nVectors > 0 && loadedCount >= nVectors) {
-                    break;
-                }
-                // Extract binary portion starting at vecoffs offset
-                int startOffset = header.getVecOffs() > 0 ? header.getVecOffs()
-                        : 0;
-                String binaryStr = (startOffset < line.length())
-                        ? line.substring(startOffset)
-                        : "";
-
-                if (!binaryStr.isEmpty()) {
-                    // Strip trailing whitespace and non-binary characters
-                    // (including newlines)
-                    int endIdx = binaryStr.length();
-                    while (endIdx > 0 && !Character
-                            .isDigit(binaryStr.charAt(endIdx - 1))) {
-                        endIdx--;
-                    }
-                    binaryStr = binaryStr.substring(0, endIdx);
-
-                    // Pad with zeros if shorter than expected length
-                    if (binaryStr.length() < length) {
-                        StringBuilder padded = new StringBuilder();
-                        for (int p = 0; p < length - binaryStr.length(); p++) {
-                            padded.append('0');
-                        }
-                        padded.append(binaryStr);
-                        binaryStr = padded.toString();
-                    } else if (binaryStr.length() > length) {
-                        binaryStr = binaryStr.substring(0, length);
-                    }
-
-                    int[] values = FormatParser.parseVector(binaryStr);
-
-                    // Extract strain identifier from position idoffs to vecoffs
-                    String strain = extractStrain(line, header);
-
-                    // Extract the class-name string (leading field of the data
-                    // line). Mirrors C pic_write_bv() which writes x->clasname,
-                    // the first name_len characters of each input line.
-                    String className = extractClassName(line, header);
-
-                    BinaryVector bv = new BinaryVector(values, 0, length, 0,
-                            strain != null ? strain : "", className);
+                BinaryVector bv = parseDataLine(line, header, length);
+                if (bv != null) {
                     vectorSet.addElement(bv);
                     loadedCount++;
                 }
@@ -109,6 +71,64 @@ public class DataLoader {
         MathUtils.prepareLog2Factorials(vectorSet.size() + vectorSet.size());
 
         return vectorSet;
+    }
+
+    /**
+     * Parses a single non-empty data line into a {@link BinaryVector}.
+     * <p>
+     * The binary portion is extracted starting at {@code vecoffs}, trailing
+     * non-binary characters are stripped, and the result is padded or truncated
+     * to the expected {@code length}. Returns {@code null} when no usable
+     * binary string can be recovered from the line.
+     * </p>
+     *
+     * @param line
+     *            the complete line from the data file
+     * @param header
+     *            parsed format header with idoffs/nameLen/vecoffs positions
+     * @param length
+     *            expected binary vector length
+     * @return a {@link BinaryVector}, or {@code null} if the line has no data
+     */
+    private static BinaryVector parseDataLine(String line,
+            FormatParser.Header header, int length) {
+        // Extract binary portion starting at vecoffs offset
+        int startOffset = header.getVecOffs() > 0 ? header.getVecOffs()
+                : 0;
+        String binaryStr = (startOffset < line.length())
+                ? line.substring(startOffset)
+                : "";
+
+        if (binaryStr.isEmpty()) {
+            return null;
+        }
+
+        // Strip trailing whitespace and non-binary characters (including
+        // newlines)
+        int endIdx = binaryStr.length();
+        while (endIdx > 0 && !Character.isDigit(binaryStr.charAt(endIdx - 1))) {
+            endIdx--;
+        }
+        binaryStr = binaryStr.substring(0, endIdx);
+
+        // Pad with zeros if shorter than expected length, else truncate.
+        if (binaryStr.length() < length) {
+            StringBuilder padded = new StringBuilder(length);
+            for (int p = 0; p < length - binaryStr.length(); p++) {
+                padded.append('0');
+            }
+            padded.append(binaryStr);
+            binaryStr = padded.toString();
+        } else if (binaryStr.length() > length) {
+            binaryStr = binaryStr.substring(0, length);
+        }
+
+        int[] values = FormatParser.parseVector(binaryStr);
+        String strain = extractStrain(line, header);
+        String className = extractClassName(line, header);
+
+        return new BinaryVector(values, 0, length, 0,
+                strain != null ? strain : "", className);
     }
 
     /**

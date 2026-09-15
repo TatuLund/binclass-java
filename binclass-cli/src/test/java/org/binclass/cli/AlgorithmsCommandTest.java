@@ -3,10 +3,13 @@ package org.binclass.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -37,9 +40,16 @@ class AlgorithmsCommandTest {
         CliParser.CommandArgs args = createArgs("test1", Map.of("-k", "5"));
 
         TestAlgorithmsCommand cmd = new TestAlgorithmsCommand("test1");
-        int exitCode = cmd.execute(args);
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
-        assertEquals(0, exitCode);
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            int exitCode = cmd.execute(args);
+
+            assertEquals(0, exitCode);
+        }
     }
 
     @Test
@@ -47,9 +57,16 @@ class AlgorithmsCommandTest {
         CliParser.CommandArgs args = createArgs("test2", Map.of("-t", "10"));
 
         TestAlgorithmsCommand cmd = new TestAlgorithmsCommand("test2");
-        int exitCode = cmd.execute(args);
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
-        assertEquals(0, exitCode);
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            int exitCode = cmd.execute(args);
+
+            assertEquals(0, exitCode);
+        }
     }
 
     @Test
@@ -85,9 +102,16 @@ class AlgorithmsCommandTest {
                 "-e", ""));
 
         TestAlgorithmsCommand cmd = new TestAlgorithmsCommand("test1");
-        int exitCode = cmd.execute(args);
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
-        assertEquals(0, exitCode);
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            int exitCode = cmd.execute(args);
+
+            assertEquals(0, exitCode);
+        }
     }
 
     @Test
@@ -95,9 +119,16 @@ class AlgorithmsCommandTest {
         CliParser.CommandArgs args = createArgs("test2", Map.of("-t", "5"));
 
         TestAlgorithmsCommand cmd = new TestAlgorithmsCommand("test2");
-        int exitCode = cmd.execute(args);
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
 
-        assertEquals(0, exitCode);
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            int exitCode = cmd.execute(args);
+
+            assertEquals(0, exitCode);
+        }
     }
 
     private static CliParser.CommandArgs createArgs(String command,

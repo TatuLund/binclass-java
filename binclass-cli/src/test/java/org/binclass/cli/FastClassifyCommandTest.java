@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +22,7 @@ import org.binclass.algorithms.gla.SplitGLA;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.mockito.ArgumentCaptor;
 
@@ -249,6 +252,80 @@ class FastClassifyCommandTest {
     @Test
     void testGetName() {
         assertEquals("fclassify", command.getName());
+    }
+
+    @Test
+    void testExecuteWritesPartitionToFile(@TempDir Path tempDir)
+            throws Exception {
+        // With no -P flag, Split-GLA's resulting partition must be written to
+        // <filebase>.partition, mirroring C's inf_write_partition(). This is
+        // what was missing before: a plain `fclassify data/test` produced no
+        // file.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedSplitGla = mockStatic(SplitGLA.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            Partition resultPartition = new Partition(2);
+            int length = 10;
+            BinaryVector v1 = new BinaryVector(new int[length], 0, length, 1,
+                    "strainA");
+            BinaryVector v2 = new BinaryVector(new int[length], 0, length, 2,
+                    "strainB");
+            resultPartition.addElement(1, v1);
+            resultPartition.addElement(2, v2);
+            when(SplitGLA.splitGLA(any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.partition");
+            assertTrue(Files.exists(expected),
+                    "default <filebase>.partition should be written");
+            String content = Files.readString(expected);
+            assertTrue(content.contains("Class 1"),
+                    "partition should contain class headers");
+            assertTrue(content.contains("strainA"),
+                    "partition should contain the strain identifier");
+        }
+    }
+
+    @Test
+    void testExecuteHonoursExplicitPartitionFlag(@TempDir Path tempDir)
+            throws Exception {
+        // An explicit -P path overrides the default <filebase>.partition.
+        String filebase = tempDir.resolve("data").toString();
+        TestUtils.setupOptions(args,
+                TestUtils.createOptions("-P", tempDir.resolve(
+                        "custom.partition").toString(), "filebase",
+                        filebase));
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedSplitGla = mockStatic(SplitGLA.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            Partition resultPartition = new Partition(2);
+            int length = 10;
+            BinaryVector v1 = new BinaryVector(new int[length], 0, length, 1,
+                    "strainA");
+            resultPartition.addElement(1, v1);
+            when(SplitGLA.splitGLA(any(), any(), any(), any()))
+                    .thenReturn(resultPartition);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("custom.partition");
+            assertTrue(Files.exists(expected),
+                    "explicit -P path should be used");
+        }
     }
 
     @Test

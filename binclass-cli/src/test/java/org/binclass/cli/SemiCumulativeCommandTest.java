@@ -6,9 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.binclass.algorithms.classify.CumulativeConfig;
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.gla.GLAConfig;
@@ -16,6 +20,7 @@ import org.binclass.algorithms.gla.JoinGLA;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.mockito.ArgumentCaptor;
 
@@ -176,6 +181,78 @@ class SemiCumulativeCommandTest {
             int result = command.execute(args);
 
             assertEquals(0, result);
+        }
+    }
+
+    @Test
+    void testExecuteWritesPartitionToFile(@TempDir Path tempDir)
+            throws Exception {
+        // With no -P flag, the resulting partition must be written to
+        // <filebase>.partition. This is what was missing before: a plain
+        // `sclassify data/test` produced no file.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedJoinGLA = mockStatic(JoinGLA.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            Partition partition = new org.binclass.algorithms.core.Partition(2);
+            int length = 10;
+            BinaryVector v1 = new BinaryVector(new int[length], 0, length, 1,
+                    "strainA");
+            BinaryVector v2 = new BinaryVector(new int[length], 0, length, 2,
+                    "strainB");
+            partition.addElement(1, v1);
+            partition.addElement(2, v2);
+            when(JoinGLA.joinGLA(any(), any(), any(), any()))
+                    .thenReturn(partition);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.partition");
+            assertTrue(Files.exists(expected),
+                    "default <filebase>.partition should be written");
+            String content = Files.readString(expected);
+            assertTrue(content.contains("Class 1"),
+                    "partition should contain class headers");
+            assertTrue(content.contains("strainA"),
+                    "partition should contain the strain identifier");
+        }
+    }
+
+    @Test
+    void testExecuteHonoursExplicitPartitionFlag(@TempDir Path tempDir)
+            throws Exception {
+        // An explicit -P path overrides the default <filebase>.partition.
+        String filebase = tempDir.resolve("data").toString();
+        TestUtils.setupOptions(args, TestUtils.createOptions("-P",
+                tempDir.resolve("custom.partition").toString(), "filebase",
+                filebase));
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedJoinGLA = mockStatic(JoinGLA.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+
+            Partition partition = new org.binclass.algorithms.core.Partition(2);
+            int length = 10;
+            BinaryVector v1 = new BinaryVector(new int[length], 0, length, 1,
+                    "strainA");
+            partition.addElement(1, v1);
+            when(JoinGLA.joinGLA(any(), any(), any(), any()))
+                    .thenReturn(partition);
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("custom.partition");
+            assertTrue(Files.exists(expected),
+                    "explicit -P path should be used");
         }
     }
 
