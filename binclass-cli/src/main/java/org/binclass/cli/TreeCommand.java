@@ -9,6 +9,8 @@ import org.binclass.algorithms.classify.Classifier;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.TreeNode;
+import org.binclass.algorithms.dist.DistanceCalculator;
+import org.binclass.algorithms.gla.GLAEngine;
 import org.binclass.algorithms.tree.TreeBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,18 +58,48 @@ public class TreeCommand implements BaseCommand {
         var vectorSet = DataLoader.loadVectors(filebase);
 
         // Get actual vector length from first vector in set
-        int vectorLength = vectorSet.size() > 0
-                ? vectorSet.iterator().next().getLength()
-                : 16;
+        int vectorLength = vectorSet.getVectorLength();
 
-        int numClusters = Math.min(3, vectorSet.size());
+        // Determine the number of clusters. Prefer an existing partition file
+        // (mirrors C make_tree, which reads a ready-made .partition); fall back
+        // to classifying the raw vectors when no partition is present.
+        Partition partition;
+        int numClusters;
+        try {
+            Partition existingPartition = ReportCommand.readPartition(filebase);
+            if (existingPartition.size() > 1) {
+                partition = existingPartition;
+                numClusters = partition.size();
+                log.info("Reusing {} clusters from partition file",
+                        numClusters);
+            } else {
+                throw new IllegalStateException(
+                        "No usable partition found");
+            }
+        } catch (Exception ex) {
+            // No partition file: classify the raw vectors into one cluster per
+            // vector so every sample seeds its own centroid.
+            numClusters = Math.max(2, vectorSet.size());
+            partition = new Partition(numClusters);
+            Classifier.identifyVectors(vectorSet, partition,
+                    new InfiniteCentroids(numClusters, vectorLength), 0.001);
+            log.info("Classified {} vectors into {} clusters",
+                    vectorSet.size(), numClusters);
+        }
 
-        // Create centroids and partition using classifier
+        if (numClusters < 2) {
+            log.warn(
+                    "Partition has fewer than two clusters; tree is a single leaf");
+        }
+
+        // Create centroids sized to the final cluster count and recompute them
+        // from the cluster assignments so that the distance metric used by the
+        // PNN algorithm operates on real data rather than uninitialized
+        // (all-zero) centroids.
         InfiniteCentroids centroids = new InfiniteCentroids(numClusters,
                 vectorLength);
-        Partition partition = new Partition(numClusters);
-
-        Classifier.identifyVectors(vectorSet, partition, centroids, 0.001);
+        GLAEngine.recomputeCentroids(partition, centroids, false,
+                vectorSet.size());
 
         log.info("Built tree from {} vectors in {} clusters",
                 vectorSet.size(), numClusters);
@@ -75,10 +107,12 @@ public class TreeCommand implements BaseCommand {
         // Build dendrogram using appropriate algorithm variant
         TreeNode root;
         if (useHellinger > 0) {
-            root = TreeBuilder.makeTreePnn(partition, centroids);
+            root = TreeBuilder.makeTreePnn(partition, centroids,
+                    jeffreysPrior);
             log.info("Built Hellinger distance tree");
         } else {
-            root = TreeBuilder.makeTreePnn2(partition, centroids);
+            root = TreeBuilder.makeTreePnn2(partition, centroids,
+                    jeffreysPrior);
             log.info("Built class nearness tree");
         }
 

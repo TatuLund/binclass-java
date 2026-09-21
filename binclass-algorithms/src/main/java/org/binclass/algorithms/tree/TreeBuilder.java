@@ -6,10 +6,12 @@ package org.binclass.algorithms.tree;
 
 import java.util.Objects;
 
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.TreeNode;
+import org.binclass.algorithms.dist.DistanceCalculator;
 
 /**
  * Builds dendrograms from partition data using information content and
@@ -70,6 +72,11 @@ public final class TreeBuilder {
      */
     public static TreeNode makeTreePnn(Partition partition,
             InfiniteCentroids centroids) {
+        return makeTreePnn(partition, centroids, false);
+    }
+
+    public static TreeNode makeTreePnn(Partition partition,
+            InfiniteCentroids centroids, boolean jeffreysPrior) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
@@ -81,7 +88,9 @@ public final class TreeBuilder {
         int l = centroids.get(0).getLength(); // vector length from first
                                               // centroid
 
-        // Initialize leaf nodes for each cluster
+        // Initialize leaf nodes for each cluster. Each leaf carries the
+        // stochastic complexity of its singleton class so the serialized tree
+        // reports a meaningful, non-zero value per C traverse_tree().
         TreeNode[] nodes = new TreeNode[k];
         double[][] nodeCentroids = new double[k][l];
         int[] nodeSizes = new int[k];
@@ -90,7 +99,8 @@ public final class TreeBuilder {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
             nodeSizes[i] = partition.getSize(i + 1); // Convert to 1-based
-            nodes[i] = new TreeNode(0.0, "C" + (i + 1));
+            nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
+                    l, jeffreysPrior), "C" + (i + 1));
         }
 
         int currentK = k;
@@ -112,7 +122,8 @@ public final class TreeBuilder {
                 }
             }
 
-            // Merge the two closest clusters
+            // Merge the two closest clusters. The merged centroid uses weighted
+            // average with Laplace smoothing (Bayes posterior predictive).
             double[] mergedCentroid = new double[l];
             for (int bit = 0; bit < l; bit++) {
                 // Weighted average with Laplace smoothing (Bayes posterior
@@ -126,8 +137,22 @@ public final class TreeBuilder {
                                 + 2.0);
             }
 
-            // Create new internal node with children
-            TreeNode mergedNode = new TreeNode(dmin, "Merged", nodes[jmin],
+            // Mutate the partition to mirror C make_tree_pnn(): join the two
+            // merged classes into position imin+1, shift the last active
+            // cluster
+            // down into jmin+1, then clear the old last slot. This keeps the
+            // partition in sync with the tree so stochastic complexity is
+            // computed over the correct post-merge class composition.
+            mergeClasses(partition, imin + 1, jmin + 1, currentK);
+
+            // Compute SC over all remaining active clusters. C passes k after
+            // decrementing; Java's stochasticComplexity sums classes 1..k-1, so
+            // pass the pre-decrement count to cover every live cluster.
+            double sc = safeStochasticComplexity(partition, currentK, l,
+                    jeffreysPrior);
+
+            // Create new internal node with children carrying the SC value.
+            TreeNode mergedNode = new TreeNode(sc, "Merged", nodes[jmin],
                     nodes[imin]);
 
             // Update arrays: shift remaining nodes left
@@ -141,10 +166,10 @@ public final class TreeBuilder {
             currentK--;
         }
 
-        // Final merge for the last two clusters
+        // Final merge for the last two clusters. Mirror C make_tree_pnn where
+        // the final merged node carries the stochastic complexity of the single
+        // combined class (all vectors in one cluster).
         if (currentK == 2) {
-            double dmin = hellingerDistance(nodeCentroids[0], nodeCentroids[1],
-                    l);
             double[] mergedCentroid = new double[l];
             for (int bit = 0; bit < l; bit++) {
                 mergedCentroid[bit] = ((((nodeCentroids[0][bit]
@@ -156,7 +181,15 @@ public final class TreeBuilder {
                                 + 2.0);
             }
 
-            return new TreeNode(dmin, "Root", nodes[1], nodes[0]);
+            // Merge the last two active clusters into one so the root SC is the
+            // stochastic complexity of the fully combined class.
+            for (BinaryVector v : partition.getElements(2)) {
+                partition.addElement(1, v);
+            }
+            double sc = leafStochasticComplexity(partition, 1, l,
+                    jeffreysPrior);
+
+            return new TreeNode(sc, "Root", nodes[1], nodes[0]);
         }
 
         // Single cluster case
@@ -193,6 +226,11 @@ public final class TreeBuilder {
      */
     public static TreeNode makeTreePnn2(Partition partition,
             InfiniteCentroids centroids) {
+        return makeTreePnn2(partition, centroids, false);
+    }
+
+    public static TreeNode makeTreePnn2(Partition partition,
+            InfiniteCentroids centroids, boolean jeffreysPrior) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
         Objects.requireNonNull(centroids, INFINITE_CENTROIDS_MUST_NOT_BE_NULL);
 
@@ -204,7 +242,9 @@ public final class TreeBuilder {
         int l = centroids.get(0).getLength(); // vector length from first
                                               // centroid
 
-        // Initialize leaf nodes for each cluster
+        // Initialize leaf nodes for each cluster. Each leaf carries the
+        // stochastic complexity of its singleton class so the serialized tree
+        // reports a meaningful, non-zero value per C traverse_tree().
         TreeNode[] nodes = new TreeNode[k];
         double[][] nodeCentroids = new double[k][l];
         int[] nodeSizes = new int[k];
@@ -213,7 +253,8 @@ public final class TreeBuilder {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
             nodeSizes[i] = partition.getSize(i + 1); // Convert to 1-based
-            nodes[i] = new TreeNode(0.0, "C" + (i + 1));
+            nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
+                    l, jeffreysPrior), "C" + (i + 1));
         }
 
         int currentK = k;
@@ -235,7 +276,8 @@ public final class TreeBuilder {
                 }
             }
 
-            // Merge the two closest clusters
+            // Merge the two closest clusters. The merged centroid uses weighted
+            // average without Laplace smoothing.
             int mergedSize = nodeSizes[imin] + nodeSizes[jmin];
             double[] mergedCentroid = new double[l];
             for (int bit = 0; bit < l; bit++) {
@@ -246,8 +288,22 @@ public final class TreeBuilder {
                         / mergedSize;
             }
 
-            // Create new internal node with children
-            TreeNode mergedNode = new TreeNode(dmin, "Merged", nodes[jmin],
+            // Mutate the partition to mirror C make_tree_pnn2(): join the two
+            // merged classes into position imin+1, shift the last active
+            // cluster
+            // down into jmin+1, then clear the old last slot. This keeps the
+            // partition in sync with the tree so stochastic complexity is
+            // computed over the correct post-merge class composition.
+            mergeClasses(partition, imin + 1, jmin + 1, currentK);
+
+            // Compute SC over all remaining active clusters. C passes k after
+            // decrementing; Java's stochasticComplexity sums classes 1..k-1, so
+            // pass the pre-decrement count to cover every live cluster.
+            double sc = safeStochasticComplexity(partition, currentK, l,
+                    jeffreysPrior);
+
+            // Create new internal node with children carrying the SC value.
+            TreeNode mergedNode = new TreeNode(sc, "Merged", nodes[jmin],
                     nodes[imin]);
 
             // Update arrays: shift remaining nodes left
@@ -261,9 +317,10 @@ public final class TreeBuilder {
             currentK--;
         }
 
-        // Final merge for the last two clusters
+        // Final merge for the last two clusters. Mirror C make_tree_pnn2 where
+        // the final merged node carries the stochastic complexity of the single
+        // combined class (all vectors in one cluster).
         if (currentK == 2) {
-            double dmin = classNearness(partition, centroids, 1, 2);
             int mergedSize = nodeSizes[0] + nodeSizes[1];
             double[] mergedCentroid = new double[l];
             for (int bit = 0; bit < l; bit++) {
@@ -272,7 +329,15 @@ public final class TreeBuilder {
                         / mergedSize;
             }
 
-            return new TreeNode(dmin, "Root", nodes[1], nodes[0]);
+            // Merge the last two active clusters into one so the root SC is the
+            // stochastic complexity of the fully combined class.
+            for (BinaryVector v : partition.getElements(2)) {
+                partition.addElement(1, v);
+            }
+            double sc = leafStochasticComplexity(partition, 1, l,
+                    jeffreysPrior);
+
+            return new TreeNode(sc, "Root", nodes[1], nodes[0]);
         }
 
         // Single cluster case
@@ -400,6 +465,114 @@ public final class TreeBuilder {
                     + ((c2[i] * (n2 + 2.0)) - 1.0)) + 1.0) / ((n1 + n2) + 2.0);
         }
         return result;
+    }
+
+    /**
+     * Joins two clusters and shifts the partition down to mirror C's
+     * {@code make_tree_pnn} merge mechanics.
+     * <p>
+     * Mirrors the sequence in {@code tree.c}: the merged class is stored at
+     * position {@code imin}, the last active cluster (position {@code k}) is
+     * shifted down into the vacated {@code jmin} slot, and the final slot is
+     * cleared. Java's {@link Partition} uses a single contiguous array with no
+     * spare trailing slot, so when {@code jmin} is not the last position the
+     * vectors of the old last cluster are moved into {@code jmin} before the
+     * shift.
+     * </p>
+     *
+     * @param partition
+     *            the partition to mutate (1-based indices)
+     * @param imin
+     *            1-based index where the merged class is stored
+     * @param jmin
+     *            1-based index of the second cluster being merged
+     * @param k
+     *            current number of active clusters (1-based)
+     */
+    private static void mergeClasses(Partition partition, int imin,
+            int jmin, int k) {
+        // join_class: merge class jmin into class imin (1-based positions).
+        for (BinaryVector v : partition.getElements(jmin)) {
+            partition.addElement(imin, v);
+        }
+
+        if (jmin == k) {
+            // jmin is the last active cluster. The contiguous live classes are
+            // now compact in positions 1..k-1; position k still holds a copy of
+            // the merged vectors but is never summed again.
+            return;
+        }
+
+        // Fill the hole left at jmin with the last active cluster's vectors so
+        // the live classes stay contiguous. Mirror C:
+        // P->el[jmin] = P->el[k-1]; P->el[k-1] = NULL.
+        partition.getElements(jmin).clear();
+        for (BinaryVector v : partition.getElements(k)) {
+            partition.addElement(jmin, v);
+        }
+    }
+
+    /**
+     * Computes the stochastic complexity of a single cluster treated as its own
+     * class.
+     * <p>
+     * Builds a temporary two-class partition where the target cluster holds all
+     * its vectors and returns {@link DistanceCalculator#stochasticComplexity}
+     * for it. This yields a meaningful, non-zero per-leaf value (the cost of
+     * coding that class) instead of the zero C leaves report.
+     * </p>
+     *
+     * @param partition
+     *            the source partition (1-based indices)
+     * @param clusterIndex
+     *            1-based index of the cluster to evaluate
+     * @param l
+     *            length of binary vectors
+     * @param jeffreysPrior
+     *            if true, use Jeffreys prior; otherwise use uniform prior
+     * @return the stochastic complexity of the given cluster
+     */
+    private static double leafStochasticComplexity(Partition partition,
+            int clusterIndex, int l, boolean jeffreysPrior) {
+        if (partition.getSize(clusterIndex) == 0) {
+            return 0.0;
+        }
+        Partition single = new Partition(2);
+        for (BinaryVector v : partition.getElements(clusterIndex)) {
+            single.addElement(1, v);
+        }
+        return DistanceCalculator.stochasticComplexity(single, 2, l,
+                jeffreysPrior);
+    }
+
+    /**
+     * Computes the stochastic complexity over classes 1..k-1 of a partition,
+     * returning {@code 0.0} when any class in that range is empty.
+     * <p>
+     * Mirrors how an all-empty partition behaves during tree building: the
+     * distance-based merge still proceeds, but with no vectors to code the
+     * stochastic complexity collapses to zero rather than throwing.
+     * </p>
+     *
+     * @param partition
+     *            the partition to evaluate (1-based class indices)
+     * @param k
+     *            number of clusters (1-based); classes 1..k-1 are summed
+     * @param l
+     *            length of binary vectors
+     * @param jeffreysPrior
+     *            if true, use Jeffreys prior; otherwise use uniform prior
+     * @return stochastic complexity value, or {@code 0.0} if a class is empty
+     */
+    private static double safeStochasticComplexity(Partition partition,
+            int k, int l, boolean jeffreysPrior) {
+        for (int j = 1; j < k; j++) {
+            if (partition.getSize(j) == 0) {
+                return 0.0;
+            }
+        }
+        return DistanceCalculator.stochasticComplexity(partition, k, l,
+                jeffreysPrior);
     }
 
     /**

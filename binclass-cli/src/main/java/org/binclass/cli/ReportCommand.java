@@ -151,7 +151,7 @@ public class ReportCommand implements BaseCommand {
      * @throws IOException
      *             if an I/O error occurs or no classes are found
      */
-    private static Partition readPartition(String filebase)
+    static Partition readPartition(String filebase)
             throws IOException {
         // When the input data files are absent (e.g. in unit tests that only
         // mock DataLoader.loadVectors), return an empty partition so report

@@ -10,6 +10,7 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.TreeNode;
+import org.binclass.algorithms.dist.DistanceCalculator;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -324,5 +325,202 @@ class TreeBuilderTest {
 
         TreeNode root = TreeBuilder.makeTreePnn(partition, centroids);
         assertNotNull(root);
+    }
+
+    // ------------------------------------------------------------------
+    // Value-population tests: verify stochastic complexity is actually
+    // written into the tree nodes (leaves and internal/root) rather than
+    // left at zero. Values are computed independently via
+    // DistanceCalculator.stochasticComplexity over the same vectors.
+    // ------------------------------------------------------------------
+
+    private static final double LEAF_SC = 2.084962500721156;
+    private static final double ROOT_SC = 2.453445297804259;
+
+    private static Partition twoClusterPartition() {
+        Partition partition = new Partition(2);
+        int[][] clusterA = { { 0, 0, 0 }, { 0, 0, 1 } };
+        int[][] clusterB = { { 1, 1, 1 }, { 1, 1, 0 } };
+        for (int[] v : clusterA) {
+            partition.addElement(1, new BinaryVector(v, 3));
+        }
+        for (int[] v : clusterB) {
+            partition.addElement(2, new BinaryVector(v, 3));
+        }
+        return partition;
+    }
+
+    private static InfiniteCentroids twoClusterCentroids() {
+        double[][] centroidsData = { { 0.5, 0.5, 0.5 }, { 1.0, 1.0, 0.5 } };
+        return new InfiniteCentroids(centroidsData, 2);
+    }
+
+    @Test
+    void testMakeTreePnnLeafSCPopulated() {
+        // Each leaf must carry a non-zero stochastic complexity equal to the
+        // SC of its own singleton class (the bug fix for leaves showing 0.0).
+        Partition partition = twoClusterPartition();
+        TreeNode root = TreeBuilder.makeTreePnn(partition,
+                twoClusterCentroids());
+
+        assertNotNull(root);
+        assertFalse(root.isLeaf());
+        assertEquals(LEAF_SC, root.getLeft().getSC(), 1e-9);
+        assertEquals(LEAF_SC, root.getRight().getSC(), 1e-9);
+    }
+
+    @Test
+    void testMakeTreePnnRootSCParsesToCombinedClass() {
+        // The root SC must equal the stochastic complexity of all vectors in a
+        // single class (the bug fix for internal nodes showing distances).
+        Partition partition = twoClusterPartition();
+        TreeNode root = TreeBuilder.makeTreePnn(partition,
+                twoClusterCentroids());
+
+        assertEquals(ROOT_SC, root.getSC(), 1e-9);
+    }
+
+    @Test
+    void testMakeTreePnnLeafSCMatchesDistanceCalculator() {
+        // Cross-check each leaf against an independent DistanceCalculator call.
+        Partition partition = twoClusterPartition();
+        TreeNode root = TreeBuilder.makeTreePnn(partition,
+                twoClusterCentroids());
+
+        Partition singleA = new Partition(2);
+        for (int[] v : new int[][] { { 0, 0, 0 }, { 0, 0, 1 } }) {
+            singleA.addElement(1, new BinaryVector(v, 3));
+        }
+        double expectedLeaf = DistanceCalculator.stochasticComplexity(singleA,
+                2, 3);
+
+        assertEquals(expectedLeaf, root.getLeft().getSC(), 1e-9);
+        assertEquals(expectedLeaf, root.getRight().getSC(), 1e-9);
+    }
+
+    @Test
+    void testMakeTreePnnInternalNodeSCParsesToMergedPartition() {
+        // For three clusters the single internal node's SC must equal the SC of
+        // the two live classes after the merge (uniform prior).
+        Partition partition = new Partition(3);
+        for (int[] v : new int[][] { { 0, 0, 0 }, { 0, 0, 1 } }) {
+            partition.addElement(1, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 1, 1, 1 }, { 1, 1, 0 } }) {
+            partition.addElement(2, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 0, 1, 0 }, { 1, 0, 1 } }) {
+            partition.addElement(3, new BinaryVector(v, 3));
+        }
+        double[][] centroidsData = { { 0.5, 0.5, 0.5 }, { 1.0, 1.0, 0.5 },
+                { 0.5, 0.5, 0.5 } };
+        InfiniteCentroids centroids = new InfiniteCentroids(centroidsData, 3);
+
+        TreeNode root = TreeBuilder.makeTreePnn(partition, centroids);
+        assertNotNull(root);
+
+        // Find the single internal (non-leaf) node in the tree.
+        TreeNode internal = findInternalNode(root);
+        assertNotNull(internal, "expected one internal merged node");
+
+        // The internal node's SC is computed over the two live classes after
+        // the merge: C1 and C3 joined together versus C2. With k == 3,
+        // stochasticComplexity sums classes 1..k-1 (positions 1 and 2).
+        Partition merged = new Partition(3);
+        for (int[] v : new int[][] { { 0, 0, 0 }, { 0, 0, 1 } }) {
+            merged.addElement(1, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 0, 1, 0 }, { 1, 0, 1 } }) {
+            merged.addElement(1, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 1, 1, 1 }, { 1, 1, 0 } }) {
+            merged.addElement(2, new BinaryVector(v, 3));
+        }
+        double expected = DistanceCalculator.stochasticComplexity(merged, 3, 3);
+        assertEquals(expected, internal.getSC(), 1e-9);
+    }
+
+    @Test
+    void testMakeTreePnn2LeafAndRootSCParses() {
+        // makeTreePnn2 must populate leaves and root with the same SC values.
+        Partition partition = twoClusterPartition();
+        TreeNode root = TreeBuilder.makeTreePnn2(partition,
+                twoClusterCentroids());
+
+        assertNotNull(root);
+        assertFalse(root.isLeaf());
+        assertEquals(ROOT_SC, root.getSC(), 1e-9);
+        assertEquals(LEAF_SC, root.getLeft().getSC(), 1e-9);
+        assertEquals(LEAF_SC, root.getRight().getSC(), 1e-9);
+    }
+
+    @Test
+    void testMakeTreePnnAllLeavesNonZero() {
+        // Every leaf in a populated tree must report a strictly positive SC.
+        Partition partition = new Partition(4);
+        for (int[] v : new int[][] { { 0, 0, 0 }, { 0, 0, 1 } }) {
+            partition.addElement(1, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 1, 1, 1 }, { 1, 1, 0 } }) {
+            partition.addElement(2, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 0, 1, 0 } }) {
+            partition.addElement(3, new BinaryVector(v, 3));
+        }
+        for (int[] v : new int[][] { { 1, 0, 1 } }) {
+            partition.addElement(4, new BinaryVector(v, 3));
+        }
+        double[][] centroidsData = { { 0.5, 0.5, 0.5 }, { 1.0, 1.0, 0.5 },
+                { 0.5, 0.5, 0.5 }, { 0.5, 0.5, 0.5 } };
+        InfiniteCentroids centroids = new InfiniteCentroids(centroidsData, 4);
+
+        TreeNode root = TreeBuilder.makeTreePnn(partition, centroids);
+        collectLeaves(root, new java.util.ArrayList<>());
+    }
+
+    private static void collectLeaves(TreeNode node,
+            java.util.List<Double> out) {
+        if (node == null) {
+            return;
+        }
+        if (node.isLeaf()) {
+            assertTrue(node.getSC() > 0.0);
+            out.add(node.getSC());
+            return;
+        }
+        collectLeaves(node.getLeft(), out);
+        collectLeaves(node.getRight(), out);
+    }
+
+    // Finds the first internal (merged) node strictly below {@code root}.
+    // A merged node is any non-leaf node whose children are leaves, so we
+    // search each child subtree and return a non-leaf node when found.
+    private static TreeNode findInternalNode(TreeNode root) {
+        if (root == null || root.isLeaf()) {
+            return null;
+        }
+        for (TreeNode child : new TreeNode[] { root.getLeft(),
+                root.getRight() }) {
+            TreeNode found = findFirstInternal(child);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private static TreeNode findFirstInternal(TreeNode node) {
+        if (node == null || node.isLeaf()) {
+            return null;
+        }
+        TreeNode left = findFirstInternal(node.getLeft());
+        if (left != null) {
+            return left;
+        }
+        TreeNode right = findFirstInternal(node.getRight());
+        if (right != null) {
+            return right;
+        }
+        return node;
     }
 }

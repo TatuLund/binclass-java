@@ -26,7 +26,7 @@ class EventBusTest {
 
     private WeakHashMap<EventBusListener, Object> listenersBackup;
     private static CountDownLatch latch = new CountDownLatch(1);
-    
+
     @BeforeEach
     void setStreams() {
         listenersBackup = eventBus.eventListeners;
@@ -142,6 +142,7 @@ class EventBusTest {
     }
 
     static record MessageEvent(String message, LocalDateTime timestamp)
-            implements AbstractEvent {
+            implements
+                AbstractEvent {
     }
 }
