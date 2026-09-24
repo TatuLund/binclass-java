@@ -1,16 +1,15 @@
 package org.binclass.cli;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.cut.CutEngine;
+import org.binclass.algorithms.io.PartitionWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,66 +37,46 @@ public class CutCommand implements BaseCommand {
         setupVerboseMode(opts);
 
         boolean relativeInt = opts.containsKey("-r");
-
         boolean minimalInt = opts.containsKey("-s");
         boolean maximalInt = opts.containsKey("-m");
+        boolean analyseStab = opts.containsKey("-A");
+        boolean analyseInt = opts.containsKey("-a");
 
-        boolean analyseIntStab = false;
         int kstart1 = 0;
-        if (opts.containsKey("-A")) {
-            try {
-                kstart1 = Integer.parseInt(opts.get("-A")) + 1;
-                if (kstart1 == 0)
-                    throw new IllegalArgumentException("kstart must be > 0");
-                analyseIntStab = true;
-            } catch (NumberFormatException _) {
-                throw new IllegalArgumentException(
-                        "Invalid analyse_int_stab: " + opts.get("-A"));
-            }
+        if (analyseStab) {
+            kstart1 = parseOptionInt(opts, "-A",
+                    "Invalid analyse_int_stab: " + opts.get("-A")) + 1;
+            if (kstart1 == 0)
+                throw new IllegalArgumentException("kstart must be > 0");
         }
 
         int kstart2 = 0;
-        if (opts.containsKey("-a")) {
-            try {
-                kstart2 = Integer.parseInt(opts.get("-a")) + 1;
-                if (kstart2 == 0)
-                    throw new IllegalArgumentException("kstart must be > 0");
-            } catch (NumberFormatException _) {
-                throw new IllegalArgumentException(
-                        "Invalid analyse_int: " + opts.get("-a"));
-            }
+        if (analyseInt) {
+            kstart2 = parseOptionInt(opts, "-a",
+                    "Invalid analyse_int: " + opts.get("-a")) + 1;
+            if (kstart2 == 0)
+                throw new IllegalArgumentException("kstart must be > 0");
         }
 
-        boolean fixedDelta = false;
-        double realDeltaValue = 0.0;
+        double delta = 0.0;
         if (opts.containsKey("-D")) {
-            try {
-                realDeltaValue = Double.parseDouble(opts.get("-D"));
-                if (realDeltaValue < 0)
-                    throw new IllegalArgumentException("Delta must be >= 0");
-                fixedDelta = true;
-            } catch (NumberFormatException _) {
-                throw new IllegalArgumentException(
-                        "Invalid fixed_delta: " + opts.get("-D"));
-            }
+            delta = parseOptionDouble(opts, "-D",
+                    "Invalid fixed_delta: " + opts.get("-D"));
         } else if (opts.containsKey("-d")) {
-            try {
-                realDeltaValue = Double.parseDouble(opts.get("-d"));
-                if (realDeltaValue < 0)
-                    throw new IllegalArgumentException("Delta must be >= 0");
-            } catch (NumberFormatException _) {
-                throw new IllegalArgumentException(
-                        "Invalid delta: " + opts.get("-d"));
-            }
+            delta = parseOptionDouble(opts, "-d",
+                    "Invalid delta: " + opts.get("-d"));
         }
+        if (delta < 0)
+            throw new IllegalArgumentException("Delta must be >= 0");
 
         String filebase = opts.getOrDefault("filebase", args.command());
 
         log.info("Cut command executed with:");
         log.info("  Filebase: {}", filebase);
         log.info("  Relative interval: {}", relativeInt);
-        log.info("  Analyse int stab: {}", analyseIntStab);
-        log.info("  Fixed delta: {}", fixedDelta);
+        log.info("  Minimal interval: {}", minimalInt);
+        log.info("  Maximal interval: {}", maximalInt);
+        log.info("  Analyse int stab: {}", analyseStab);
 
         // Load vectors from data files
         VectorSet vectorSet = DataLoader.loadVectors(filebase);
@@ -105,13 +84,24 @@ public class CutCommand implements BaseCommand {
         log.info("Performing cut/trim analysis on {} vectors",
                 vectorSet.size());
 
-        if (analyseIntStab) {
-            performAnalyseIntStab(vectorSet, kstart1, realDeltaValue);
-        } else if (relativeInt) {
-            performRelativeIntervalAnalysis(vectorSet, kstart2, realDeltaValue);
-        } else {
-            performStandardCutAnalysis(vectorSet, kstart1, kstart2, fixedDelta,
-                    realDeltaValue);
+        Partition result = runAnalysis(vectorSet, relativeInt, minimalInt,
+                maximalInt, analyseStab, kstart1, kstart2);
+
+        // Save the resulting partition to <filebase>.partition (override with
+        // -o).
+        // Mirrors C int_partitions(): inf_write_partition(f, P) after
+        // intersection.
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile == null || outputFile.isEmpty()) {
+            outputFile = filebase + ".partition";
+        }
+        try {
+            PartitionWriter.writePartition(result, outputFile);
+            log.info("Saved cut partition with {} clusters to {}",
+                    result.size(), outputFile);
+        } catch (IOException ex) {
+            throw new IOException(
+                    "Failed to save cut partition: " + ex.getMessage(), ex);
         }
 
         log.info("Cut/trim analysis complete");
@@ -120,119 +110,166 @@ public class CutCommand implements BaseCommand {
     }
 
     /**
-     * Performs interval stability analysis by generating multiple partitions
-     * and intersecting them. Mirrors the C function do_int_analyse2() from
-     * cut.c.
+     * Dispatches to the requested interval strategy based on the parsed flags.
+     * Keeps {@link #execute} small by isolating the branch logic here.
+     *
+     * @param vectorSet
+     *            the vectors being clustered
+     * @param relativeInt
+     *            whether the relative interval switch ({@code -r}) was set
+     * @param minimalInt
+     *            whether the minimal interval switch ({@code -s}) was set
+     * @param maximalInt
+     *            whether the maximal interval switch ({@code -m}) was set
+     * @param analyseStab
+     *            whether the stability analysis switch ({@code -A}) was set
+     * @param kstart1
+     *            cluster count for stability analysis (from {@code -A})
+     * @param kstart2
+     *            cluster count for interval analysis (from {@code -a})
+     * @return the resulting partition from the selected strategy
      */
-    private void performAnalyseIntStab(VectorSet vectorSet, int kstart1,
-            double delta) {
-        log.info("Performing interval stability analysis");
-
-        List<Partition> partitions = new ArrayList<>();
-
-        // Generate multiple random partitions (simplified - using deterministic
-        // initialization)
-        // Limit number of partitions to avoid creating more clusters than
-        // vectors
-        int numPartitions = Math.min(3, vectorSet.size());
-        for (int i = 0; i < numPartitions; i++) {
-            int k = Math.max(1, Math.min(kstart1 + i, vectorSet.size()));
-            Partition partition = createRandomPartition(vectorSet, k);
-            partitions.add(partition);
-            log.info("Generated partition {} with k={}", i + 1, k);
+    private Partition runAnalysis(VectorSet vectorSet, boolean relativeInt,
+            boolean minimalInt, boolean maximalInt, boolean analyseStab,
+            int kstart1, int kstart2) {
+        if (analyseStab) {
+            return performAnalyseIntStab(vectorSet, kstart1);
+        } else if (relativeInt) {
+            return relativeIntervalAnalysis(vectorSet);
+        } else if (minimalInt) {
+            return minimalCut(vectorSet);
+        } else if (maximalInt) {
+            return maximalCut(vectorSet);
         }
+        return performStandardCut(vectorSet, kstart1, kstart2);
+    }
 
-        // Perform iterative intersection to find stable clusters
-        Partition result = performIterativeIntersection(partitions, delta);
+    /**
+     * Performs interval stability analysis by generating multiple partitions
+     * and iteratively intersecting them. Mirrors the C function
+     * do_int_analyse2() from cut.c.
+     */
+    private Partition performAnalyseIntStab(VectorSet vectorSet, int kstart1) {
+        int k = Math.max(2, kstart1 > 0 ? kstart1 : baseK(vectorSet));
+        int partitions = Math.clamp(vectorSet.size(), 2, 3);
+
+        Partition result = generatePartition(vectorSet, k);
+        for (int i = 1; i < partitions; i++) {
+            Partition partition = generatePartition(
+                    vectorSet, Math.min(k + i, vectorSet.size()));
+            result = CutEngine.simpleIntersection(result, partition);
+        }
 
         log.info("Interval stability analysis complete. Result has {} clusters",
                 result.size());
+        return result;
     }
 
     /**
      * Performs relative interval analysis using simple set intersection.
      * Mirrors the C function do_simple_int() from cut.c.
      */
-    private void performRelativeIntervalAnalysis(VectorSet vectorSet,
-            int kstart2, double delta) {
-        log.info("Performing relative interval analysis");
+    private Partition relativeIntervalAnalysis(VectorSet vectorSet) {
+        int k = baseK(vectorSet);
+        Partition partition1 = generatePartition(vectorSet, k);
+        Partition partition2 = generatePartition(
+                vectorSet, Math.min(k + 1, vectorSet.size()));
 
-        // Create two partitions for comparison
-        Partition partition1 = createRandomPartition(vectorSet,
-                Math.max(2, kstart2));
-        Partition partition2 = createRandomPartition(vectorSet,
-                Math.max(2, kstart2 + 1));
-
-        // Perform simple intersection
-        Partition result = performSimpleIntersection(partition1, partition2);
-
+        Partition result = CutEngine.simpleIntersection(partition1, partition2);
         log.info("Relative interval analysis complete. Result has {} clusters",
                 result.size());
+        return result;
     }
 
     /**
-     * Performs standard cut/trim analysis with minimal and maximal intervals.
+     * Performs minimal interval cut using best-match intersection. Mirrors the
+     * C function do_min_int() from cut.c.
      */
-    private void performStandardCutAnalysis(VectorSet vectorSet, int kstart1,
-            int kstart2,
-            boolean fixedDelta, double delta) {
-        log.info("Performing standard cut/trim analysis");
+    private Partition minimalCut(VectorSet vectorSet) {
+        int k = baseK(vectorSet);
+        Partition partition1 = generatePartition(vectorSet, k);
+        Partition partition2 = generatePartition(
+                vectorSet, Math.min(k + 1, vectorSet.size()));
 
-        // Determine k range for interval analysis
-        int startK = Math.max(1, kstart1 > 0 ? kstart1 : 2);
-        int endK = Math.max(startK + 1, kstart2 > 0 ? kstart2 : startK + 5);
+        Partition result = CutEngine.minimalInterval(partition1, partition2);
+        log.info("Minimal interval cut complete. Result has {} clusters",
+                result.size());
+        return result;
+    }
+
+    /**
+     * Performs maximal interval cut using all-maximum-match intersection.
+     * Mirrors the C function do_max_int() from cut.c.
+     */
+    private Partition maximalCut(VectorSet vectorSet) {
+        int k = baseK(vectorSet);
+        Partition partition1 = generatePartition(vectorSet, k);
+        Partition partition2 = generatePartition(
+                vectorSet, Math.min(k + 1, vectorSet.size()));
+
+        Partition result = CutEngine.maximalInterval(partition1, partition2);
+        log.info("Maximal interval cut complete. Result has {} clusters",
+                result.size());
+        return result;
+    }
+
+    /**
+     * Performs standard cut/trim analysis across a range of cluster counts.
+     * Mirrors the C int_partitions() default path (do_min_int).
+     */
+    private Partition performStandardCut(VectorSet vectorSet, int kstart1,
+            int kstart2) {
+        int startK = Math.max(2, kstart1 > 0 ? kstart1 : baseK(vectorSet));
+        int endK = Math.min(kstart2 > 0 ? kstart2 : startK + 2,
+                vectorSet.size());
+
+        Partition partition1 = generatePartition(vectorSet, startK);
+        Partition partition2 = generatePartition(vectorSet, endK);
 
         log.info("Analyzing partitions from k={} to k={}", startK, endK);
 
-        // Create partitions for each k value and perform interval analysis
-        List<Partition> partitions = new ArrayList<>();
-        for (int k = startK; k <= endK; k++) {
-            Partition partition = createRandomPartition(vectorSet, k);
-            partitions.add(partition);
-            log.info("k={}: created partition with {} vectors", k,
-                    vectorSet.size());
-        }
-
-        // Perform minimal interval analysis (do_min_int)
-        if (partitions.size() >= 2) {
-            Partition minInterval = performMinimalIntersection(
-                    partitions.get(0), partitions.get(1));
-            log.info(
-                    "Minimal interval analysis complete. Result has {} clusters",
-                    minInterval.size());
-
-            // Perform maximal interval analysis (do_max_int)
-            Partition maxInterval = performMaximalIntersection(
-                    partitions.get(0), partitions.get(1));
-            log.info(
-                    "Maximal interval analysis complete. Result has {} clusters",
-                    maxInterval.size());
-        }
+        Partition result = CutEngine.minimalInterval(partition1, partition2);
+        log.info("Standard cut analysis complete. Result has {} clusters",
+                result.size());
+        return result;
     }
 
     /**
-     * Creates a partition with random initialization from the vector set.
+     * Derives a sensible base cluster count from the data size so that two
+     * distinct partitions can be generated for interval analysis.
+     *
+     * @param vectorSet
+     *            the vectors being clustered
+     * @return a base cluster count between 2 and half the vector count
      */
-    private Partition createRandomPartition(VectorSet vectorSet, int k) {
-        // Get actual vector length from first vector in set
-        int vectorLength = vectorSet.size() > 0
-                ? vectorSet.iterator().next().getLength()
-                : 16;
+    private static int baseK(VectorSet vectorSet) {
+        return Math.max(2, Math.clamp(vectorSet.size() / 2, 1,
+                vectorSet.size() - 1));
+    }
 
+    /**
+     * Creates a partition by assigning each vector to its nearest centroid.
+     * Centroids are seeded from the first k vectors for deterministic output.
+     *
+     * @param vectorSet
+     *            the vectors being clustered
+     * @param k
+     *            the number of clusters (1-based)
+     * @return a populated partition with the requested cluster count
+     */
+    private Partition generatePartition(VectorSet vectorSet, int k) {
+        int length = vectorSet.getVectorLength();
         Partition partition = new Partition(k);
-        InfiniteCentroids centroids = new InfiniteCentroids(k, vectorLength);
+        InfiniteCentroids centroids = new InfiniteCentroids(k, length);
 
-        // Initialize centroids from vectors (deterministic for now)
         int idx = 0;
         for (BinaryVector bv : vectorSet) {
             if (idx >= k)
                 break;
-            Centroid centroid = centroids.get(idx);
-            centroid.setEl(bv.getEl());
+            centroids.get(idx).setEl(bv.getEl());
             idx++;
         }
 
-        // Distribute vectors across clusters based on nearest centroid
         for (BinaryVector bv : vectorSet) {
             int bestCluster = 1;
             double minDistance = Double.MAX_VALUE;
@@ -242,7 +279,7 @@ public class CutCommand implements BaseCommand {
                 double distance = calculateDistance(bv, centroid);
                 if (distance < minDistance) {
                     minDistance = distance;
-                    bestCluster = i + 1; // 1-indexed
+                    bestCluster = i + 1;
                 }
             }
 
@@ -253,172 +290,20 @@ public class CutCommand implements BaseCommand {
     }
 
     /**
-     * Performs iterative intersection of multiple partitions to find stable
-     * clusters.
-     */
-    private Partition performIterativeIntersection(List<Partition> partitions,
-            double delta) {
-        if (partitions.isEmpty()) {
-            return new Partition(1);
-        }
-
-        Partition result = partitions.get(0);
-
-        // Iteratively intersect with each partition
-        for (int i = 1; i < partitions.size(); i++) {
-            result = performSimpleIntersection(result, partitions.get(i));
-        }
-
-        return result;
-    }
-
-    /**
-     * Performs simple set intersection of two partitions.
-     */
-    private Partition performSimpleIntersection(Partition p1, Partition p2) {
-        int k1 = p1.size();
-        int k2 = p2.size();
-
-        // Create result partition with all combinations (k1 * k2 clusters)
-        Partition result = new Partition(k1 * k2);
-
-        // For each cluster in p1, find matching clusters in p2 and create
-        // intersections
-        for (int i = 1; i <= k1; i++) {
-            var elementsP1 = p1.getElements(i);
-
-            Set<String> elementsP1Set = new HashSet<>();
-            for (BinaryVector bv : elementsP1) {
-                elementsP1Set.add(bv.toString());
-            }
-
-            for (int j = 1; j <= k2; j++) {
-                var elementsP2 = p2.getElements(j);
-
-                int resultCluster = (i - 1) * k2 + j; // Unique cluster ID
-                                                      // (1-based)
-                var resultElements = result.getElements(resultCluster);
-
-                for (BinaryVector bv : elementsP2) {
-                    if (elementsP1Set.contains(bv.toString())) {
-                        resultElements.add(bv);
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Performs minimal interval analysis - finds best matching clusters between
-     * partitions.
-     */
-    private Partition performMinimalIntersection(Partition p1, Partition p2) {
-        int k1 = p1.size();
-        int k2 = p2.size();
-
-        // Create result partition with max(k1, k2) clusters
-        Partition result = new Partition(Math.max(k1, k2));
-
-        // For each cluster in p1, find the best matching cluster in p2 (max
-        // overlap)
-        for (int i = 1; i <= k1; i++) {
-            var elementsP1 = p1.getElements(i);
-
-            int bestMatch = -1;
-            int maxOverlap = 0;
-
-            // Find cluster in p2 with maximum overlap
-            for (int j = 1; j <= k2; j++) {
-                var elementsP2 = p2.getElements(j);
-
-                Set<String> elementsP1Set = new HashSet<>();
-                for (BinaryVector bv : elementsP1) {
-                    elementsP1Set.add(bv.toString());
-                }
-
-                int overlap = 0;
-                for (BinaryVector bv : elementsP2) {
-                    if (elementsP1Set.contains(bv.toString())) {
-                        overlap++;
-                    }
-                }
-
-                if (overlap > maxOverlap) {
-                    maxOverlap = overlap;
-                    bestMatch = j;
-                }
-            }
-
-            // Add overlapping elements to result cluster
-            if (bestMatch > 0 && maxOverlap > 0) {
-                var elementsP2 = p2.getElements(bestMatch);
-                Set<String> elementsP1Set = new HashSet<>();
-                for (BinaryVector bv : elementsP1) {
-                    elementsP1Set.add(bv.toString());
-                }
-
-                int resultCluster = i;
-                var resultElements = result.getElements(resultCluster);
-
-                for (BinaryVector bv : elementsP2) {
-                    if (elementsP1Set.contains(bv.toString())) {
-                        resultElements.add(bv);
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Performs maximal interval analysis - creates intersections for all
-     * maximal matches.
-     */
-    private Partition performMaximalIntersection(Partition p1, Partition p2) {
-        int k1 = p1.size();
-        int k2 = p2.size();
-
-        // Create result partition with k1 * k2 clusters (all combinations)
-        Partition result = new Partition(k1 * k2);
-
-        for (int i = 1; i <= k1; i++) {
-            var elementsP1 = p1.getElements(i);
-
-            Set<String> elementsP1Set = new HashSet<>();
-            for (BinaryVector bv : elementsP1) {
-                elementsP1Set.add(bv.toString());
-            }
-
-            for (int j = 1; j <= k2; j++) {
-                var elementsP2 = p2.getElements(j);
-
-                int resultCluster = (i - 1) * k2 + j; // Unique cluster ID
-                var resultElements = result.getElements(resultCluster);
-
-                for (BinaryVector bv : elementsP2) {
-                    if (elementsP1Set.contains(bv.toString())) {
-                        resultElements.add(bv);
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /**
      * Calculates Hamming distance between a vector and centroid.
+     *
+     * @param bv
+     *            the binary vector to measure
+     * @param centroid
+     *            the reference centroid
+     * @return the number of differing bit positions
      */
     private double calculateDistance(BinaryVector bv, Centroid centroid) {
         int[] el = bv.getEl();
         int length = Math.min(el.length, centroid.getLength());
         int distance = 0;
         for (int i = 0; i < length; i++) {
-            double centroidVal = centroid.getElement(i);
-            int centroidBit = centroidVal >= 0.5 ? 1 : 0;
+            int centroidBit = centroid.getElement(i) >= 0.5 ? 1 : 0;
             if (el[i] != centroidBit) {
                 distance++;
             }

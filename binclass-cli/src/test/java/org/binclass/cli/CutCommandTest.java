@@ -3,11 +3,17 @@ package org.binclass.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.clearAllCaches;
+import static org.mockito.Mockito.mockStatic;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.binclass.algorithms.core.VectorSet;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit tests for CutCommand to verify algorithm execution.
@@ -17,10 +23,18 @@ class CutCommandTest {
     private CutCommand command;
     private TestCommandArgs args;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
     void setUp() {
         command = new CutCommand();
         args = TestUtils.createTestArgs("test");
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        clearAllCaches();
     }
 
     @Test
@@ -122,6 +136,29 @@ class CutCommandTest {
             int result = command.execute(args);
 
             assertEquals(0, result);
+        }
+    }
+
+    @Test
+    void testSavesResultPartitionToFile() throws Exception {
+        VectorSet mockVectorSet = TestUtils.createMockVectorSet(4, 10);
+        Path outputFile = tempDir.resolve("test.partition");
+
+        try (var mockedLoader = mockStatic(DataLoader.class)) {
+            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
+                    .thenReturn(mockVectorSet);
+
+            TestUtils.setupOptions(args,
+                    TestUtils.createOptions("-o", outputFile.toString()));
+
+            int result = command.execute(args);
+
+            assertEquals(0, result);
+            assertTrue(Files.exists(outputFile),
+                    "Result partition file should be written");
+            String content = Files.readString(outputFile);
+            assertTrue(content.contains("Class "),
+                    "Output should contain a Class header");
         }
     }
 
