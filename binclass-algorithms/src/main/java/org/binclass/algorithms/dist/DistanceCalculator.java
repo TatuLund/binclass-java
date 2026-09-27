@@ -545,7 +545,10 @@ public final class DistanceCalculator {
             int d) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
 
-        if (k < 1 || k > partition.size()) {
+        // Java's Partition has no spare index-0 slot like C, so a solution of
+        // R real clusters is scored by passing k = R + 1. Allow one extra slot
+        // beyond partition.size() to model that spare slot.
+        if (k < 1 || k > partition.size() + 1) {
             throw new IllegalArgumentException(
                     "Invalid number of clusters: " + k);
         }
@@ -615,7 +618,10 @@ public final class DistanceCalculator {
             int d) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
 
-        if (k < 1 || k > partition.size()) {
+        // Java's Partition has no spare index-0 slot like C, so a solution of
+        // R real clusters is scored by passing k = R + 1. Allow one extra slot
+        // beyond partition.size() to model that spare slot.
+        if (k < 1 || k > partition.size() + 1) {
             throw new IllegalArgumentException(
                     "Invalid number of clusters: " + k);
         }
@@ -689,7 +695,10 @@ public final class DistanceCalculator {
             int l, boolean jeffreysPrior) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
 
-        if (k <= 0 || k > partition.size()) {
+        // Java's Partition has no spare index-0 slot like C, so a solution of
+        // R real clusters is scored by passing k = R + 1. Allow one extra slot
+        // beyond partition.size() to model that spare slot.
+        if (k <= 0 || k > partition.size() + 1) {
             throw new IllegalArgumentException(
                     "Invalid number of clusters: " + k);
         }

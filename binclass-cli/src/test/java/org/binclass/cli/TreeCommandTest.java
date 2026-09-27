@@ -3,6 +3,7 @@ package org.binclass.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -73,8 +74,8 @@ class TreeCommandTest {
             int result = command.execute(args);
 
             assertEquals(0, result);
-            mockedTreeBuilder
-                    .verify(() -> TreeBuilder.makeTreePnn(any(), any()));
+            mockedTreeBuilder.verify(
+                    () -> TreeBuilder.makeTreePnn(any(), any(), anyBoolean()));
         }
     }
 
@@ -93,8 +94,8 @@ class TreeCommandTest {
             int result = command.execute(args);
 
             assertEquals(0, result);
-            mockedTreeBuilder
-                    .verify(() -> TreeBuilder.makeTreePnn2(any(), any()));
+            mockedTreeBuilder.verify(
+                    () -> TreeBuilder.makeTreePnn2(any(), any(), anyBoolean()));
         }
     }
 
@@ -133,7 +134,7 @@ class TreeCommandTest {
 
             // A single-cluster tree is a leaf node named "C1".
             TreeNode root = new TreeNode(0.0, "C1");
-            when(TreeBuilder.makeTreePnn2(any(), any()))
+            when(TreeBuilder.makeTreePnn2(any(), any(), anyBoolean()))
                     .thenReturn(root);
 
             int result = command.execute(args);
@@ -163,7 +164,7 @@ class TreeCommandTest {
                     .thenReturn(TestUtils.createMockVectorSet(3, 10));
 
             TreeNode root = new TreeNode(0.0, "C1");
-            when(TreeBuilder.makeTreePnn2(any(), any()))
+            when(TreeBuilder.makeTreePnn2(any(), any(), anyBoolean()))
                     .thenReturn(root);
 
             int result = command.execute(args);

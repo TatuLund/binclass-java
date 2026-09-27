@@ -289,19 +289,19 @@ public final class AutomaticSearch {
         InfiniteCentroids centroids;
         Partition partition;
         if (attempt == 0) {
-            centroids = new InfiniteCentroids(kk + 1,
+            centroids = new InfiniteCentroids(kk,
                     vectorLength());
             partition = initializePartition(kk, centroids);
         } else {
             // Different starting centroids per attempt to explore different
-            // local minima. Use the same cluster count as attempt 0 (kk + 1) so
+            // local minima. Use the same cluster count as attempt 0 (kk) so
             // every trial scores on an equal footing. Pure random values match
             // C's default normal_centroids() and work regardless of n vs k. The
             // partition must match its size or GLA's setSize() shrink path
             // nulls
             // every cluster slot and addElement() throws.
-            centroids = CentroidInitializer.randomInit(kk + 1, vectorLength());
-            partition = new Partition(kk + 1);
+            centroids = CentroidInitializer.randomInit(kk, vectorLength());
+            partition = new Partition(kk);
         }
 
         double[] dmin = new double[1];
@@ -382,8 +382,10 @@ public final class AutomaticSearch {
         if (actualClusters == 0) {
             return UNASSIGNED_SC;
         }
+        // C scores a solution of `actualClusters` non-empty clusters with
+        // k = realClusters + 1 (its partitions keep one spare index-0 slot).
         return DistanceCalculator.stochasticComplexity(partition,
-                actualClusters, vectorLength(), config.jeffreysPrior());
+                actualClusters + 1, vectorLength(), config.jeffreysPrior());
     }
 
     /** No-op centroid logger hook kept for parity with the C scan loop. */

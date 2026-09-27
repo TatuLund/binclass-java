@@ -623,4 +623,51 @@ class DistanceCalculatorTest {
         assertTrue(Double.isFinite(sc),
                 "SC must be finite for one non-empty cluster");
     }
+
+    /**
+     * Reproduces the div-by-zero bug: a single-cluster {@link Partition} (size
+     * 1) is scored by passing {@code k = realClusters + 1 = 2}, which models
+     * C's spare index-0 slot. The uniform path loops {@code j=1..k-1} and
+     * divides by the total element count, so it must return a finite value
+     * rather than throwing "Invalid number of clusters" or "Division by zero".
+     */
+    @Test
+    void testStochasticComplexitySingleClusterWithExtraSlot() {
+        Partition partition = new Partition(1); // Java has no spare slot like C
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 0, 0, 0, 0 }, 4));
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 1, 1, 1, 1 }, 4));
+
+        // k = realClusters (1) + 1 == partition.size() + 1.
+        double sc = DistanceCalculator.stochasticComplexity(partition, 2, 4);
+        assertTrue(Double.isFinite(sc),
+                "single-cluster SC must be finite when k = size + 1");
+
+        // The Jeffreys-prior variant shares the same guard and path shape.
+        double scJeff = DistanceCalculator.stochasticComplexity(partition, 2, 4,
+                true);
+        assertTrue(Double.isFinite(scJeff),
+                "single-cluster SC with Jeffreys prior must be finite");
+    }
+
+    /**
+     * Guards against a regression where the {@code k <= size} bound rejected
+     * the {@code k = size + 1} convention used for single-cluster scoring. A
+     * value of exactly {@code size + 1} is accepted; {@code size + 2} still
+     * throws.
+     */
+    @Test
+    void testStochasticComplexityAcceptsExtraSlotButRejectsTooLarge() {
+        Partition partition = new Partition(1);
+        partition.getElements(1).addElement(new BinaryVector(
+                new int[] { 0, 0, 0, 0 }, 4));
+
+        // k == size + 1 is the sanctioned single-cluster convention.
+        DistanceCalculator.stochasticComplexity(partition, 2, 4);
+
+        // k == size + 2 exceeds the modelled spare slot and must be rejected.
+        assertThrows(IllegalArgumentException.class, () -> DistanceCalculator
+                .stochasticComplexity(partition, 3, 4));
+    }
 }

@@ -127,8 +127,10 @@ public final class JoinGLA {
         for (int i = 1; i <= P.size(); i++) {
             logger.debug("  Cluster {}: size={}", i, P.getSize(i));
         }
-        double sc = DistanceCalculator.stochasticComplexityWithDistortion(P,
-                actualK, l, mse);
+        // C scores a solution of `actualK` non-empty clusters with
+        // k = realClusters + 1 (its partitions keep one spare index-0 slot).
+        double sc = DistanceCalculator.stochasticComplexity(P, actualK + 1, l,
+                config.jeffreysPrior());
         logger.debug("Initial SC: {}, MSE = {}", sc, mse);
 
         if (sc < scs[k]) {
@@ -160,9 +162,12 @@ public final class JoinGLA {
             // Use L2-based MSE (not codelength) for MDL-based SC calculation
             double mseNew = DistanceCalculator.overallMse(Pnew, C);
             int actualKNew = Pnew.size();
+            // C scores a solution of `actualKNew` non-empty clusters with
+            // k = realClusters + 1 (its partitions keep one spare index-0
+            // slot).
             double scNew = DistanceCalculator
-                    .stochasticComplexityWithDistortion(Pnew, actualKNew, l,
-                            mseNew);
+                    .stochasticComplexity(Pnew, actualKNew + 1, l,
+                            config.jeffreysPrior());
             logger.debug("k={}: SC = {}, MSE = {}", k, scNew, mseNew);
 
             if (scNew < scs[k]) {
@@ -451,12 +456,14 @@ public final class JoinGLA {
         int k = partition.size();
 
         // Iterate 1-based clusters (partition API is 1-based, internal array is
-        // 0-based)
+        // 0-based). Copy each vector so every physical instance survives the
+        // set's identity deduplication even when the same reference sits in two
+        // clusters after a merge.
         for (int i = 1; i <= k; i++) {
             BinaryVector[] cluster = partition.getElements(i)
                     .toArray(new BinaryVector[0]);
             for (BinaryVector v : cluster) {
-                result.add(v);
+                result.add(v.copy());
             }
         }
 

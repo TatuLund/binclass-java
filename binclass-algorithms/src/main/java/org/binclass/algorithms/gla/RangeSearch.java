@@ -133,7 +133,7 @@ public final class RangeSearch {
                 Partition partitionK;
                 if (attempt == 0) {
                     InfiniteCentroids initialCentroids = new InfiniteCentroids(
-                            k + 1, vectorLength);
+                            k, vectorLength);
                     PartitionInit init = initializePartition(vectorSet, k,
                             initialCentroids, config.centroidType());
                     centroidsK = init.centroids();
@@ -141,15 +141,15 @@ public final class RangeSearch {
                 } else {
                     // Different starting centroids per attempt to escape bad
                     // local minima (mirrors C use_gla() random_centroids()).
-                    // Use the same cluster count as attempt 0 (k + 1) so every
+                    // Use the same cluster count as attempt 0 (k) so every
                     // trial scores on equal footing; pure random values work
                     // regardless of n vs k. The partition must match its size
                     // or
                     // GLA's setSize() shrink path nulls every cluster slot and
                     // addElement() throws.
-                    centroidsK = CentroidInitializer.randomInit(k + 1,
+                    centroidsK = CentroidInitializer.randomInit(k,
                             vectorLength);
-                    partitionK = new Partition(k + 1);
+                    partitionK = new Partition(k);
                 }
 
                 double scForK = runGLAAndCalculateSC(vectorSet, partitionK,
@@ -269,7 +269,7 @@ public final class RangeSearch {
      */
     private PartitionInit initializePartition(VectorSet vectorSet, int k,
             InfiniteCentroids centroids, int centroidType) {
-        Partition partition = new Partition(k + 1);
+        Partition partition = new Partition(k);
         int l = vectorSet.getVectorLength();
         InfiniteCentroids initialized;
         switch (centroidType) {
@@ -411,8 +411,11 @@ public final class RangeSearch {
                 return sc;
             }
 
+            // C scores a solution of `actualClusters` non-empty clusters with
+            // k = realClusters + 1 (its partitions keep one spare index-0
+            // slot).
             sc = DistanceCalculator.stochasticComplexity(
-                    partition, actualClusters, vectorSet.getVectorLength(),
+                    partition, actualClusters + 1, vectorSet.getVectorLength(),
                     config.jeffreysPrior());
 
             log.debug(

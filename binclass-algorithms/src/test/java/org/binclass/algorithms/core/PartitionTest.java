@@ -139,4 +139,62 @@ class PartitionTest {
         assertTrue(p.contains(2, v3),
                 "vectors from a dropped slot stay accessible after compaction");
     }
+
+    @Test
+    void testRemoveClusterPreservesAllVectors() {
+        Partition p = new Partition(4);
+
+        BinaryVector v1 = new BinaryVector(new int[] { 0, 1 }, 2);
+        BinaryVector v3 = new BinaryVector(new int[] { 1, 1 }, 2);
+
+        p.addElement(1, v1); // cluster 1
+        // clusters 2 and 3 left empty
+        p.addElement(4, v3); // cluster 4
+
+        p.removeCluster(2); // remove an empty middle cluster; v3 must shift
+                            // down
+
+        assertEquals(3, p.size());
+        assertEquals(1, p.getSize(1), "cluster 1 keeps its vector");
+        assertTrue(p.contains(3, v3),
+                "vector from a later cluster shifts down into the gap");
+
+        int total = p.getSize(1) + p.getSize(2) + p.getSize(3);
+        assertEquals(2, total,
+                "no vectors lost when removing an empty cluster");
+    }
+
+    @Test
+    void testRemoveClusterNoReferenceAliasing() {
+        Partition p = new Partition(5);
+
+        BinaryVector v1 = new BinaryVector(new int[] { 0, 0 }, 2);
+        BinaryVector v3 = new BinaryVector(new int[] { 0, 1 }, 2);
+
+        p.addElement(1, v1); // cluster 1
+        p.addElement(2, v3); // cluster 2 (will be removed)
+        p.addElement(4, v3.copy()); // cluster 4 — a survivor after the gap
+
+        BinaryVector survivor = p.getElements(4).iterator().next();
+
+        p.removeCluster(2); // remove middle non-empty cluster; survivor shifts
+                            // down
+
+        assertEquals(4, p.size());
+        assertTrue(p.contains(1, v1), "first cluster keeps its vector");
+        assertTrue(p.contains(3, survivor),
+                "survivor shifts down exactly once into the gap");
+
+        // Each live cluster is a distinct object: no aliasing that would
+        // inflate counts.
+        VectorSet c1 = p.getCluster(0);
+        VectorSet c2 = p.getCluster(1);
+        VectorSet c3 = p.getCluster(2);
+        assertTrue(c1 != c2 && c2 != c3 && c1 != c3,
+                "clusters are distinct objects");
+
+        int total = p.getSize(1) + p.getSize(2) + p.getSize(3) + p.getSize(4);
+        assertEquals(2, total,
+                "sum of per-cluster sizes equals number of surviving vectors (v1 + survivor)");
+    }
 }

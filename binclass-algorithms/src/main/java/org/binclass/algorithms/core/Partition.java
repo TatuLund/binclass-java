@@ -207,8 +207,17 @@ public final class Partition {
      */
     public void removeCluster(int i) {
         checkClusterIndex(i);
-        // Shift remaining clusters down by one position
-        for (int j = i; j < k - 1; j++) {
+        // Shift remaining clusters down by one position. The 1-based index
+        // {@code i} maps to the internal slot {@code i - 1}. Every element at
+        // old positions {@code i .. k-1} (0-based) must be copied down so that
+        // nothing is dropped and no stale reference survives. The loop
+        // therefore
+        // runs through the last live slot inclusive ({@code j <= k - 1}); a
+        // half-open bound ({@code j < k - 1}) would leave {@code clusters[k-2]}
+        // pointing at its old value, creating an aliased duplicate that
+        // inflates
+        // the reported vector count and eventually loses data.
+        for (int j = i; j <= k - 1; j++) {
             clusters[j - 1] = clusters[j];
         }
         // Remove the last cluster reference

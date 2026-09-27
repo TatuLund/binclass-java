@@ -281,6 +281,17 @@ public final class GLAEngine {
                     "Need at least one centroid for GLA");
         }
 
+        // Clear the partition before Phase 1 so vectors are not accumulated
+        // when
+        // GLA is called on a non-empty partition. The nearest-neighbor helpers
+        // only add elements (they never clear), and JoinGLA reuses the same
+        // Partition across iterations, so an uncleared partition would double
+        // its
+        // vector count each iteration.
+        for (int i = 0; i < k; i++) {
+            partition.getCluster(i).clear();
+        }
+
         // Phase 1: Initial assignment using MAE (L1 distance) - matches
         // original C code
         NearestNeighbor.maeNearestNeighbor(vectors, partition, centroids);
@@ -512,8 +523,6 @@ public final class GLAEngine {
         applyTrashcan(vectors, centroids, config);
 
         double d = averageCodelength(partition, centroids, config.weights());
-        // Double computation of average codelength for stability
-        d = averageCodelength(partition, centroids, config.weights());
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;
@@ -611,8 +620,6 @@ public final class GLAEngine {
         applyTrashcan(vectors, centroids, config);
 
         double d = averageCodelength(partition, centroids, config.weights());
-        // Double computation of average codelength for stability
-        d = averageCodelength(partition, centroids, config.weights());
 
         // Phase 2: Shannon codelength refinement
         boolean improvement = true;

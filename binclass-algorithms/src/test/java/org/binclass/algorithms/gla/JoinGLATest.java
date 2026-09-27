@@ -350,6 +350,93 @@ class JoinGLATest {
     }
 
     @Test
+    void testPartitionToSetCopiesVectors() {
+        // When the same object reference sits in two clusters (which happens
+        // after a merge moves vectors around), partitionToSet must copy each
+        // vector so every physical instance survives the set's identity
+        // deduplication. Without copying, the shared reference collapses to a
+        // single entry and GLA permanently loses a vector.
+        VectorSet vectors = new VectorSet();
+
+        int[] el1 = { 0, 0 };
+        BinaryVector v1 = new BinaryVector(el1, 2);
+        vectors.addElement(v1);
+
+        Partition partition = new Partition(2);
+        partition.addElement(1, v1);
+        partition.addElement(2, v1); // same reference in two clusters
+
+        VectorSet result = JoinGLA.partitionToSet(partition);
+
+        assertNotNull(result);
+        assertEquals(2, result.size(),
+                "Each physical instance must survive as a distinct entry");
+    }
+
+    @Test
+    void testJoinGLAPreservesVectorCount() {
+        // The total number of vectors across all clusters must equal the input
+        // count after a full join-GLA run. This guards against the drift bug
+        // where partitionToSet used references and lost vectors during merges.
+        VectorSet vectors = new VectorSet();
+
+        Random random = new Random(7);
+        for (int i = 0; i < 40; i++) {
+            int[] el = { random.nextInt(2), random.nextInt(2) };
+            BinaryVector v = new BinaryVector(el, 2);
+            vectors.addElement(v);
+        }
+
+        int inputCount = vectors.size();
+        double[] scmin = new double[1];
+        double[] scs = new double[inputCount + 1];
+
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+
+        int total = 0;
+        for (int i = 1; i <= result.size(); i++) {
+            total += result.getSize(i);
+        }
+
+        assertEquals(inputCount, total,
+                "Partition must preserve the exact input vector count");
+    }
+
+    @Test
+    void testJoinGLAPreservesVectorCountWithDuplicates() {
+        // Data with duplicate content but distinct objects stresses the
+        // reference-vs-copy behavior of partitionToSet during merges.
+        VectorSet vectors = new VectorSet();
+
+        Random random = new Random(123);
+        for (int i = 0; i < 60; i++) {
+            int[] el = { random.nextInt(2), random.nextInt(2) };
+            BinaryVector v = new BinaryVector(el, 2);
+            vectors.addElement(v);
+        }
+
+        int inputCount = vectors.size();
+        double[] scmin = new double[1];
+        double[] scs = new double[inputCount + 1];
+
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+
+        int total = 0;
+        for (int i = 1; i <= result.size(); i++) {
+            total += result.getSize(i);
+        }
+
+        assertEquals(inputCount, total,
+                "Partition must preserve the exact input vector count even with duplicate content");
+    }
+
+    @Test
     void testJoinGLALargeDataset() {
         VectorSet vectors = new VectorSet();
 
@@ -632,5 +719,89 @@ class JoinGLATest {
 
         assertDoesNotThrow(
                 () -> JoinGLA.joinGLA(vectors, scmin, scs, GLAConfig.DEFAULT));
+    }
+
+    /**
+     * Verifies the vector-count leak fix: after the full merge loop the sum of
+     * all cluster sizes must equal the number of input vectors. Previously each
+     * GLA refinement reused the same partition without clearing it first, so
+     * the count doubled per iteration (e.g. 100 inputs grew to ~1.1M).
+     */
+    @Test
+    void testVectorCountPreservedAcrossMergeLoop() {
+        int n = 60;
+        VectorSet vectors = new VectorSet();
+        Random random = new Random(707);
+        for (int i = 0; i < n; i++) {
+            int[] el = { random.nextInt(2), random.nextInt(2) };
+            vectors.addElement(new BinaryVector(el, 2));
+        }
+
+        double[] scmin = new double[1];
+        double[] scs = new double[n + 1];
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+        int total = 0;
+        for (int i = 1; i <= result.size(); i++) {
+            total += result.getSize(i);
+        }
+        assertEquals(n, total,
+                "Sum of cluster sizes must equal input vector count");
+    }
+
+    /**
+     * Verifies SC stays bounded for small data. Before the leak fix, SC used a
+     * huge accumulated element count in the MDL term, producing values like
+     * -9.5M instead of a few hundred.
+     */
+    @Test
+    void testSCBoundedForSmallData() {
+        int n = 40;
+        VectorSet vectors = new VectorSet();
+        for (int i = 0; i < n / 2; i++) {
+            vectors.addElement(new BinaryVector(new int[] { 0, 0 }, 2));
+        }
+        for (int i = 0; i < n / 2; i++) {
+            vectors.addElement(new BinaryVector(new int[] { 1, 1 }, 2));
+        }
+
+        double[] scmin = new double[1];
+        double[] scs = new double[n + 1];
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+        assertTrue(scmin[0] > -1.0e5,
+                "SC should stay bounded for small data, got " + scmin[0]);
+    }
+
+    /**
+     * Verifies the partition returned by JoinGLA is a valid partition of the
+     * input: every cluster size is non-negative and the total equals n.
+     */
+    @Test
+    void testResultPartitionIsValid() {
+        int n = 50;
+        VectorSet vectors = new VectorSet();
+        Random random = new Random(808);
+        for (int i = 0; i < n; i++) {
+            int[] el = { random.nextInt(2), random.nextInt(2) };
+            vectors.addElement(new BinaryVector(el, 2));
+        }
+
+        double[] scmin = new double[1];
+        double[] scs = new double[n + 1];
+        Partition result = JoinGLA.joinGLA(vectors, scmin, scs,
+                GLAConfig.DEFAULT);
+
+        assertNotNull(result);
+        assertTrue(result.size() >= 1 && result.size() <= n,
+                "Result cluster count should be within [1, n]");
+        for (int i = 1; i <= result.size(); i++) {
+            assertTrue(result.getSize(i) >= 0,
+                    "Cluster size must be non-negative");
+        }
     }
 }

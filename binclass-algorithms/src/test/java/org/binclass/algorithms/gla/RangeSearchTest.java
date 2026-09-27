@@ -258,4 +258,45 @@ class RangeSearchTest {
         assertAllVectorsAssigned(result.partition(), set.size());
     }
 
+    /**
+     * Verifies the off-by-one cluster-count fix: a range search that requests a
+     * fixed k must write exactly k clusters to its partition. Previously the
+     * Java port allocated {@code Partition(k + 1)} (mirroring C's spare index-0
+     * slot), producing one extra cluster in the written output.
+     */
+    @Test
+    void testRangeSearchWritesRequestedClusterCount() {
+        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+
+        // Requesting k=1 must yield exactly one cluster (no spare slot).
+        GLAConfig cfgOne = config(3, 1000, 0, set.size());
+        RangeSearch.Result r1 = runWithRetry(set, cfgOne, 1, 1);
+        assertEquals(1, r1.partition().size(),
+                "k=1 must produce exactly one cluster");
+
+        // Requesting k=3 must yield exactly three clusters.
+        GLAConfig cfgThree = config(3, 1000, 0, set.size());
+        RangeSearch.Result r3 = runWithRetry(set, cfgThree, 3, 3);
+        assertEquals(3, r3.partition().size(),
+                "k=3 must produce exactly three clusters");
+    }
+
+    /**
+     * Confirms that scoring a single-cluster partition does not throw the
+     * "Invalid number of clusters" error introduced when
+     * {@code k = realClusters
+     * + 1} was passed to a Java {@link Partition} with no spare slot. A range
+     * search over just {@code [1, 1]} must converge and return a valid
+     * partition.
+     */
+    @Test
+    void testRangeSearchSingleClusterDoesNotThrow() {
+        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+        GLAConfig cfg = config(3, 1000, 0, set.size());
+
+        RangeSearch.Result result = runWithRetry(set, cfg, 1, 1);
+        assertNotNull(result.partition());
+        assertAllVectorsAssigned(result.partition(), set.size());
+    }
+
 }
