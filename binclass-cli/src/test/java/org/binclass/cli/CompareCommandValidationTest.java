@@ -2,14 +2,16 @@ package org.binclass.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Integration tests for CompareCommand validation of -V constraint.
@@ -19,125 +21,95 @@ class CompareCommandValidationTest {
     private CompareCommand command;
     private TestCommandArgs args;
 
+    @TempDir
+    Path tempDir;
+
     @BeforeEach
     void setUp() {
         command = new CompareCommand();
-        args = TestUtils.createTestArgs("test");
+        args = TestUtils.createTestArgs("compare");
+    }
+
+    /**
+     * Writes standard compare files and returns the filebase path.
+     */
+    private Path writeCompareFiles() throws Exception {
+        List<String> strains = List.of("strain0", "strain1", "strain2",
+                "strain3");
+        List<String> bits = List.of("10101010", "01010101", "11001100",
+                "00110011");
+        List<Integer> p1 = List.of(1, 1, 2, 2);
+        List<Integer> p2 = List.of(1, 2, 1, 2);
+        return TestUtils.writeCompareFiles(tempDir, "data", 23, 8, 15, strains,
+                bits, p1, p2);
     }
 
     @Test
     void testValidNearnessMetric1() throws Exception {
-        // Setup - valid nearness metric 1 (Hamming)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "1");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "1"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+        int result = command.execute(args);
 
-            int result = command.execute(args);
-            assertEquals(0, result);
-        }
+        assertEquals(0, result);
     }
 
     @Test
     void testValidNearnessMetric2() throws Exception {
-        // Setup - valid nearness metric 2 (Total Frequency)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "2");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "2"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+        int result = command.execute(args);
 
-            int result = command.execute(args);
-            assertEquals(0, result);
-        }
+        assertEquals(0, result);
     }
 
     @Test
     void testValidNearnessMetric3() throws Exception {
-        // Setup - valid nearness metric 3 (Partition)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "3");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "3"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+        int result = command.execute(args);
 
-            int result = command.execute(args);
-            assertEquals(0, result);
-        }
+        assertEquals(0, result);
     }
 
     @Test
     void testInvalidNearnessMetric0() throws Exception {
-        // Setup - invalid nearness metric 0 (below range)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "0");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "0"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
-
-            // Execute - should throw IllegalArgumentException for invalid
-            // metric
-            assertThrows(Exception.class, () -> command.execute(args),
-                    "Invalid nearness metric 0 should throw exception");
-        }
+        assertThrows(Exception.class, () -> command.execute(args),
+                "Invalid nearness metric 0 should throw exception");
     }
 
     @Test
     void testInvalidNearnessMetric4() throws Exception {
-        // Setup - invalid nearness metric 4 (above range)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "4");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "4"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
-
-            // Execute - should throw IllegalArgumentException for invalid
-            // metric
-            assertThrows(Exception.class, () -> command.execute(args),
-                    "Invalid nearness metric 4 should throw exception");
-        }
+        assertThrows(Exception.class, () -> command.execute(args),
+                "Invalid nearness metric 4 should throw exception");
     }
 
     @Test
     void testInvalidNearnessMetric5() throws Exception {
-        // Setup - invalid nearness metric 5 (above range)
-        Map<String, String> opts = new HashMap<>();
-        opts.put("-V", "5");
-        args.setOptions(opts);
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString(), "-V", "5"));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
-
-            // Execute - should throw IllegalArgumentException for invalid
-            // metric
-            assertThrows(Exception.class, () -> command.execute(args),
-                    "Invalid nearness metric 5 should throw exception");
-        }
+        assertThrows(Exception.class, () -> command.execute(args),
+                "Invalid nearness metric 5 should throw exception");
     }
 
     @Test
     void testDefaultNearnessMetric() throws Exception {
-        // Setup - no -V flag specified (should use default)
-        args.setOptions(new HashMap<>());
+        Path filebase = writeCompareFiles();
+        args.setOptions(Map.of("filebase", filebase.toString()));
 
-        try (var mockedLoader = mockStatic(DataLoader.class)) {
-            when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(4, 8));
+        int result = command.execute(args);
 
-            int result = command.execute(args);
-            assertEquals(0, result);
-        }
+        assertEquals(0, result);
+        assertTrue(Files.exists(tempDir.resolve("data.result")),
+                "Result file should be written with default metric");
     }
 }

@@ -4,19 +4,27 @@
  */
 package org.binclass.algorithms.compare;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.Centroid;
+import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.dist.DistanceCalculator;
+import org.binclass.algorithms.gla.GLAEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Compares two partitions and computes nearness metrics.
  * <p>
- * Mirrors functions from {@code compare.c} in the original C codebase: performs
- * partition comparison by matching vectors between partitions, computing
- * transition matrices, and calculating distance measures.
+ * Mirrors functions from {@code compare.c} in the original C codebase: matches
+ * vectors between partitions, builds a contingency matrix counting how many
+ * vectors share each (P1-class, P2-class) pair, and calculates the distance
+ * measure defined by {@code compute_distance()}.
  * </p>
  */
 public final class PartitionComparator {
@@ -24,7 +32,7 @@ public final class PartitionComparator {
     private static final Logger logger = LoggerFactory
             .getLogger(PartitionComparator.class);
 
-    /** Print mode constants (matching C source) */
+    /** Print mode constants (matching C source). */
     public static final int PRINT_NEARNESS = 1;
     public static final int PRINT_TOTALFREQ = 2;
     public static final int PRINT_PARTITION = 3;
@@ -36,9 +44,10 @@ public final class PartitionComparator {
     /**
      * Compares two partitions and returns the comparison result.
      * <p>
-     * Equivalent to C function {@code do_comparison()} from {@code compare.c}.
-     * Matches vectors between partitions, builds transition matrices, and
-     * computes distance metrics.
+     * Equivalent to C functions {@code do_comparison()} combined with
+     * {@code compute_distance()} from {@code compare.c}. Each vector is
+     * assigned a class in both partitions, a contingency matrix is built from
+     * those assignments, and the nearness distance is derived from it.
      * </p>
      *
      * @param partition1
@@ -48,17 +57,45 @@ public final class PartitionComparator {
      * @param printMode
      *            output mode: 1=nearness matrix, 2=total frequencies,
      *            3=partition comparison
-     * @return the distance between the two partitions
+     * @return the comparison result containing the contingency matrix and
+     *         distance
      */
-    public static double comparePartitions(Partition partition1,
+    public static ComparisonResult comparePartitions(Partition partition1,
             Partition partition2, int printMode) {
+        return comparePartitions(partition1, partition2, printMode, false);
+    }
+
+    /**
+     * Compares two partitions and returns the comparison result.
+     * <p>
+     * Equivalent to C functions {@code do_comparison()} combined with
+     * {@code compute_distance()} from {@code compare.c}. Each vector is
+     * assigned a class in both partitions, a contingency matrix is built from
+     * those assignments, and the nearness distance is derived from it. When
+     * {@code exactMatches} is set (C's {@code -M} flag) each vector keeps its
+     * literal cluster index; otherwise vectors are reassigned to the nearest
+     * centroid by Shannon codelength before matching
+     * ({@code match_partition()}).
+     * </p>
+     *
+     * @param partition1
+     *            first partition (P1)
+     * @param partition2
+     *            second partition (P2)
+     * @param printMode
+     *            output mode: 1=nearness matrix, 2=total frequencies,
+     *            3=partition comparison
+     * @param exactMatches
+     *            when {@code true}, use each vector's literal cluster index
+     *            instead of nearest-centroid assignment
+     * @return the comparison result containing the contingency matrix and
+     *         distance
+     */
+    public static ComparisonResult comparePartitions(Partition partition1,
+            Partition partition2, int printMode, boolean exactMatches) {
         Objects.requireNonNull(partition1, "Partition1 must not be null");
         Objects.requireNonNull(partition2, "Partition2 must not be null");
 
-        logger.info("Comparing partitions: P1 size={}, P2 size={}",
-                partition1.size(), partition2.size());
-
-        // Validate print mode
         if (printMode < 1 || printMode > 3) {
             throw new IllegalArgumentException(
                     "Print mode must be 1, 2, or 3, got: " + printMode);
@@ -66,141 +103,225 @@ public final class PartitionComparator {
 
         int k1 = partition1.size();
         int k2 = partition2.size();
+        logger.info("Comparing partitions: P1 size={}, P2 size={}", k1, k2);
 
-        logger.info("P1 has {} classes, P2 has {} classes", k1, k2);
+        // The matrix dimensions follow C's allocate_imatrix((k2*2), k1): the
+        // row axis indexes P2 classes and the column axis indexes P1 classes.
+        int rows = Math.max(1, k2);
+        int cols = Math.max(1, k1);
 
-        // Build transition matrix (simplified version)
-        double[][] transitionMatrix = buildTransitionMatrix(partition1,
-                partition2);
+        int[][] matrix = new int[rows][cols];
 
-        // Compute distance metric
-        double distance = computeDistance(transitionMatrix, k1, k2);
+        // Match every vector to a class in both partitions. The two partitions
+        // share the same underlying vectors (they are generated from the same
+        // input), so we collect all unique vectors and resolve each against
+        // both assignments. Exact matching resolves by unique strain ID, which
+        // mirrors C's is_in_set() lookup across independently-read files where
+        // object references differ even for identical data.
+        VectorSet allVectors = collectVectors(partition1);
+        Centroid[] c1 = computeCentroids(partition1, k1);
+        Centroid[] c2 = computeCentroids(partition2, k2);
+        Map<String, Integer> idToClass1 = buildIdMap(partition1, k1);
+        Map<String, Integer> idToClass2 = buildIdMap(partition2, k2);
 
-        logger.info("Comparison complete: distance={}", distance);
-
-        return distance;
-    }
-
-    /**
-     * Builds a transition matrix between two partitions.
-     * <p>
-     * Equivalent to C function {@code do_comparison()} from {@code compare.c}.
-     * Counts how many vectors from each class in P1 map to each class in P2.
-     * </p>
-     *
-     * @param partition1
-     *            first partition (P1)
-     * @param partition2
-     *            second partition (P2)
-     * @return transition matrix where [i][j] = count of vectors from class i in
-     *         P1 that are also in class j in P2
-     */
-    private static double[][] buildTransitionMatrix(Partition partition1,
-            Partition partition2) {
-        int k1 = partition1.size();
-        int k2 = partition2.size();
-
-        // Initialize transition matrix (k1 x k2)
-        double[][] matrix = new double[k1 + 1][k2 + 1]; // 1-based indexing
-
-        logger.debug("Building transition matrix: {}x{}", k1, k2);
-
-        // For each class in P1, count vectors that appear in each class of P2
-        for (int i = 1; i <= k1; i++) {
-            var classVectors1 = partition1.getElements(i);
-
-            for (BinaryVector v : classVectors1) {
-                // Find which class this vector belongs to in P2
-                int classInP2 = findClassForVector(partition2, v);
-
-                if (classInP2 > 0) {
-                    matrix[i][classInP2]++;
-                }
-            }
+        for (BinaryVector v : allVectors) {
+            String id = v.getStrain();
+            int p1Class = exactMatches ? lookup(id, idToClass1)
+                    : nearestClass(v, c1, k1);
+            int p2Class = exactMatches ? lookup(id, idToClass2)
+                    : nearestClass(v, c2, k2);
+            matrix[p2Class - 1][p1Class - 1]++;
         }
 
-        return matrix;
+        double distance = computeDistance(matrix, rows, cols);
+        logger.info("Comparison complete: distance={}", distance);
+
+        return new ComparisonResult(matrix, distance, printMode);
     }
 
     /**
-     * Finds which class a vector belongs to in a partition.
+     * Collects all vectors from every cluster of a partition in insertion
+     * order.
+     *
+     * @param partition
+     *            the partition to read
+     * @return a {@link VectorSet} holding every vector exactly once
+     */
+    private static VectorSet collectVectors(Partition partition) {
+        VectorSet all = new VectorSet();
+        for (int i = 1; i <= partition.size(); i++) {
+            for (BinaryVector v : partition.getElements(i)) {
+                all.addElement(v);
+            }
+        }
+        return all;
+    }
+
+    /**
+     * Builds a map from strain identifier to its cluster index in a partition.
      * <p>
-     * Searches through all classes and returns the 1-based class index, or -1
-     * if not found.
+     * Mirrors C's {@code is_in_set()} lookup by unique vector ID used when
+     * matching partitions that were read independently and therefore hold
+     * distinct object references for identical data.
      * </p>
      *
      * @param partition
-     *            the partition to search
-     * @param vector
-     *            the binary vector to locate
-     * @return 1-based class index, or -1 if not found
+     *            the partition to index
+     * @param k
+     *            number of clusters (1-based)
+     * @return a map from strain identifier to 1-based class index
      */
-    private static int findClassForVector(Partition partition,
-            BinaryVector vector) {
-        for (int i = 1; i <= partition.size(); i++) {
-            var classVectors = partition.getElements(i);
-
-            for (BinaryVector v : classVectors) {
-                if (v.equals(vector)) {
-                    return i;
-                }
+    private static Map<String, Integer> buildIdMap(Partition partition, int k) {
+        Map<String, Integer> idToClass = new HashMap<>();
+        for (int i = 1; i <= k; i++) {
+            for (BinaryVector v : partition.getElements(i)) {
+                idToClass.putIfAbsent(v.getStrain(), i);
             }
         }
-
-        return -1; // Not found
+        return idToClass;
     }
 
     /**
-     * Computes distance metric from transition matrix.
+     * Looks up the class index for a strain identifier, defaulting to 1 when
+     * absent.
+     *
+     * @param id
+     *            the strain identifier of the vector
+     * @param idToClass
+     *            map from strain identifier to 1-based class index
+     * @return the matched class index, or 1 if the identifier is unknown
+     */
+    private static int lookup(String id, Map<String, Integer> idToClass) {
+        return idToClass.getOrDefault(id, 1);
+    }
+
+    /**
+     * Computes the centroid of each cluster in a partition.
+     * <p>
+     * Mirrors C {@code match_partition()} which builds infinite centroids via
+     * {@code inf_average()} before assigning vectors. Uses the shared recompute
+     * routine so centroids reflect the actual class composition.
+     * </p>
+     *
+     * @param partition
+     *            the partition whose clusters define the centroids
+     * @param k
+     *            number of clusters (1-based)
+     * @return an array of {@link Centroid} instances indexed 0..k-1
+     */
+    private static Centroid[] computeCentroids(Partition partition, int k) {
+        int length = getVectorLength(partition);
+        InfiniteCentroids centroids = new InfiniteCentroids(k, length);
+        GLAEngine.recomputeCentroids(partition, centroids, false,
+                partition.size());
+        Centroid[] result = new Centroid[k];
+        for (int i = 0; i < k; i++) {
+            result[i] = centroids.get(i);
+        }
+        return result;
+    }
+
+    /**
+     * Determines the bit-length of vectors stored in a partition.
+     * <p>
+     * Iterates over every cluster and returns the length of the first vector
+     * found, since all vectors in a valid partition share the same length.
+     * Mirrors {@link VectorSet#getVectorLength()} but tolerates empty clusters.
+     * </p>
+     *
+     * @param partition
+     *            the partition to inspect
+     * @return the vector bit-length, or 0 when no vectors are present
+     */
+    private static int getVectorLength(Partition partition) {
+        for (int i = 1; i <= partition.size(); i++) {
+            VectorSet cluster = partition.getElements(i);
+            if (!cluster.isEmpty()) {
+                return cluster.getVectorLength();
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Assigns a vector to the nearest centroid by Shannon codelength.
+     * <p>
+     * Mirrors C {@code match_partition()} non-exact mode, which builds infinite
+     * centroids via {@code inf_average()} before assigning each vector to its
+     * closest class.
+     * </p>
+     *
+     * @param v
+     *            the vector to assign
+     * @param centroids
+     *            precomputed centroids for each cluster (indexed 0..k-1)
+     * @param k
+     *            number of clusters (1-based)
+     * @return the 1-based nearest class index
+     */
+    private static int nearestClass(BinaryVector v, Centroid[] centroids,
+            int k) {
+        if (centroids == null || k <= 0) {
+            return 1;
+        }
+        int closest = 0;
+        double minDist = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < k; i++) {
+            double dist = DistanceCalculator.codeLength(v, centroids[i]);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = i;
+            }
+        }
+        return closest + 1; // Convert to 1-based
+    }
+
+    /**
+     * Computes the nearness distance from a contingency matrix.
      * <p>
      * Equivalent to C function {@code compute_distance()} from
-     * {@code compare.c}. Calculates the sum of (sum - max) for each row and
-     * column in the matrix, then divides by 2.
+     * {@code compare.c}: sums {@code (sum - max)} over every row and column,
+     * then divides by two. The matrix is indexed as {@code [row][col]} where
+     * rows correspond to P2 classes and columns to P1 classes.
      * </p>
      *
      * @param matrix
-     *            transition matrix
-     * @param k1
-     *            number of classes in P1
-     * @param k2
-     *            number of classes in P2
-     * @return distance metric between the two partitions
+     *            the contingency matrix (1-based class counts)
+     * @param rows
+     *            number of row dimensions (P2 classes)
+     * @param cols
+     *            number of column dimensions (P1 classes)
+     * @return the computed distance metric
      */
-    private static double computeDistance(double[][] matrix, int k1, int k2) {
+    private static double computeDistance(int[][] matrix, int rows, int cols) {
         int dist = 0;
 
-        // Sum (sum - max) for each row (P1 classes)
-        for (int i = 1; i <= k1; i++) {
+        // Sum (sum - max) for each row.
+        for (int r = 0; r < rows; r++) {
             int sum = 0;
             int max = 0;
-
-            for (int j = 1; j <= k2; j++) {
-                double value = matrix[i][j];
-                sum += (int) value;
-                if ((int) value > max) {
-                    max = (int) value;
+            for (int c = 0; c < cols; c++) {
+                sum += matrix[r][c];
+                if (matrix[r][c] > max) {
+                    max = matrix[r][c];
                 }
             }
-
             dist += (sum - max);
         }
 
-        // Sum (sum - max) for each column (P2 classes)
-        for (int j = 1; j <= k2; j++) {
+        // Sum (sum - max) for each column.
+        for (int c = 0; c < cols; c++) {
             int sum = 0;
             int max = 0;
-
-            for (int i = 1; i <= k1; i++) {
-                double value = matrix[i][j];
-                sum += (int) value;
-                if ((int) value > max) {
-                    max = (int) value;
+            for (int r = 0; r < rows; r++) {
+                sum += matrix[r][c];
+                if (matrix[r][c] > max) {
+                    max = matrix[r][c];
                 }
             }
-
             dist += (sum - max);
         }
 
-        return ((double) dist) / 2.0;
+        return dist / 2.0;
     }
 }

@@ -1,13 +1,23 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.compare.PartitionComparator;
+import org.binclass.algorithms.io.PartitionReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Compare two partitions command.
+ * <p>
+ * Mirrors C {@code compare_partitions()} from {@code compare.c}: reads vectors
+ * and two partition files derived from a filebase, builds the comparison matrix
+ * between them, computes the nearness distance, and writes both the distance
+ * and the full comparison matrix to a results file.
+ * </p>
  */
 public class CompareCommand implements BaseCommand {
 
@@ -48,44 +58,39 @@ public class CompareCommand implements BaseCommand {
                 printMode);
         log.info("  Exact matches: {}", exactMatches);
 
-        // Load vectors from data files
-        var vectorSet = DataLoader.loadVectors(filebase);
+        // Read the two partitions from <filebase>.partition1 and
+        // <filebase>.partition2. Mirrors C compare_partitions() which derives
+        // these paths from the filebase.
+        var partition1 = PartitionReader.readPartition(filebase, ".partition1");
+        var partition2 = PartitionReader.readPartition(filebase, ".partition2");
 
-        if (vectorSet.size() < 2) {
-            throw new IllegalArgumentException(
-                    "Need at least two vectors to compare partitions");
-        }
-
-        log.info("Comparing {} vectors with print mode {}",
-                vectorSet.size(), printMode);
-
-        // Create two partitions from the same data for comparison
-        var partition1 = new org.binclass.algorithms.core.Partition(2);
-        var partition2 = new org.binclass.algorithms.core.Partition(2);
-
-        int idx = 0;
-        for (var v : vectorSet.getElements()) {
-            if (idx % 2 == 0) {
-                partition1.addElement(1, v);
-            } else {
-                partition1.addElement(2, v);
-            }
-
-            if ((idx / 2) % 2 == 0) {
-                partition2.addElement(1, v);
-            } else {
-                partition2.addElement(2, v);
-            }
-            idx++;
-        }
-
-        // Call PartitionComparator with nearness metrics
-        double distance = PartitionComparator.comparePartitions(
-                partition1, partition2, printMode);
-
-        log.info("Comparison complete: distance={}", distance);
-        log.info("Partition 1 size={}, Partition 2 size={}",
+        log.info("Comparing partitions: P1 size={}, P2 size={}",
                 partition1.size(), partition2.size());
+
+        // Build the comparison matrix and compute the nearness distance.
+        var result = PartitionComparator.comparePartitions(partition1,
+                partition2, printMode, exactMatches);
+
+        log.info("Comparison complete: distance={}", result.distance());
+
+        // Write both the distance and the full comparison matrix to the results
+        // file (<filebase>.result), matching C's comparison_results().
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile == null || outputFile.isEmpty()) {
+            outputFile = filebase + ".result";
+        }
+        try {
+            Path path = Path.of(outputFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(path, result.render());
+            log.info("Comparison results written to {}", outputFile);
+        } catch (IOException e) {
+            throw new IOException(
+                    "Failed to write comparison results: " + e.getMessage(), e);
+        }
 
         return 0;
     }

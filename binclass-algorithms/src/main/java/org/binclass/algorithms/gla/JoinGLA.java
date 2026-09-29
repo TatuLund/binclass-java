@@ -127,11 +127,13 @@ public final class JoinGLA {
         for (int i = 1; i <= P.size(); i++) {
             logger.debug("  Cluster {}: size={}", i, P.getSize(i));
         }
-        // C scores a solution of `actualK` non-empty clusters with
-        // k = realClusters + 1 (its partitions keep one spare index-0 slot).
-        double sc = DistanceCalculator.stochasticComplexity(P, actualK + 1, l,
-                config.jeffreysPrior());
-        logger.debug("Initial SC: {}, MSE = {}", sc, mse);
+        // MDL distortion-based cost. The Shannon-prior variant returns a
+        // per-vector average that grows monotonically with k (class-labeling
+        // entropy dominates), so its minimum is always at k=1 and Join-GLA
+        // collapses to a single cluster; the distortion term gives an interior
+        // minimum at the true cluster count.
+        double sc = DistanceCalculator.stochasticComplexityWithDistortion(P,
+                actualK, l, mse);
 
         if (sc < scs[k]) {
             scs[k] = sc;
@@ -159,15 +161,17 @@ public final class JoinGLA {
             double[] dminNew = new double[1];
             GLAEngine.gla(Vnext, Pnew, C, dminNew, config);
 
-            // Use L2-based MSE (not codelength) for MDL-based SC calculation
+            // Use L2-based MSE (not codelength) for MDL-based SC calculation.
+            // The Shannon-prior variant returns a per-vector average that grows
+            // monotonically with k (class-labeling entropy dominates), so its
+            // minimum is always at k=1 and Join-GLA collapses to a single
+            // cluster; the distortion term gives an interior minimum at the
+            // true cluster count.
             double mseNew = DistanceCalculator.overallMse(Pnew, C);
             int actualKNew = Pnew.size();
-            // C scores a solution of `actualKNew` non-empty clusters with
-            // k = realClusters + 1 (its partitions keep one spare index-0
-            // slot).
             double scNew = DistanceCalculator
-                    .stochasticComplexity(Pnew, actualKNew + 1, l,
-                            config.jeffreysPrior());
+                    .stochasticComplexityWithDistortion(Pnew, actualKNew, l,
+                            mseNew);
             logger.debug("k={}: SC = {}, MSE = {}", k, scNew, mseNew);
 
             if (scNew < scs[k]) {

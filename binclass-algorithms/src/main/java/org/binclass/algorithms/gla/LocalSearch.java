@@ -728,7 +728,7 @@ public final class LocalSearch {
         };
 
         double sc = DistanceCalculator.stochasticComplexity(partition,
-                centroids.size(), l, jeffreysPrior);
+                countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
         int gt = 0;
 
         log.debug(
@@ -745,7 +745,7 @@ public final class LocalSearch {
             gt += mseGla2(v, partition, centroids, n);
 
             double scn = DistanceCalculator.stochasticComplexity(partition,
-                    centroids.size(), l, jeffreysPrior);
+                    countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
 
             log.debug(
                     "Local search iteration {}: applied {} -> SC = {} (best so far = {}, improved = {})",
@@ -786,7 +786,7 @@ public final class LocalSearch {
         VectorSet v = GLAEngine.partitionToSet(partition);
         gt += mseGla2(v, partition, centroids, n);
         double scn = DistanceCalculator.stochasticComplexity(partition,
-                centroids.size(), l, jeffreysPrior);
+                countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
         if (scn > sc) {
             CentroidManager.copyCentroids(cmin, centroids);
         }
@@ -795,6 +795,27 @@ public final class LocalSearch {
 
         gt += 2;
         return gt;
+    }
+
+    /**
+     * Counts the number of non-empty clusters in the partition (1-based),
+     * matching the convention used by {@link DistanceCalculator} and
+     * {@link AutomaticSearch#score}: a solution of {@code c} non-empty clusters
+     * is scored with k = c + 1 so that every counted class has at least one
+     * element.
+     *
+     * @param partition
+     *            the partition to inspect
+     * @return number of clusters (1-based) holding at least one vector
+     */
+    private static int countNonEmptyClusters(Partition partition) {
+        int count = 0;
+        for (int i = 1; i <= partition.size(); i++) {
+            if (partition.getSize(i) > 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**

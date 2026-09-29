@@ -269,7 +269,8 @@ public final class RangeSearch {
      */
     private PartitionInit initializePartition(VectorSet vectorSet, int k,
             InfiniteCentroids centroids, int centroidType) {
-        Partition partition = new Partition(k);
+        // Keep one spare index-0 slot like C's partitions: size is k + 1.
+        Partition partition = new Partition(k + 1);
         int l = vectorSet.getVectorLength();
         InfiniteCentroids initialized;
         switch (centroidType) {
@@ -374,6 +375,15 @@ public final class RangeSearch {
         default:
             log.info("Defaulting to standard GLA");
             GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+        }
+
+        // initializePartition() creates a partition with one spare index-0
+        // slot (size k + 1) to mirror C's partitions. GLA populates clusters
+        // 1..k and leaves slot 0 empty, so compact the spare slot back out
+        // before scoring/returning: the reported cluster count must equal the
+        // requested k. centroids.size() holds exactly that requested count.
+        if (partition.size() != centroids.size()) {
+            partition.setSize(centroids.size());
         }
 
         // Calculate stochastic complexity or best code length based on flag
