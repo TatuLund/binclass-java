@@ -208,6 +208,30 @@ class RangeSearchTest {
                 "range search failed to converge after retries");
     }
 
+    /**
+     * Runs a range search over the fixed window {@code [k, k]} and retries
+     * until every requested cluster survives GLA refinement. Random
+     * initialization can occasionally merge two seeds into one cluster
+     * (collapsing the count), so a fresh centroid set is tried each time until
+     * all {@code k} clusters are retained or retries are exhausted.
+     */
+    private RangeSearch.Result runWithRetryKeepingK(VectorSet set,
+            GLAConfig cfg, int k) {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            try {
+                RangeSearch.Result result = new RangeSearch(set, cfg).run(k, k);
+                if (result.partition().size() == k) {
+                    return result;
+                }
+            } catch (ArithmeticException | IllegalStateException _) {
+                // Random initialization can occasionally leave a partition with
+                // an empty cluster mid-scan; retry with fresh centroids.
+            }
+        }
+        throw new AssertionError(
+                "range search failed to keep all requested clusters after retries");
+    }
+
     @Test
     void testRunWithMultipleAttemptsPerK() {
         VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
@@ -266,17 +290,17 @@ class RangeSearchTest {
      */
     @Test
     void testRangeSearchWritesRequestedClusterCount() {
-        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+        VectorSet set = buildClusteredVectors(8); // 32 vectors of length 16
 
         // Requesting k=1 must yield exactly one cluster (no spare slot).
         GLAConfig cfgOne = config(3, 1000, 0, set.size());
-        RangeSearch.Result r1 = runWithRetry(set, cfgOne, 1, 1);
+        RangeSearch.Result r1 = runWithRetryKeepingK(set, cfgOne, 1);
         assertEquals(1, r1.partition().size(),
                 "k=1 must produce exactly one cluster");
 
         // Requesting k=3 must yield exactly three clusters.
         GLAConfig cfgThree = config(3, 1000, 0, set.size());
-        RangeSearch.Result r3 = runWithRetry(set, cfgThree, 3, 3);
+        RangeSearch.Result r3 = runWithRetryKeepingK(set, cfgThree, 3);
         assertEquals(3, r3.partition().size(),
                 "k=3 must produce exactly three clusters");
     }

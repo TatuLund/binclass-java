@@ -182,8 +182,9 @@ public class CutCommand implements BaseCommand {
     }
 
     /**
-     * Performs minimal interval cut using best-match intersection. Mirrors the
-     * C function do_min_int() from cut.c.
+     * Performs the minimal intersection (doc §4.3.5 / §2.4) using the two-pass
+     * operation of C do_int_1() from cut.c: best-unique-match in both
+     * directions, then merge each cluster with its whole counterpart.
      */
     private Partition minimalCut(VectorSet vectorSet) {
         int k = baseK(vectorSet);
@@ -191,15 +192,17 @@ public class CutCommand implements BaseCommand {
         Partition partition2 = generatePartition(
                 vectorSet, Math.min(k + 1, vectorSet.size()));
 
-        Partition result = CutEngine.minimalInterval(partition1, partition2);
-        log.info("Minimal interval cut complete. Result has {} clusters",
+        Partition result = CutEngine.minimalIntersection(partition1,
+                partition2);
+        log.info("Minimal intersection complete. Result has {} clusters",
                 result.size());
         return result;
     }
 
     /**
-     * Performs maximal interval cut using all-maximum-match intersection.
-     * Mirrors the C function do_max_int() from cut.c.
+     * Performs the maximal intersection (doc §4.3.5 / §2.4) using the two-pass
+     * operation of C do_int_2() from cut.c: all-maximum-match in both
+     * directions, then merge each cluster with its whole counterpart.
      */
     private Partition maximalCut(VectorSet vectorSet) {
         int k = baseK(vectorSet);
@@ -207,8 +210,9 @@ public class CutCommand implements BaseCommand {
         Partition partition2 = generatePartition(
                 vectorSet, Math.min(k + 1, vectorSet.size()));
 
-        Partition result = CutEngine.maximalInterval(partition1, partition2);
-        log.info("Maximal interval cut complete. Result has {} clusters",
+        Partition result = CutEngine.maximalIntersection(partition1,
+                partition2);
+        log.info("Maximal intersection complete. Result has {} clusters",
                 result.size());
         return result;
     }

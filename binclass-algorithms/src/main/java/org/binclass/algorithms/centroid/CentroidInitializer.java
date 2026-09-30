@@ -10,6 +10,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.HashSet;
 
+import org.jspecify.annotations.NullMarked;
+
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -23,6 +25,7 @@ import org.binclass.algorithms.core.VectorSet;
  * initialization strategies affect convergence speed and final cluster quality.
  * </p>
  */
+@NullMarked
 public final class CentroidInitializer {
 
     private static final String VECTOR_SET_MUST_NOT_BE_NULL = "VectorSet must not be null";

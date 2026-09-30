@@ -197,14 +197,31 @@ public final class GLAEngine {
         }
 
         logger.info("=== Centroid Information ===");
-        for (int i = 1; i <= partition.size(); i++) {
-            int size = partition.getSize(i);
-            Centroid centroid = centroids.get(i - 1);
-            double entropy = calculateEntropy(centroid, config.rounded());
+        if (logger.isInfoEnabled()) {
+            for (int i = 1; i <= partition.size(); i++) {
+                int size = partition.getSize(i);
+                Centroid centroid = centroids.get(i - 1);
+                double entropy = calculateEntropy(centroid, config.rounded());
 
-            logger.info("Cluster {}: size={}, entropy={}", i, size,
-                    String.format("%.4f", entropy));
+                logger.info("Cluster {}: size={}, entropy={}", i, size,
+                        formatEntropy(entropy));
+            }
         }
+    }
+
+    /**
+     * Formats an entropy value as a fixed-point string with four decimals.
+     * <p>
+     * Mirrors the {@code %.4f} formatting used when logging centroid entropy in
+     * C's {@code log_centroid_info()} from glainf.c.
+     * </p>
+     *
+     * @param entropy
+     *            the Shannon entropy value to format
+     * @return the formatted string such as {@code 0.9876}
+     */
+    private static String formatEntropy(double entropy) {
+        return String.format("%.4f", entropy);
     }
 
     /**
@@ -968,51 +985,19 @@ public final class GLAEngine {
 
         // Iterate classes; an empty cell is fixed in place without advancing i,
         // mirroring C's remove_empty() which re-checks the same slot.
-        int i = 1;
-        while (i < k) {
-            if (partition.getSize(i) == 0) {
-                BinaryVector x;
-                int c;
-                if (config.alternateWorstMatch()) {
-                    // absolute worst-match vector across the whole partition
-                    x = absoluteWorstMatch(partition, centroids);
-                    c = findClusterForVector(partition, x);
-                } else {
-                    // class-distortion worst match + its internal worst vector
-                    c = worstMatchClassIndex(partition, centroids);
-                    if (c == 0) {
-                        i++;
-                        continue;
-                    }
-                    x = worstVectorInCluster(partition.getElements(c),
-                            centroids.get(c - 1));
-                }
-                if (x == null || c == 0) {
-                    // No vector available to fill the cell; leave it empty.
-                    i++;
-                    continue;
-                }
-                // Move the worst-matching vector into the empty cell.
-                partition.removeElement(c, x);
-                partition.addElement(i, x);
-
-                // Fix the centroid: t->el[j] = (1 + x->el[j]) / 3.0
-                Centroid t = centroids.get(i - 1);
-                double[] el = t.getArray();
-                int[] xv = x.getEl();
-                for (int j = 0; j < l && j < xv.length; j++) {
-                    el[j] = (1.0 + xv[j]) / 3.0;
-                }
-
-                // Optional local repartition of the moved vector's former
-                // class.
-                if (config.alternateEmptyCellFix()) {
-                    localRepartition(c, partition, centroids);
-                }
-            } else {
-                i++;
-            }
-        }
+        //
+        // Java's Partition has no spare index-0 slot (unlike C), so every real
+        // cluster occupies 1..k. Scan all of them: if only 1..k-1 were checked,
+        // the last requested cluster could collapse to empty and be dropped by
+        // compactToNonEmpty(), yielding k-1 clusters for a requested k.
+        //
+        // Bound the scan by both i <= k (so centroids.get(i-1) is always valid)
+        // and i < partition.size(). Callers that pass an extra spare slot (e.g.
+        // RangeSearch with Partition(k+1)) therefore get cluster k filled,
+        // while
+        // callers whose partition size already equals k keep the original
+        // 1..k-1 behaviour.
+        fixEmptyCells(partition, centroids, config, l, k);
 
         // Final average pass over all non-empty centroids when weights or the
         // empty-cell fix is enabled (mirrors C inf_remove_empty()).
@@ -1027,6 +1012,49 @@ public final class GLAEngine {
 
         // Compact the centroid array to match the non-empty cluster count.
         compactToNonEmpty(partition, centroids);
+    }
+
+    /**
+     * Fills empty clusters in place so that no requested cluster collapses to
+     * an empty singleton and is later dropped by {@link #compactToNonEmpty}.
+     * <p>
+     * Mirrors C's {@code remove_empty()} which re-checks the same slot after a
+     * fill. Java's {@link Partition} has no spare index-0 slot (unlike C), so
+     * every real cluster occupies 1..k; scanning all of them ensures the last
+     * requested cluster is not silently dropped. Callers that pass an extra
+     * spare slot (e.g. RangeSearch with {@code Partition(k+1)}) therefore fill
+     * cluster k, while callers whose partition size already equals k keep the
+     * original 1..k-1 behaviour.
+     * </p>
+     *
+     * @param partition
+     *            the partition to inspect and repair
+     * @param centroids
+     *            the centroids aligned with {@code partition}
+     * @param config
+     *            the GLA configuration controlling fill strategy
+     * @param l
+     *            the vector length of the first centroid
+     * @param k
+     *            the number of requested clusters
+     */
+    private static void fixEmptyCells(Partition partition,
+            InfiniteCentroids centroids, GLAConfig config, int l, int k) {
+        // An empty cell is fixed in place without advancing i; if no vector was
+        // available to fill it (e.g. every remaining cluster is a singleton so
+        // absoluteWorstMatch() returns null), advance anyway so the scan
+        // terminates instead of looping forever.
+        int i = 1;
+        while (i <= k && i < partition.size()) {
+            if (partition.getSize(i) == 0) {
+                fillEmptyCell(partition, centroids, config, l, i);
+                if (partition.getSize(i) == 0) {
+                    i++;
+                }
+            } else {
+                i++;
+            }
+        }
     }
 
     /**
@@ -1180,41 +1208,140 @@ public final class GLAEngine {
     }
 
     /**
-     * Compacts the centroid array so it holds exactly the non-empty clusters.
+     * Fills a single empty cluster by moving its worst-matching vector in and
+     * resetting that centroid to {@code (1 + x) / 3}.
      * <p>
-     * Mirrors C's compaction performed after fixing empty cells: empty
-     * centroids are shifted left and removed from the end of the array.
+     * Mirrors C's {@code remove_empty()} body for one slot. When
+     * {@code alternateWorstMatch} is set the absolute worst-match vector across
+     * the whole partition is used; otherwise the class-distortion worst match
+     * is chosen. An optional local repartition of the moved vector's former
+     * class runs when {@code alternateEmptyCellFix} is enabled. The empty slot
+     * index is left unchanged so the caller re-checks it, matching C's
+     * behaviour.
      * </p>
      *
      * @param partition
-     *            the source of truth for which clusters are non-empty
+     *            the partition to clean up
      * @param centroids
-     *            the centroid array compacted in place
+     *            the centroid array (the filled slot's centroid is reset)
+     * @param config
+     *            GLA configuration controlling the empty-cell fix combos
+     * @param l
+     *            vector length of the centroids
+     * @param i
+     *            1-based index of the empty cluster to fill
+     */
+    private static void fillEmptyCell(Partition partition,
+            InfiniteCentroids centroids, GLAConfig config, int l, int i) {
+        BinaryVector x;
+        int c;
+        if (config.alternateWorstMatch()) {
+            // absolute worst-match vector across the whole partition
+            x = absoluteWorstMatch(partition, centroids);
+            c = findClusterForVector(partition, x);
+        } else {
+            // class-distortion worst match + its internal worst vector
+            c = worstMatchClassIndex(partition, centroids);
+            if (c == 0) {
+                return;
+            }
+            x = worstVectorInCluster(partition.getElements(c),
+                    centroids.get(c - 1));
+        }
+        if (x == null || c == 0) {
+            // No vector available to fill the cell; leave it empty.
+            return;
+        }
+        // Move the worst-matching vector into the empty cell.
+        partition.removeElement(c, x);
+        partition.addElement(i, x);
+
+        // Fix the centroid: t->el[j] = (1 + x->el[j]) / 3.0
+        Centroid t = centroids.get(i - 1);
+        double[] el = t.getArray();
+        int[] xv = x.getEl();
+        for (int j = 0; j < l && j < xv.length; j++) {
+            el[j] = (1.0 + xv[j]) / 3.0;
+        }
+
+        // Optional local repartition of the moved vector's former class.
+        if (config.alternateEmptyCellFix()) {
+            localRepartition(c, partition, centroids);
+        }
+    }
+
+    /**
+     * Counts the number of non-empty clusters in a partition.
+     * <p>
+     * Equivalent to C {@code remove_empty()} counting pass over classes 1..k.
+     * </p>
+     *
+     * @param partition
+     *            the partition to inspect
+     * @return number of clusters with at least one element
+     */
+    private static int countNonEmptyClusters(Partition partition) {
+        int nonEmpty = 0;
+        for (int i = 1; i <= partition.size(); i++) {
+            if (partition.getSize(i) > 0) {
+                nonEmpty++;
+            }
+        }
+        return nonEmpty;
+    }
+
+    /**
+     * Compacts the centroid array down to {@code newK} entries, preserving the
+     * order of surviving clusters.
+     * <p>
+     * Mirrors C's {@code remove_empty_sets()} compaction used when empty cells
+     * are dropped rather than filled.
+     * </p>
+     *
+     * @param partition
+     *            source of truth for which clusters survive
+     * @param centroids
+     *            the centroid array to compact in place
+     * @param newK
+     *            desired number of surviving clusters
+     */
+    private static void compactCentroids(Partition partition,
+            InfiniteCentroids centroids, int newK) {
+        int writeIdx = 0;
+        for (int readIdx = 1; readIdx <= partition.size(); readIdx++) {
+            if (partition.getSize(readIdx) > 0) {
+                if (writeIdx + 1 != readIdx) {
+                    centroids.set(writeIdx, centroids.get(readIdx - 1));
+                }
+                writeIdx++;
+            }
+        }
+        while (centroids.size() > newK) {
+            centroids.remove(centroids.size() - 1);
+        }
+    }
+
+    /**
+     * Compacts the partition and centroid array so both hold exactly the number
+     * of non-empty clusters.
+     * <p>
+     * Mirrors C's {@code remove_empty()} finalisation, which sets both
+     * {@code P->k} and {@code C->k} to the surviving cluster count.
+     * </p>
+     *
+     * @param partition
+     *            the partition to compact in place
+     * @param centroids
+     *            the centroid array to compact in place
      */
     private static void compactToNonEmpty(Partition partition,
             InfiniteCentroids centroids) {
-        int newK = 0;
-        for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
-                newK++;
-            }
-        }
+        int newK = countNonEmptyClusters(partition);
         if (newK == 0) {
             throw new IllegalStateException("All clusters are empty");
         }
         if (newK != centroids.size()) {
-            int writeIdx = 0;
-            for (int readIdx = 1; readIdx <= partition.size(); readIdx++) {
-                if (partition.getSize(readIdx) > 0) {
-                    if (writeIdx + 1 != readIdx) {
-                        centroids.set(writeIdx, centroids.get(readIdx - 1));
-                    }
-                    writeIdx++;
-                }
-            }
-            while (centroids.size() > newK) {
-                centroids.remove(centroids.size() - 1);
-            }
+            compactCentroids(partition, centroids, newK);
         }
         if (partition.size() != newK) {
             partition.setSize(newK);
@@ -1251,54 +1378,81 @@ public final class GLAEngine {
             Centroid centroid = centroids.get(i - 1); // 0-based internal
                                                       // indexing
             VectorSet cluster = partition.getElements(i);
-            int classSize = cluster.size();
-
-            if (classSize == 0) {
+            if (cluster.isEmpty()) {
                 continue; // Skip empty clusters
             }
 
-            // Compute frequency-weighted average for each bit position
-            double[] el = centroid.getArray();
-            int maxBit = l;
-            for (BinaryVector bv : cluster) {
-                if (!bv.isTrashcan()) {
-                    maxBit = Math.min(maxBit, bv.getEl().length);
-                }
-            }
-            for (int bit = 0; bit < l && bit < el.length; bit++) {
-                int count1 = 0;
-                int missingCount = 0;
-                for (BinaryVector bv : cluster) {
-                    // Skip trashcan vectors when mode is enabled
-                    if (!bv.isTrashcan()) {
-                        int[] bvEl = bv.getEl();
-                        int bvLen = bvEl.length;
-                        if (bit < bvLen && !bv.isMissing(bit)) {
-                            count1 += bvEl[bit];
-                        } else {
-                            missingCount++;
-                        }
-                    }
-                }
-
-                // Effective count excludes missing values
-                int effectiveCount = classSize - missingCount;
-                double avg = (effectiveCount > 0)
-                        ? (double) count1 / effectiveCount
-                        : 0.5;
-
-                if (rounded) {
-                    // Round to nearest binary value
-                    el[bit] = avg >= 0.5 ? 1.0 : 0.0;
-                } else {
-                    el[bit] = avg;
-                }
-            }
-
-            // Set weight as class frequency ratio
-            int effectiveN = (n > 0) ? n : classSize;
-            centroid.setWeight((double) classSize / effectiveN);
+            updateCentroid(centroid, cluster, rounded, n, l);
         }
+    }
+
+    /**
+     * Recomputes a single centroid from its cluster's vectors and assigns the
+     * class-frequency weight. Mirrors C {@code inf_average()} for one cluster.
+     *
+     * @param centroid
+     *            the centroid to update in-place
+     * @param cluster
+     *            the vectors assigned to this centroid
+     * @param rounded
+     *            if true, rounds centroid values to 0/1 (binary centroids)
+     * @param n
+     *            total number of vectors (for weight calculation)
+     * @param l
+     *            the vector length used to bound the per-bit averaging pass
+     */
+    private static void updateCentroid(Centroid centroid, VectorSet cluster,
+            boolean rounded, int n, int l) {
+        double[] el = centroid.getArray();
+        for (int bit = 0; bit < l && bit < el.length; bit++) {
+            double avg = averageForBit(cluster, cluster.size(), bit);
+            if (rounded) {
+                el[bit] = avg >= 0.5 ? 1.0 : 0.0;
+            } else {
+                el[bit] = avg;
+            }
+        }
+
+        // Set weight as class frequency ratio
+        int effectiveN = (n > 0) ? n : cluster.size();
+        centroid.setWeight((double) cluster.size() / effectiveN);
+    }
+
+    /**
+     * Computes the frequency-weighted average of a single bit position across
+     * all non-trashcan vectors in a cluster. Missing values are excluded from
+     * the effective count and contribute {@code 0.5} when every vector is
+     * missing that bit.
+     *
+     * @param cluster
+     *            the vectors to average over
+     * @param classSize
+     *            total number of vectors in the cluster (used for the
+     *            effective-count denominator)
+     * @param bit
+     *            the 0-based bit position to average
+     * @return the weighted average, or {@code 0.5} when no vector contributes
+     */
+    private static double averageForBit(VectorSet cluster, int classSize,
+            int bit) {
+        int count1 = 0;
+        int missingCount = 0;
+        for (BinaryVector bv : cluster) {
+            // Skip trashcan vectors when mode is enabled
+            if (!bv.isTrashcan()) {
+                int[] bvEl = bv.getEl();
+                int bvLen = bvEl.length;
+                if (bit < bvLen && !bv.isMissing(bit)) {
+                    count1 += bvEl[bit];
+                } else {
+                    missingCount++;
+                }
+            }
+        }
+
+        // Effective count excludes missing values
+        int effectiveCount = classSize - missingCount;
+        return effectiveCount > 0 ? (double) count1 / effectiveCount : 0.5;
     }
 
     /**

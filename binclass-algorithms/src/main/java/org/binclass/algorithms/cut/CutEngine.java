@@ -305,4 +305,119 @@ public final class CutEngine {
         partition.setSize(writeIdx > 0 ? writeIdx : 1);
         return partition;
     }
+
+    /**
+     * Performs the minimal intersection as defined in doc §2.4.2 (mirrors C
+     * {@code do_int_1()} from {@code cut.c}). It is a two-pass operation: first
+     * compute the best-unique-match intersection of both directions, then merge
+     * each cluster of the first pass with its counterpart cluster in the second
+     * pass so that every result cluster becomes an entire counterpart cluster.
+     * <p>
+     * The operation is commutative but not associative, matching the C source.
+     * </p>
+     *
+     * @param p1
+     *            the first partition (its clusters drive the result)
+     * @param p2
+     *            the second partition used for counterpart lookup
+     * @return a new trimmed partition holding the minimal intersection
+     */
+    public static Partition minimalIntersection(Partition p1, Partition p2) {
+        Objects.requireNonNull(p1, P1_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(p2, P1_MUST_NOT_BE_NULL);
+
+        Partition c1 = minimalInterval(p1, p2);
+        Partition c2 = minimalInterval(p2, p1);
+
+        return mergeToCounterpart(c1, c2);
+    }
+
+    /**
+     * Performs the maximal intersection as defined in doc §2.4.2 (mirrors C
+     * {@code do_int_2()} from {@code cut.c}). It is a two-pass operation: first
+     * compute the all-maximum-match intersection of both directions, then merge
+     * each cluster of the first pass with its counterpart cluster in the second
+     * pass so that every result cluster becomes an entire counterpart cluster.
+     * <p>
+     * The operation is commutative but not associative, matching the C source.
+     * </p>
+     *
+     * @param p1
+     *            the first partition (its clusters drive the result)
+     * @param p2
+     *            the second partition used for counterpart lookup
+     * @return a new trimmed partition holding the maximal intersection
+     */
+    public static Partition maximalIntersection(Partition p1, Partition p2) {
+        Objects.requireNonNull(p1, P1_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(p2, P1_MUST_NOT_BE_NULL);
+
+        Partition c1 = maximalInterval(p1, p2);
+        Partition c2 = maximalInterval(p2, p1);
+
+        return mergeToCounterpart(c1, c2);
+    }
+
+    /**
+     * Merges two one-directional intersection results into a single partition.
+     * <p>
+     * Mirrors the third pass of C {@code do_int_1()} / {@code do_int_2()}: for
+     * each cluster {@code i} of {@code c1}, if any element lies in a cluster
+     * {@code j} of {@code c2}, the result cluster becomes the entire
+     * counterpart cluster {@code c2.getElements(j)}. Empty result clusters are
+     * trimmed.
+     * </p>
+     *
+     * @param c1
+     *            the first-direction intersection (drives the result)
+     * @param c2
+     *            the second-direction intersection providing counterpart
+     *            clusters
+     * @return a new trimmed partition holding the merged two-pass intersection
+     */
+    private static Partition mergeToCounterpart(Partition c1, Partition c2) {
+        int k1 = c1.size();
+        Partition result = new Partition(k1);
+
+        for (int i = 1; i <= k1; i++) {
+            if (c1.getSize(i) == 0) {
+                continue;
+            }
+            mergeClusterWithCounterparts(c1, c2, i, result);
+        }
+
+        return trim(result);
+    }
+
+    /**
+     * Copies the whole counterpart cluster of {@code c2} into result cluster
+     * {@code i} for every counterpart that shares at least one element with
+     * source cluster {@code i}. Mirrors the third pass of C {@code do_int_1()}
+     * / {@code do_int_2()}.
+     */
+    private static void mergeClusterWithCounterparts(Partition c1,
+            Partition c2, int i, Partition result) {
+        for (int j = 1; j <= c2.size(); j++) {
+            if (c2.getSize(j) == 0) {
+                continue;
+            }
+            for (BinaryVector bv : c1.getElements(i)) {
+                if (c2.contains(j, bv)) {
+                    copyCluster(c2, j, i, result);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Copies every element of source cluster {@code srcIdx} of {@code source}
+     * into result cluster {@code dstIdx}.
+     */
+    private static void copyCluster(Partition source, int srcIdx,
+            int dstIdx, Partition result) {
+        for (BinaryVector shared : source.getElements(srcIdx)) {
+            result.addElement(dstIdx, shared);
+        }
+    }
 }

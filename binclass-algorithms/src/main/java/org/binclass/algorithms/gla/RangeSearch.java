@@ -149,7 +149,12 @@ public final class RangeSearch {
                     // addElement() throws.
                     centroidsK = CentroidInitializer.randomInit(k,
                             vectorLength);
-                    partitionK = new Partition(k);
+                    // Mirror attempt 0's spare index-0 slot (Partition(k + 1))
+                    // so
+                    // GLA's removeEmpty() keeps all k real clusters; the extra
+                    // slot
+                    // is compacted back out before scoring/returning.
+                    partitionK = new Partition(k + 1);
                 }
 
                 double scForK = runGLAAndCalculateSC(vectorSet, partitionK,
@@ -192,14 +197,16 @@ public final class RangeSearch {
             }
 
             // --- G8: emit elapsed-time messages ---------------------------
-            long now = System.currentTimeMillis();
-            long secondsSinceStart = (now - startTime) / 1000;
-            long secondsSinceLast = (now - lastTime) / 1000;
-            log.info("Time ellapsed since start:                {}",
-                    formatTime(secondsSinceStart));
-            log.info(
-                    "Time ellapsed for current classification: {}",
-                    formatTime(secondsSinceLast));
+            if (log.isInfoEnabled()) {
+                long now = System.currentTimeMillis();
+                long secondsSinceStart = (now - startTime) / 1000;
+                long secondsSinceLast = (now - lastTime) / 1000;
+                log.info("Time ellapsed since start:                {}",
+                        formatTime(secondsSinceStart));
+                log.info(
+                        "Time ellapsed for current classification: {}",
+                        formatTime(secondsSinceLast));
+            }
 
             boolean reachedSafetyLimit = k - kstart >= config.safetyLimit();
             if (shouldTerminate(noImprovementCount, config)
@@ -215,9 +222,11 @@ public final class RangeSearch {
         // Mirrors C's final report: every entry below the 1000.0 sentinel is
         // printed with the same format used by the original tool.
         log.info("\nSC as function of k\n--");
-        for (int i = 0; i < mk; i++) {
-            if (scs[i] < 1000.0) {
-                log.info(String.format("%3d: %2.4f", i, scs[i]));
+        if (log.isInfoEnabled()) {
+            for (int i = 0; i < mk; i++) {
+                if (scs[i] < 1000.0) {
+                    log.info(String.format("%3d: %2.4f", i, scs[i]));
+                }
             }
         }
 
