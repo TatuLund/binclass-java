@@ -1,5 +1,8 @@
 package org.binclass.cli;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import org.binclass.algorithms.info.InfoFunctions;
@@ -41,19 +44,43 @@ public class FunctionCommand implements BaseCommand {
         log.info("  Distance type: {}", distanceType);
         log.info("  Class weights: {}", classWeights);
 
-        // Use InfoFunctions to render information-theoretic functions
+        // Use InfoFunctions to render information-theoretic functions.
+        // Mirrors C's render_functions(): the results are written to an
+        // .output file (spec section 4.3.2), honouring an optional -o override.
         String datfile = filebase + ".data";
         String outfile = filebase + ".out";
         String ctrfile = filebase + ".centroids";
-        String hdrfile = filebase + ".header";
 
         log.info(
                 "Computing information-theoretic functions using InfoFunctions");
-        String result = InfoFunctions.renderFunctions(datfile, outfile, ctrfile,
-                hdrfile);
+        String result = InfoFunctions.renderFunctions(datfile, outfile,
+                ctrfile, null);
 
-        log.info("Function computation complete: {}",
-                result != null ? "success" : "no data");
+        if (result == null || result.isEmpty()) {
+            log.warn("Function computation produced no data");
+            return 1;
+        }
+
+        // Persist the rendered functions to disk. Mirrors ReportCommand:
+        // an explicit -o path is honoured, otherwise the results are written
+        // next to the input as <filebase>.output.
+        String outputFile = opts.getOrDefault("-o", null);
+        if (outputFile == null || outputFile.isEmpty()) {
+            outputFile = filebase + ".output";
+        }
+        try {
+            Path path = Path.of(outputFile);
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(path, result);
+            log.info("Function results written to {}", outputFile);
+        } catch (IOException e) {
+            log.warn("Failed to write function results to {}: {}",
+                    outputFile, e.getMessage());
+            return 1;
+        }
 
         return 0;
     }

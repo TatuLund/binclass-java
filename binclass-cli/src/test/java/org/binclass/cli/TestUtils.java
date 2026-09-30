@@ -287,6 +287,11 @@ public final class TestUtils {
     public static String formatVectorLine(String strain, String bitString,
             int idOffs, int vecOffs) {
         StringBuilder sb = new StringBuilder();
+        // Column 0 must be non-space for PartitionReader to treat the line as
+        // a vector (mirrors C's read_partition: buf[0] != ' '). A placeholder
+        // is placed there so lines whose strain starts later (at idOffs) are
+        // still detected.
+        sb.append('X');
         while (sb.length() < idOffs) {
             sb.append(' ');
         }

@@ -192,7 +192,7 @@ public final class InfoFunctions {
      * @return array of second-order information content values
      */
     public static double[] a2(double[] probabilities) {
-        Objects.requireNonNull(probabilities, "Probabilities must not be null");
+        Objects.requireNonNull(probabilities, PROBABILITIES_MUST_NOT_BE_NULL);
 
         int l = probabilities.length;
         double[] result = new double[l];
@@ -397,7 +397,7 @@ public final class InfoFunctions {
             if (i > 0) {
                 sb.append(", ");
             }
-            sb.append(String.format("%." + precision + "f", values[i]));
+            sb.append(String.format("%.*f", precision, values[i]));
         }
         return sb.toString();
     }
@@ -430,7 +430,7 @@ public final class InfoFunctions {
      * @return Shannon entropy in bits
      */
     public static double shannonEntropy(double[] probabilities) {
-        Objects.requireNonNull(probabilities, "Probabilities must not be null");
+        Objects.requireNonNull(probabilities, PROBABILITIES_MUST_NOT_BE_NULL);
 
         double entropy = 0.0;
         for (double p : probabilities) {
@@ -454,7 +454,7 @@ public final class InfoFunctions {
      */
     public static boolean isValidProbabilityDistribution(
             double[] probabilities) {
-        Objects.requireNonNull(probabilities, "Probabilities must not be null");
+        Objects.requireNonNull(probabilities, PROBABILITIES_MUST_NOT_BE_NULL);
 
         double sum = 0.0;
         for (double p : probabilities) {

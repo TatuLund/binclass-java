@@ -7,6 +7,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,6 +19,7 @@ import org.binclass.algorithms.core.VectorSet;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Unit tests for FunctionCommand to verify algorithm execution.
@@ -199,6 +203,61 @@ class FunctionCommandTest {
             int result = command.execute(args);
 
             assertEquals(0, result);
+        }
+    }
+
+    @Test
+    void testExecuteWritesOutputFile(@TempDir Path tempDir) throws Exception {
+        // Per spec section 4.3.2 the `function` command must persist its
+        // results to a <filebase>.output file. Previously renderFunctions()
+        // returned the rendered string but nothing wrote it to disk.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(3));
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("data.output");
+            assertTrue(Files.exists(expected),
+                    "default <filebase>.output should be written");
+            String content = Files.readString(expected);
+            assertTrue(content.contains("INFORMATION CONTENT FUNCTIONS"),
+                    "output file should contain the rendered functions table");
+        }
+    }
+
+    @Test
+    void testExecuteHonoursExplicitOutputFlag(@TempDir Path tempDir)
+            throws Exception {
+        // An explicit -o path overrides the default <filebase>.output.
+        String filebase = tempDir.resolve("data").toString();
+        Map<String, String> opts = new HashMap<>();
+        opts.put("-o", tempDir.resolve("custom.output").toString());
+        opts.put("filebase", filebase);
+        args.setOptions(opts);
+
+        try (var mockedLoader = mockStatic(DataLoader.class);
+                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
+            when(GLAEngine.gla(any(), any(), any(), any(), any()))
+                    .thenReturn(new Partition(3));
+
+            int result = command.execute(args);
+            assertEquals(0, result);
+
+            Path expected = tempDir.resolve("custom.output");
+            assertTrue(Files.exists(expected),
+                    "explicit -o path should be honoured");
         }
     }
 }
