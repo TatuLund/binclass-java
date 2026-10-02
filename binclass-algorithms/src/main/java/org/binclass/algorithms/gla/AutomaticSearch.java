@@ -4,6 +4,8 @@
  */
 package org.binclass.algorithms.gla;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -53,10 +55,19 @@ public final class AutomaticSearch {
     private final GLAConfig config;
 
     /**
+     * Best centroids found for each cluster count {@code k} across the whole
+     * search, keyed by cluster count. Populated whenever a lower SC is recorded
+     * for a given {@code k}, so it mirrors C's per-candidate
+     * {@code save_centroids()} output consumed by {@code binclass function}.
+     */
+    private final Map<Integer, InfiniteCentroids> bestPerK = new HashMap<>();
+
+    /**
      * Result of the automatic search: best partition/centroids and metadata.
      */
     public record Result(Partition partition, InfiniteCentroids centroids,
-            double scmin, int kmin, int lastk, double[] scs) {
+            double scmin, int kmin, int lastk, double[] scs,
+            Map<Integer, InfiniteCentroids> bestPerK) {
     }
 
     /** Outcome of a single GLA run for one cluster count. */
@@ -117,6 +128,7 @@ public final class AutomaticSearch {
 
             if (scs[k] > sc) {
                 scs[k] = sc;
+                bestPerK.put(k, step.centroids());
             }
             saveCentroidsIfEnabled();
 
@@ -166,7 +178,7 @@ public final class AutomaticSearch {
         }
 
         return new Result(bestPartition, bestCentroids, scminHolder[0], kmin,
-                lastk, scs);
+                lastk, scs, bestPerK);
     }
 
     /**
@@ -200,6 +212,7 @@ public final class AutomaticSearch {
             double sc = step.sc();
             if (scs[k] > sc) {
                 scs[k] = sc;
+                bestPerK.put(k, step.centroids());
             }
             saveCentroidsIfEnabled();
             if (sc < scmin[0]) {
@@ -241,6 +254,7 @@ public final class AutomaticSearch {
             double sc = step.sc();
             if (scs[k] > sc) {
                 scs[k] = sc;
+                bestPerK.put(k, step.centroids());
             }
             saveCentroidsIfEnabled();
             if (sc < scmin[0]) {

@@ -231,10 +231,13 @@ class MixtureCommandTest {
             assertTrue(Files.exists(expected),
                     "default <filebase>.centroids should be written");
             String content = Files.readString(expected);
-            assertTrue(content.contains("# BinClass Centroid File"),
-                    "centroids file should contain the header");
-            assertTrue(content.contains("Centroid 1:"),
-                    "centroids file should contain centroid entries");
+            // C format: first line is the number of centroids, second the
+            // vector length, then one space-separated line per centroid.
+            String[] lines = content.split("\\R");
+            assertEquals("2", lines[0].trim(), "header should hold k");
+            assertEquals("8", lines[1].trim(), "header should hold d");
+            assertTrue(lines[2].contains("1.00000"),
+                    "first centroid line should hold space-separated values");
         }
     }
 

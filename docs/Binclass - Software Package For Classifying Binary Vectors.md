@@ -815,6 +815,7 @@ namelen=9
 The above description tells the program that the vector itself starts at the offset 23 and is 47 characters long. The ID-string starts at the offset 15 and is 15 characters long. The ID-string is translated so that the last two characters (6,7) are most significant and then the four first digits at positions $1,\ldots,4$. One character is omitted. The name of the vector is 9 characters long. Note that the name need not be unique, whereas the ID has to be unique.
 
 ### 3.3 The partition file
+
 The partition file follows the format of the data set file, the only difference being that between the classes (partitions) there is a line beginning with the word *Class*.
 
 **Example of the partition file format**
@@ -837,7 +838,8 @@ SALM TYPh   0473-79 0100100011010000100010000100001110000100000000010001
 SALM TYPh   0889-78 010010001010000100010000100001111000010101000010001
 ```
 
-## Centroid file
+### 3.4 Centroid file
+
 The file containing the centroids has the following format:
 $$ 
 \begin{aligned}

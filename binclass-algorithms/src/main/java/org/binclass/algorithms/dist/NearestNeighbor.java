@@ -31,6 +31,41 @@ public final class NearestNeighbor {
     }
 
     /**
+     * Assigns vectors to nearest centroids using the distance type that matches
+     * the requested metric.
+     * <p>
+     * Mirrors C's dispatch in {@code calculate_functions()} from
+     * {@code function.c}: codelength-based types (>= {@code DISTANCE_CL_START})
+     * use Shannon codelength, L1 uses MAE, L2 uses MSE, and every other type
+     * (Hamming) uses the fast integer Hamming distance.
+     * </p>
+     *
+     * @param vectors
+     *            the set of binary vectors to assign
+     * @param partition
+     *            the target partition to populate with assignments
+     * @param centroids
+     *            the centroid array defining clusters
+     * @param distanceType
+     *            the distance type (see {@link DistanceCalculator} constants)
+     * @param useClassWeights
+     *            if true, weighted codelength is used for Shannon assignment
+     */
+    public static void dispatch(VectorSet vectors, Partition partition,
+            InfiniteCentroids centroids, int distanceType,
+            boolean useClassWeights) {
+        if (distanceType == DistanceCalculator.DISTANCE_L1) {
+            maeNearestNeighbor(vectors, partition, centroids);
+        } else if (distanceType == DistanceCalculator.DISTANCE_L2) {
+            mseNearestNeighbor(vectors, partition, centroids);
+        } else if (distanceType >= DistanceCalculator.DISTANCE_CL_START) {
+            infNearestNeighbor(vectors, partition, centroids, useClassWeights);
+        } else {
+            fastNearestNeighbor(vectors, partition, centroids);
+        }
+    }
+
+    /**
      * Assigns vectors to nearest centroids using Shannon codelength (with or
      * without weights).
      * <p>

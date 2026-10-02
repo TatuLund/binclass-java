@@ -77,21 +77,37 @@ class CentroidCommandTest {
 
     /**
      * Reads the centroid values written by {@link CentroidWriter} into an array
-     * of rows. Each row corresponds to one {@code Centroid N:} line in the
-     * output file.
+     * of rows. The first two non-comment lines hold the number of centroids and
+     * the vector length; each following line holds one centroid's
+     * space-separated values followed by a trailing weight, which is discarded.
      */
     private static double[][] parseCentroidFile(Path file) throws IOException {
-        List<double[]> centroids = new ArrayList<>();
-        for (String line : Files.readAllLines(file)) {
-            if (line.startsWith("Centroid ")) {
-                String rest = line.substring(line.indexOf(':') + 1).trim();
-                String[] parts = rest.split(",");
-                double[] values = new double[parts.length];
-                for (int i = 0; i < parts.length; i++) {
-                    values[i] = Double.parseDouble(parts[i].trim());
-                }
-                centroids.add(values);
+        List<String> lines = Files.readAllLines(file);
+        int pos = 0;
+        while (pos < lines.size()) {
+            String trimmed = lines.get(pos).trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                pos++;
+                continue;
             }
+            break;
+        }
+        // First value is the number of centroids, second is the vector length.
+        int d = Integer.parseInt(lines.get(pos + 1).trim());
+        pos += 2;
+
+        List<double[]> centroids = new ArrayList<>();
+        for (int i = pos; i < lines.size(); i++) {
+            String line = lines.get(i).trim();
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            String[] tokens = line.split("\\s+");
+            double[] values = new double[d];
+            for (int j = 0; j < d; j++) {
+                values[j] = Double.parseDouble(tokens[j]);
+            }
+            centroids.add(values);
         }
         return centroids.toArray(new double[0][]);
     }

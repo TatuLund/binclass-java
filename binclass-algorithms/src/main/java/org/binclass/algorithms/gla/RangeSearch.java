@@ -119,7 +119,7 @@ public final class RangeSearch {
                 ? vectorSet.iterator().next().getLength()
                 : 16;
 
-        int attempts = config.iterBase() > 0 ? config.iterBase() : 1;
+        int attempts = config.maxIter() > 0 ? config.maxIter() : 1;
         for (int k = kstart; k <= kstop; k++) {
             // Run GLA up to `attempts` times per cluster count with different
             // starting centroids, keeping the best SC so bad local minima are

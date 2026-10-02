@@ -209,8 +209,8 @@ class FunctionCommandTest {
     @Test
     void testExecuteWritesOutputFile(@TempDir Path tempDir) throws Exception {
         // Per spec section 4.3.2 the `function` command must persist its
-        // results to a <filebase>.output file. Previously renderFunctions()
-        // returned the rendered string but nothing wrote it to disk.
+        // results to a <filebase>.output file. calculateFunctions() emits a
+        // CALCULATING table followed by a FUNCTION section and MLE fits.
         String filebase = tempDir.resolve("data").toString();
         Map<String, String> opts = new HashMap<>();
         opts.put("filebase", filebase);
@@ -230,8 +230,10 @@ class FunctionCommandTest {
             assertTrue(Files.exists(expected),
                     "default <filebase>.output should be written");
             String content = Files.readString(expected);
-            assertTrue(content.contains("INFORMATION CONTENT FUNCTIONS"),
-                    "output file should contain the rendered functions table");
+            assertTrue(content.contains("CALCULATING:"),
+                    "output file should contain the CALCULATING section");
+            assertTrue(content.contains("MLE ESTIMATES:"),
+                    "output file should contain the MLE fits section");
         }
     }
 

@@ -3,9 +3,13 @@ package org.binclass.cli;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
+import org.binclass.algorithms.core.InfiniteCentroids;
+import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.info.InfoFunctions;
+import org.binclass.algorithms.io.CentroidReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,26 +48,35 @@ public class FunctionCommand implements BaseCommand {
         log.info("  Distance type: {}", distanceType);
         log.info("  Class weights: {}", classWeights);
 
-        // Use InfoFunctions to render information-theoretic functions.
-        // Mirrors C's render_functions(): the results are written to an
-        // .output file (spec section 4.3.2), honouring an optional -o override.
-        String datfile = filebase + ".data";
-        String outfile = filebase + ".out";
+        // Locate the input files next to the filebase. Mirrors C's
+        // render_functions(): the .data/.dat file holds the vectors, the
+        // .centroids file holds one saved candidate per cluster count.
         String ctrfile = filebase + ".centroids";
 
-        log.info(
-                "Computing information-theoretic functions using InfoFunctions");
-        String result = InfoFunctions.renderFunctions(datfile, outfile,
-                ctrfile, null);
+        VectorSet vectors = DataLoader.loadVectors(filebase);
+
+        List<InfiniteCentroids> records;
+        try {
+            records = CentroidReader.loadAll(ctrfile);
+        } catch (IOException e) {
+            log.warn("Could not read centroid file {}: {}", ctrfile,
+                    e.getMessage());
+            records = List.of();
+        }
+
+        log.info("Computing information-theoretic functions for {} vectors and "
+                + "{} centroid records", vectors.size(), records.size());
+        String result = InfoFunctions.calculateFunctions(records, vectors,
+                distanceType, classWeights);
 
         if (result == null || result.isEmpty()) {
             log.warn("Function computation produced no data");
             return 1;
         }
 
-        // Persist the rendered functions to disk. Mirrors ReportCommand:
-        // an explicit -o path is honoured, otherwise the results are written
-        // next to the input as <filebase>.output.
+        // Persist the rendered functions to disk. Mirrors ReportCommand: an
+        // explicit -o path is honoured, otherwise the results are written next
+        // to the input as <filebase>.output.
         String outputFile = opts.getOrDefault("-o", null);
         if (outputFile == null || outputFile.isEmpty()) {
             outputFile = filebase + ".output";

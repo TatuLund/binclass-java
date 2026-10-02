@@ -493,7 +493,7 @@ class ClassifyCommandTest {
 
             // Verify GLA was called and capture the config parameter
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(50));
 
             // Verify maxIter is set correctly in GLAConfig
             GLAConfig capturedConfig = configCaptor.getValue();
@@ -676,7 +676,7 @@ class ClassifyCommandTest {
             command.execute(args);
 
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(2));
             GLAConfig capturedConfig = configCaptor.getValue();
             assertEquals(6, capturedConfig.heuristicCount(),
                     "-j 5 must map to heuristicCount == 6");
@@ -702,7 +702,7 @@ class ClassifyCommandTest {
             command.execute(args);
 
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(2));
             GLAConfig capturedConfig = configCaptor.getValue();
             assertTrue(capturedConfig.requireBetter(),
                     "-B must set requireBetter == true");
@@ -727,7 +727,7 @@ class ClassifyCommandTest {
             command.execute(args);
 
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(2));
             GLAConfig capturedConfig = configCaptor.getValue();
             assertFalse(capturedConfig.requireBetter(),
                     "requireBetter defaults to false without -B");
@@ -752,7 +752,7 @@ class ClassifyCommandTest {
             command.execute(args);
 
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(2));
             GLAConfig capturedConfig = configCaptor.getValue();
             assertFalse(capturedConfig.filterExactK(),
                     "filterExactK defaults to false");
@@ -778,7 +778,7 @@ class ClassifyCommandTest {
             command.execute(args);
 
             mockedGlaEngine.verify(() -> GLAEngine.gla(any(), any(), any(),
-                    any(), configCaptor.capture()));
+                    any(), configCaptor.capture()), times(2));
             GLAConfig capturedConfig = configCaptor.getValue();
             assertTrue(capturedConfig.bestCodeLength(),
                     "-C must set bestCodeLength == true");
