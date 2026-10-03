@@ -1010,6 +1010,18 @@ public final class GLAEngine {
             }
         }
 
+        // Warn when the empty-cell fix was active yet some requested clusters
+        // were still left empty and dropped by compaction. The fix is meant to
+        // keep every requested cluster populated; a decrease means it could not
+        // recover all cells (e.g. only singletons remained).
+        int remaining = countNonEmptyClusters(partition);
+        if (config.alternateEmptyCellFix() && remaining < k) {
+            logger.warn(
+                    "Empty-cell fix enabled but {} of {} requested clusters "
+                            + "remained empty and were compacted away",
+                    remaining, k);
+        }
+
         // Compact the centroid array to match the non-empty cluster count.
         compactToNonEmpty(partition, centroids);
     }

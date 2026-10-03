@@ -44,6 +44,20 @@ public final class CumulativeClassifier {
     /** Random instance for vector ordering */
     private static final Random RANDOM = new Random();
 
+    /**
+     * Seeds the shared random instance used for vector ordering.
+     * <p>
+     * Package-private so tests can make {@link #shuffle(Vector[])}
+     * deterministic regardless of which other tests ran beforehand and in what
+     * order, since {@code RANDOM} is unseeded and shared across all calls.
+     *
+     * @param seed
+     *            the seed to initialise the shared random with
+     */
+    static void setSeed(long seed) {
+        RANDOM.setSeed(seed);
+    }
+
     private CumulativeClassifier() {
         // Utility class — prevent instantiation
     }

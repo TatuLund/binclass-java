@@ -191,8 +191,10 @@ public class ClassifyCommand implements BaseCommand {
         boolean bestCodeLength = opts.containsKey("-C");
         boolean roundedCentroids = opts.containsKey("-R");
 
+        // Default matches C's global `eDist distance_type = DT_L1_CL` (vars.c):
+        // when -f is omitted the search uses codelength-based L1 hybrid GLA.
         int distanceType = parseOptionInt(opts, "-f",
-                "Invalid distance type: " + opts.get("-f"));
+                "Invalid distance type: " + opts.get("-f"), 5);
 
         int maxIter = parseOptionInt(opts, "-n",
                 "Invalid max_iter: " + opts.get("-n"));

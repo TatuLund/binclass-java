@@ -729,6 +729,10 @@ class CumulativeClassifierTest {
             }
         }
 
+        // Seed the shared RNG so the shuffle order (and thus final class count)
+        // is deterministic regardless of which tests ran beforehand.
+        CumulativeClassifier.setSeed(42L);
+
         DynamicPartition result = CumulativeClassifier
                 .doCumulativeClassification(
                         vectors, CumulativeConfig.defaults()

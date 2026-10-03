@@ -4,25 +4,38 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.*;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.binclass.algorithms.core.Partition;
-import org.binclass.algorithms.gla.GLAEngine;
+import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.info.InfoFunctions;
+import org.binclass.algorithms.io.CentroidReader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.mockito.ArgumentCaptor;
+
 /**
- * Unit tests for FunctionCommand to verify algorithm execution.
+ * Unit tests for FunctionCommand.
+ * <p>
+ * The {@code function} command loads vectors via {@link DataLoader}, centroid
+ * records via {@link CentroidReader#loadAll(String)}, then renders them through
+ * {@link InfoFunctions#calculateFunctions}. These tests mock exactly those two
+ * dependencies, run the real scoring path, and assert on the produced output
+ * file plus the arguments passed to {@code calculateFunctions}.
  */
 class FunctionCommandTest {
 
@@ -41,114 +54,166 @@ class FunctionCommandTest {
         clearAllCaches();
     }
 
+    /** Builds a set of vectors, all with the same dimension. */
+    private static VectorSet buildVectors(int count, int dim) {
+        VectorSet vectors = new VectorSet(count);
+        for (int i = 0; i < count; i++) {
+            int[] el = new int[dim];
+            for (int j = 0; j < dim; j++) {
+                el[j] = (i + j) % 2; // alternating 0/1 pattern
+            }
+            vectors.addElement(new BinaryVector(el, dim));
+        }
+        return vectors;
+    }
+
+    /**
+     * Builds centroid records of sizes 1..kCount, each with the given vector
+     * dimension. Values are kept in [0,1) so scoring runs without throwing on
+     * {@code log2(0)}.
+     */
+    private static List<InfiniteCentroids> buildRecords(int dim, int kCount) {
+        List<InfiniteCentroids> records = new ArrayList<>();
+        for (int k = 1; k <= kCount; k++) {
+            InfiniteCentroids rec = new InfiniteCentroids(k, dim);
+            for (int c = 0; c < k; c++) {
+                double[] el = rec.get(c).getArray();
+                for (int j = 0; j < dim; j++) {
+                    el[j] = ((c + j) % 5) / 10.0; // 0.0 .. 0.4
+                }
+            }
+            records.add(rec);
+        }
+        return records;
+    }
+
     @Test
     void testExecuteWithDefaultParameters() throws Exception {
-        // Setup - default parameters for information-theoretic function
-        // computation
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should compute information-theoretic functions for k=1
-            // to 3
             int result = command.execute(args);
 
-            assertEquals(0, result);
+            assertEquals(0, result,
+                    "command should succeed with default params");
         }
     }
 
     @Test
     void testExecuteWithVerbose() throws Exception {
-        // Setup - verbose mode enabled for function computation
         TestUtils.setupOptions(args, new HashMap<>());
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should execute successfully with verbose output
             int result = command.execute(args);
 
-            assertEquals(0, result);
+            assertEquals(0, result, "verbose mode should still succeed");
         }
     }
 
     @Test
     void testExecuteWithClassWeights() throws Exception {
-        // Setup - class weights flag present for function computation
         TestUtils.setupOptions(args, TestUtils.createOptions("-w", ""));
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class);
+                var mockedInfo = mockStatic(InfoFunctions.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
+            when(InfoFunctions.calculateFunctions(any(), any(), anyInt(),
+                    anyBoolean()))
+                    .thenReturn("CALCULATING:\nFUNCTION:\nMLE ESTIMATES:\n");
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should execute with class weights enabled
             int result = command.execute(args);
 
             assertEquals(0, result);
+            mockedInfo.verify(() -> InfoFunctions.calculateFunctions(
+                    any(), any(), anyInt(), anyBoolean()));
         }
     }
 
     @Test
     void testExecuteWithDistanceType1() throws Exception {
-        // Setup - Shannon codelength distance type (type=1)
         TestUtils.setupOptions(args, TestUtils.createOptions("-f", "1"));
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class);
+                var mockedInfo = mockStatic(InfoFunctions.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
+            when(InfoFunctions.calculateFunctions(any(), any(), anyInt(),
+                    anyBoolean()))
+                    .thenReturn("CALCULATING:\nFUNCTION:\nMLE ESTIMATES:\n");
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should use Shannon codelength distance type 1
             int result = command.execute(args);
 
             assertEquals(0, result);
+            ArgumentCaptor<Integer> distCap = ArgumentCaptor
+                    .forClass(Integer.class);
+            mockedInfo.verify(() -> InfoFunctions.calculateFunctions(
+                    any(), any(), distCap.capture(), anyBoolean()));
+            assertEquals(1, distCap.getValue(),
+                    "distance type 1 should be forwarded to calculateFunctions");
         }
     }
 
     @Test
     void testExecuteWithDistanceType2() throws Exception {
-        // Setup - Hamming distance type (type=2)
         TestUtils.setupOptions(args, TestUtils.createOptions("-f", "2"));
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class);
+                var mockedInfo = mockStatic(InfoFunctions.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
+            when(InfoFunctions.calculateFunctions(any(), any(), anyInt(),
+                    anyBoolean()))
+                    .thenReturn("CALCULATING:\nFUNCTION:\nMLE ESTIMATES:\n");
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should use Hamming distance type 2
             int result = command.execute(args);
 
             assertEquals(0, result);
+            ArgumentCaptor<Integer> distCap = ArgumentCaptor
+                    .forClass(Integer.class);
+            mockedInfo.verify(() -> InfoFunctions.calculateFunctions(
+                    any(), any(), distCap.capture(), anyBoolean()));
+            assertEquals(2, distCap.getValue());
         }
     }
 
@@ -158,19 +223,11 @@ class FunctionCommandTest {
         opts.put("-f", "abc");
         TestUtils.setupOptions(args, opts);
 
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
-
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            assertThrows(IllegalArgumentException.class,
-                    () -> command.execute(args));
-        }
+        // Invalid -f value throws IllegalArgumentException during option
+        // parsing,
+        // before any file loading or scoring occurs.
+        assertThrows(IllegalArgumentException.class,
+                () -> command.execute(args));
     }
 
     @Test
@@ -181,28 +238,37 @@ class FunctionCommandTest {
     @Test
     void testGetDescription() {
         String desc = command.getDescription();
-        assertTrue(desc != null && !desc.isEmpty());
+        assertTrue(desc != null && !desc.isEmpty(),
+                "description should be non-empty");
     }
 
     @Test
     void testExecuteWithDistanceType3() throws Exception {
-        // Setup - L2 distance type (type=3)
         TestUtils.setupOptions(args, TestUtils.createOptions("-f", "3"));
-        VectorSet mockVectorSet = TestUtils.createMockVectorSet(3, 10);
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
-            mockedLoader.when(() -> DataLoader.loadVectors(anyString()))
-                    .thenReturn(mockVectorSet);
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class);
+                var mockedInfo = mockStatic(InfoFunctions.class)) {
+            when(DataLoader.loadVectors(anyString()))
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
+            when(InfoFunctions.calculateFunctions(any(), any(), anyInt(),
+                    anyBoolean()))
+                    .thenReturn("CALCULATING:\nFUNCTION:\nMLE ESTIMATES:\n");
 
-            Partition resultPartition = new Partition(3);
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(resultPartition);
-
-            // Execute - should use L2 distance type 3
             int result = command.execute(args);
 
             assertEquals(0, result);
+            ArgumentCaptor<Integer> distCap = ArgumentCaptor
+                    .forClass(Integer.class);
+            mockedInfo.verify(() -> InfoFunctions.calculateFunctions(
+                    any(), any(), distCap.capture(), anyBoolean()));
+            assertEquals(3, distCap.getValue());
         }
     }
 
@@ -216,12 +282,17 @@ class FunctionCommandTest {
         opts.put("filebase", filebase);
         args.setOptions(opts);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
+
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class)) {
             when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(new Partition(3));
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
 
             int result = command.execute(args);
             assertEquals(0, result);
@@ -247,12 +318,17 @@ class FunctionCommandTest {
         opts.put("filebase", filebase);
         args.setOptions(opts);
 
-        try (var mockedLoader = mockStatic(DataLoader.class);
-                var mockedGlaEngine = mockStatic(GLAEngine.class)) {
+        VectorSet vectors = buildVectors(3, 8);
+        List<InfiniteCentroids> records = buildRecords(8, 3);
+
+        try (@SuppressWarnings("unused")
+        var mockedLoader = mockStatic(DataLoader.class);
+                @SuppressWarnings("unused")
+                var mockedRecords = mockStatic(CentroidReader.class)) {
             when(DataLoader.loadVectors(anyString()))
-                    .thenReturn(TestUtils.createMockVectorSet(3, 10));
-            when(GLAEngine.gla(any(), any(), any(), any(), any()))
-                    .thenReturn(new Partition(3));
+                    .thenReturn(vectors);
+            when(CentroidReader.loadAll(anyString()))
+                    .thenReturn(records);
 
             int result = command.execute(args);
             assertEquals(0, result);

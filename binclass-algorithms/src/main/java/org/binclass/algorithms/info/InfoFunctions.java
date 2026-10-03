@@ -9,12 +9,15 @@ import java.util.Locale;
 import java.util.Objects;
 
 import org.binclass.algorithms.core.AlgorithmConfig;
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.dist.NearestNeighbor;
 import org.binclass.algorithms.util.MathUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Computes information-theoretic functions for data analysis and visualization.
@@ -39,6 +42,9 @@ import org.binclass.algorithms.util.MathUtils;
  * </p>
  */
 public final class InfoFunctions {
+
+    private static final Logger logger = LoggerFactory
+            .getLogger(InfoFunctions.class);
 
     private static final String DATA_FILE_MUST_NOT_BE_NULL = "Data file path must not be null";
     private static final String OUTPUT_FILE_MUST_NOT_BE_NULL = "Output file path must not be null";
@@ -137,10 +143,14 @@ public final class InfoFunctions {
      * {@code a*log(x) + bx + c}.
      * </p>
      * <p>
-     * A record with {@code R} real clusters is scored by passing
-     * {@code k = R + 1} to the stochastic-complexity routine (Java's
-     * {@link Partition} keeps no spare index-0 slot like C) and
-     * displayed/stored at index {@code R}.
+     * Each record's partition is trimmed to the clusters that actually received
+     * vectors, then scored by passing {@code k = actual} (the number of
+     * non-empty clusters) to the stochastic-complexity routine, matching C's
+     * {@code calculate_functions()} which passes the centroid count directly.
+     * The emptiness check then requires classes 1..actual-1 to be non-empty;
+     * because empty classes are trimmed away first, a record no longer yields
+     * Infinity merely because some centroids went unused. Displayed/stored at
+     * index {@code actual}.
      * </p>
      *
      * @param records
@@ -223,6 +233,27 @@ public final class InfoFunctions {
     }
 
     /**
+     * Immutable result of scoring one record: the four measures plus the number
+     * of non-empty clusters after trimming empty classes.
+     */
+    private static final class RecordScore {
+        final double scu;
+        final double scj;
+        final double cl2;
+        final double cl;
+        final int actualClusters;
+
+        RecordScore(double scu, double scj, double cl2, double cl,
+                int actualClusters) {
+            this.scu = scu;
+            this.scj = scj;
+            this.cl2 = cl2;
+            this.cl = cl;
+            this.actualClusters = actualClusters;
+        }
+    }
+
+    /**
      * Formats a score for output, rendering the unassigned sentinel
      * {@link Double#MAX_VALUE} as {@code Infinity} so empty clusters and
      * missing measures print consistently instead of as a 309-digit number.
@@ -252,29 +283,79 @@ public final class InfoFunctions {
     /**
      * Assigns vectors to nearest centroids for one record and computes the four
      * information-theoretic measures (SC uniform, SC Jeffreys, Shannon entropy,
-     * average codelength). Returns the values in that order, or {@code null}
-     * when the record has fewer than one cluster.
+     * average codelength). Returns {@code null} when the record has fewer than
+     * one cluster, or a {@link RecordScore} whose actual-cluster count is zero
+     * when every class ends up empty after assignment.
      */
-    private static double[] scoreRecord(InfiniteCentroids c, VectorSet vectors,
+    private static RecordScore scoreRecord(InfiniteCentroids c,
+            VectorSet vectors,
             int distanceType, boolean useClassWeights) {
         int r = c.size();
         if (r < 1) {
-            return new double[0];
+            return new RecordScore(Double.MAX_VALUE, Double.MAX_VALUE,
+                    Double.MAX_VALUE, Double.MAX_VALUE, 0);
         }
         int l = c.get(0).getLength();
 
         Partition partition = new Partition(r);
         NearestNeighbor.dispatch(vectors, partition, c, distanceType,
                 useClassWeights);
+        if (partition.getSize() != vectors.size()) {
+            throw new IllegalStateException(
+                    "Partition size does not match number of vectors");
+        }
 
-        double scuVal = score(partition, r + 1, l, false);
-        double scjVal = score(partition, r + 1, l, true);
+        // Count the clusters that actually received vectors. Empty classes
+        // (which happen when nearest-neighbor assignment leaves some centroids
+        // unused) are trimmed away so SC is computed on the real clustering
+        // rather than being reported as Infinity for an empty class. Mirrors
+        // RangeSearch, which scores a solution of `actualClusters` non-empty
+        // clusters instead of failing on the first empty one.
+        int actual = 0;
+        for (int i = 1; i <= r; i++) {
+            if (partition.getSize(i) > 0) {
+                actual++;
+            }
+        }
+        if (actual == 0) {
+            return new RecordScore(Double.MAX_VALUE, Double.MAX_VALUE,
+                    Double.MAX_VALUE, Double.MAX_VALUE, 0);
+        }
+
+        // Build a compact partition + centroid pair holding only the non-empty
+        // classes. Values and weights are copied from the source centroids so
+        // the codelength and Shannon-entropy measures stay consistent with the
+        // original records.
+        Partition trimmed = new Partition(actual);
+        double[][] data = new double[actual][l];
+        int[] weightIndex = new int[actual];
+        for (int i = 1, w = 0; i <= r; i++) {
+            if (partition.getSize(i) > 0) {
+                for (BinaryVector bv : partition.getElements(i)) {
+                    trimmed.addElement(w + 1, bv);
+                }
+                System.arraycopy(c.get(i - 1).getArray(), 0, data[w], 0, l);
+                weightIndex[w] = i - 1;
+                w++;
+            }
+        }
+        InfiniteCentroids tc = new InfiniteCentroids(data, actual);
+        for (int j = 0; j < actual; j++) {
+            tc.get(j).setWeight(c.get(weightIndex[j]).getWeight());
+        }
+
+        // Score the trimmed partition. A single-cluster solution is scored with
+        // k = 2 so its one class participates in the emptiness check, matching
+        // how range search handles a lone cluster and avoiding an unbounded SC.
+        int scoreK = Math.max(actual, 2);
+        double scuVal = score(trimmed, scoreK, l, false);
+        double scjVal = score(trimmed, scoreK, l, true);
         double cl2Val = guard(() -> DistanceCalculator.shannonEntropy(
-                partition, c));
+                trimmed, tc));
         double clVal = guard(() -> DistanceCalculator.averageCodelength(
-                partition, c));
+                trimmed, tc));
 
-        return new double[] { scuVal, scjVal, cl2Val, clVal };
+        return new RecordScore(scuVal, scjVal, cl2Val, clVal, actual);
     }
 
     /**
@@ -286,28 +367,47 @@ public final class InfoFunctions {
             List<InfiniteCentroids> records, VectorSet vectors,
             int distanceType,
             boolean useClassWeights, ScArrays sc) {
+        // Snapshot the vector count once. Each record's nearest-neighbor
+        // assignment reuses the same shared set; guard against a dispatch path
+        // that mutates it (e.g. empties it), which would make later records
+        // score partitions inconsistent with the search phase.
+        int expectedSize = vectors.size();
+
         for (InfiniteCentroids c : records) {
             int r = c.size(); // real clusters, displayed/stored at this index
             if (r < 1 || r > maxK(records)) {
                 continue;
             }
 
-            double[] q = scoreRecord(c, vectors, distanceType, useClassWeights);
-            sb.append(
-                    String.format("%4d: %s %s %s %s%n", r, fmt(q[0]), fmt(q[1]),
-                            fmt(q[2]), fmt(q[3])));
+            RecordScore rs = scoreRecord(c, vectors, distanceType,
+                    useClassWeights);
+            if (vectors.size() != expectedSize) {
+                throw new IllegalStateException(
+                        "Vector set changed during scoring: expected "
+                                + expectedSize + " but found "
+                                + vectors.size());
+            }
+            // A record with no non-empty clusters scores nothing.
+            if (rs.actualClusters == 0) {
+                continue;
+            }
 
-            if (q[0] < sc.scu[r]) {
-                sc.scu[r] = q[0];
+            int idx = rs.actualClusters; // actual cluster count after trimming
+            sb.append(
+                    String.format("%4d: %s %s %s %s%n", idx, fmt(rs.scu),
+                            fmt(rs.scj), fmt(rs.cl2), fmt(rs.cl)));
+
+            if (rs.scu < sc.scu[idx]) {
+                sc.scu[idx] = rs.scu;
             }
-            if (q[1] < sc.scj[r]) {
-                sc.scj[r] = q[1];
+            if (rs.scj < sc.scj[idx]) {
+                sc.scj[idx] = rs.scj;
             }
-            if (q[2] < sc.cl2[r]) {
-                sc.cl2[r] = q[2];
+            if (rs.cl2 < sc.cl2[idx]) {
+                sc.cl2[idx] = rs.cl2;
             }
-            if (q[3] < sc.cl[r]) {
-                sc.cl[r] = q[3];
+            if (rs.cl < sc.cl[idx]) {
+                sc.cl[idx] = rs.cl;
             }
         }
     }

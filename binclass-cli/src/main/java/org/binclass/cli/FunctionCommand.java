@@ -38,8 +38,10 @@ public class FunctionCommand implements BaseCommand {
         setupVerboseMode(opts);
         boolean classWeights = opts.containsKey("-w");
 
+        // Default matches C's global `eDist distance_type = DT_L1_CL` (vars.c):
+        // when -f is omitted the function uses codelength-based L1 hybrid GLA.
         int distanceType = parseOptionInt(opts, "-f",
-                "Invalid distance type: " + opts.get("-f"));
+                "Invalid distance type: " + opts.get("-f"), 5);
 
         String filebase = opts.getOrDefault("filebase", args.command());
 
