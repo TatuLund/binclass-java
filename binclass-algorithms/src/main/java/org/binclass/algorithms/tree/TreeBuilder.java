@@ -98,7 +98,8 @@ public final class TreeBuilder {
         for (int i = 0; i < k; i++) {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
-            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to 1-based
+            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to
+                                                            // 1-based
             nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
                     l, jeffreysPrior), "C" + (i + 1));
         }
@@ -252,7 +253,8 @@ public final class TreeBuilder {
         for (int i = 0; i < k; i++) {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
-            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to 1-based
+            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to
+                                                            // 1-based
             nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
                     l, jeffreysPrior), "C" + (i + 1));
         }

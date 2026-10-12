@@ -316,7 +316,8 @@ public class TestAlgorithmsCommand implements BaseCommand {
                 }
             }
             // Keep at least one member in the source cluster.
-            if (bestCluster != cluster && partition.getClusterSize(cluster) > 1) {
+            if (bestCluster != cluster
+                    && partition.getClusterSize(cluster) > 1) {
                 partition.removeElement(cluster, bv);
                 partition.addElement(bestCluster, bv);
                 moved = true;

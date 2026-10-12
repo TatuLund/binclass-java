@@ -208,7 +208,8 @@ public final class DynamicPartition {
         for (int i = 0; i < k; i++) {
             if (i > 0)
                 sb.append(", ");
-            sb.append(i + 1).append(": ").append(partition.getClusterSize(i + 1))
+            sb.append(i + 1).append(": ")
+                    .append(partition.getClusterSize(i + 1))
                     .append(" elements");
         }
         return sb.append("}").toString();
