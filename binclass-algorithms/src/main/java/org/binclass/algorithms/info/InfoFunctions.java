@@ -300,7 +300,7 @@ public final class InfoFunctions {
         Partition partition = new Partition(r);
         NearestNeighbor.dispatch(vectors, partition, c, distanceType,
                 useClassWeights);
-        if (partition.getSize() != vectors.size()) {
+        if (partition.getNumberOfVectors() != vectors.size()) {
             throw new IllegalStateException(
                     "Partition size does not match number of vectors");
         }
@@ -313,7 +313,7 @@ public final class InfoFunctions {
         // clusters instead of failing on the first empty one.
         int actual = 0;
         for (int i = 1; i <= r; i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 actual++;
             }
         }
@@ -330,7 +330,7 @@ public final class InfoFunctions {
         double[][] data = new double[actual][l];
         int[] weightIndex = new int[actual];
         for (int i = 1, w = 0; i <= r; i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 for (BinaryVector bv : partition.getElements(i)) {
                     trimmed.addElement(w + 1, bv);
                 }

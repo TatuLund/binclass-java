@@ -28,7 +28,7 @@ class PartitionTest {
 
         p.addElement(1, v1);
 
-        assertEquals(1, p.getSize(1));
+        assertEquals(1, p.getClusterSize(1));
         assertTrue(p.contains(1, v1));
     }
 
@@ -40,10 +40,10 @@ class PartitionTest {
         BinaryVector v1 = new BinaryVector(el1, 2);
 
         p.addElement(1, v1);
-        assertEquals(1, p.getSize(1));
+        assertEquals(1, p.getClusterSize(1));
 
         p.removeElement(1, v1);
-        assertEquals(0, p.getSize(1));
+        assertEquals(0, p.getClusterSize(1));
     }
 
     @Test
@@ -86,9 +86,9 @@ class PartitionTest {
         p.addElement(1, v1);
         p.addElement(2, v2);
 
-        assertEquals(1, p.getSize(1));
-        assertEquals(1, p.getSize(2));
-        assertEquals(0, p.getSize(3));
+        assertEquals(1, p.getClusterSize(1));
+        assertEquals(1, p.getClusterSize(2));
+        assertEquals(0, p.getClusterSize(3));
     }
 
     @Test
@@ -99,8 +99,8 @@ class PartitionTest {
                 () -> p.addElement(0, null));
         assertThrows(IndexOutOfBoundsException.class,
                 () -> p.addElement(3, null));
-        assertThrows(IndexOutOfBoundsException.class, () -> p.getSize(0));
-        assertThrows(IndexOutOfBoundsException.class, () -> p.getSize(3));
+        assertThrows(IndexOutOfBoundsException.class, () -> p.getClusterSize(0));
+        assertThrows(IndexOutOfBoundsException.class, () -> p.getClusterSize(3));
     }
 
     @Test
@@ -135,7 +135,7 @@ class PartitionTest {
 
         p.setSize(2); // shrink: the empty middle cluster must be compacted away
 
-        assertEquals(1, p.getSize(1));
+        assertEquals(1, p.getClusterSize(1));
         assertTrue(p.contains(2, v3),
                 "vectors from a dropped slot stay accessible after compaction");
     }
@@ -155,11 +155,11 @@ class PartitionTest {
                             // down
 
         assertEquals(3, p.size());
-        assertEquals(1, p.getSize(1), "cluster 1 keeps its vector");
+        assertEquals(1, p.getClusterSize(1), "cluster 1 keeps its vector");
         assertTrue(p.contains(3, v3),
                 "vector from a later cluster shifts down into the gap");
 
-        int total = p.getSize(1) + p.getSize(2) + p.getSize(3);
+        int total = p.getClusterSize(1) + p.getClusterSize(2) + p.getClusterSize(3);
         assertEquals(2, total,
                 "no vectors lost when removing an empty cluster");
     }
@@ -193,7 +193,7 @@ class PartitionTest {
         assertTrue(c1 != c2 && c2 != c3 && c1 != c3,
                 "clusters are distinct objects");
 
-        int total = p.getSize(1) + p.getSize(2) + p.getSize(3) + p.getSize(4);
+        int total = p.getClusterSize(1) + p.getClusterSize(2) + p.getClusterSize(3) + p.getClusterSize(4);
         assertEquals(2, total,
                 "sum of per-cluster sizes equals number of surviving vectors (v1 + survivor)");
     }

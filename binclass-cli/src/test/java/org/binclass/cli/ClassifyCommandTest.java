@@ -1040,7 +1040,7 @@ class ClassifyCommandTest {
             // Every vector is now assigned to some cluster (no loss).
             int total = 0;
             for (int i = 1; i <= empty.size(); i++) {
-                total += empty.getSize(i);
+                total += empty.getClusterSize(i);
             }
             assertEquals(N_VECTORS, total,
                     "all vectors must be assigned after population");

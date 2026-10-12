@@ -110,7 +110,7 @@ public final class JoinGLA {
 
         logger.debug("Initial k={}, partition.size()={}", k, P.size());
         for (int i = 1; i <= P.size(); i++) {
-            logger.debug("  Cluster {}: size={}", i, P.getSize(i));
+            logger.debug("  Cluster {}: size={}", i, P.getClusterSize(i));
         }
 
         double[] dmin = new double[1];
@@ -125,7 +125,7 @@ public final class JoinGLA {
                 "After GLA - k={}, partition.size()={}, centroids.size()={}",
                 k, P.size(), C.size());
         for (int i = 1; i <= P.size(); i++) {
-            logger.debug("  Cluster {}: size={}", i, P.getSize(i));
+            logger.debug("  Cluster {}: size={}", i, P.getClusterSize(i));
         }
         // MDL distortion-based cost. The Shannon-prior variant returns a
         // per-vector average that grows monotonically with k (class-labeling

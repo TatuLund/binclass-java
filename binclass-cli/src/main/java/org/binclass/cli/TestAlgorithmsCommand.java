@@ -298,7 +298,7 @@ public class TestAlgorithmsCommand implements BaseCommand {
      */
     private boolean refineCluster(Partition partition, int cluster,
             List<int[]> centroids) {
-        if (partition.getSize(cluster) <= 2) {
+        if (partition.getClusterSize(cluster) <= 2) {
             return false;
         }
         List<BinaryVector> members = vectorSetToList(
@@ -316,7 +316,7 @@ public class TestAlgorithmsCommand implements BaseCommand {
                 }
             }
             // Keep at least one member in the source cluster.
-            if (bestCluster != cluster && partition.getSize(cluster) > 1) {
+            if (bestCluster != cluster && partition.getClusterSize(cluster) > 1) {
                 partition.removeElement(cluster, bv);
                 partition.addElement(bestCluster, bv);
                 moved = true;
@@ -651,7 +651,7 @@ public class TestAlgorithmsCommand implements BaseCommand {
     private double stochasticComplexitySafe(Partition partition, int k,
             int length) {
         for (int c = 1; c < k; c++) {
-            if (partition.getSize(c) == 0) {
+            if (partition.getClusterSize(c) == 0) {
                 return Double.NaN;
             }
         }

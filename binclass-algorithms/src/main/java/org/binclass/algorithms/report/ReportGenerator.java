@@ -146,7 +146,7 @@ public final class ReportGenerator {
     private static void writeClassSection(StringBuilder sb, Partition partition,
             InfiniteCentroids centroids, ReportOptions options, int i, int k) {
         sb.append(String.format("Class: %d / %d%n", i, k - 1));
-        sb.append(String.format("Size: %d%n", partition.getSize(i)));
+        sb.append(String.format("Size: %d%n", partition.getClusterSize(i)));
 
         // Compute class nearness with other clusters when the nearness section
         // is enabled (RP_NEARNESS)
@@ -206,8 +206,8 @@ public final class ReportGenerator {
 
         for (int i = 1; i <= k; i++) {
             // Compare cluster sizes as a proxy for nearness
-            int size1 = partition1.getSize(i);
-            int size2 = partition2.getSize(i);
+            int size1 = partition1.getClusterSize(i);
+            int size2 = partition2.getClusterSize(i);
             if (size1 > 0 && size2 > 0) {
                 totalDist += Math.abs(size1 - size2);
                 count++;

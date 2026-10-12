@@ -231,9 +231,9 @@ class GLAEngineTest {
 
         // Verify all clusters are represented (1-based) - check each cluster
         // has elements
-        assertTrue(result.getSize(1) > 0, "Cluster 1 should have elements");
-        assertTrue(result.getSize(2) > 0, "Cluster 2 should have elements");
-        assertTrue(result.getSize(3) > 0, "Cluster 3 should have elements");
+        assertTrue(result.getClusterSize(1) > 0, "Cluster 1 should have elements");
+        assertTrue(result.getClusterSize(2) > 0, "Cluster 2 should have elements");
+        assertTrue(result.getClusterSize(3) > 0, "Cluster 3 should have elements");
     }
 
     @Test
@@ -730,7 +730,7 @@ class GLAEngineTest {
 
         GLAEngine.removeEmpty(partition, centroids, configFor(false, false));
 
-        assertTrue(partition.getSize(2) >= 1, "empty cluster should be filled");
+        assertTrue(partition.getClusterSize(2) >= 1, "empty cluster should be filled");
         VectorSet all = new VectorSet();
         partition.copyAllTo(all);
         assertEquals(4, all.size(), "all vectors must be preserved");
@@ -860,7 +860,7 @@ class GLAEngineTest {
 
         GLAEngine.removeEmpty(partition, centroids, configFor(false, true));
 
-        assertTrue(partition.getSize(2) >= 1, "empty cluster should be filled");
+        assertTrue(partition.getClusterSize(2) >= 1, "empty cluster should be filled");
         VectorSet all = new VectorSet();
         partition.copyAllTo(all);
         assertEquals(4, all.size(),

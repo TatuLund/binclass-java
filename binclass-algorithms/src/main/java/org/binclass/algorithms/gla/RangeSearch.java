@@ -417,7 +417,7 @@ public final class RangeSearch {
             // Use actual number of non-empty clusters for accurate SC
             int actualClusters = 0;
             for (int i = 1; i <= numClusters; i++) {
-                if (partition.getSize(i) > 0) {
+                if (partition.getClusterSize(i) > 0) {
                     actualClusters++;
                 }
             }
@@ -509,7 +509,7 @@ public final class RangeSearch {
             Centroid centroid = centroids.get(i);
             int clusterIdx = Math.min(i + 1, partition.size()); // 1-based,
                                                                 // bounded
-            int clusterSize = partition.getSize(clusterIdx);
+            int clusterSize = partition.getClusterSize(clusterIdx);
             double entropy = calculateEntropy(centroid);
             log.debug("Cluster {}: size={}, entropy={}", i + 1, clusterSize,
                     entropy);

@@ -389,7 +389,7 @@ public final class AutomaticSearch {
 
         int actualClusters = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 actualClusters++;
             }
         }

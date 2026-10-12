@@ -199,7 +199,7 @@ public final class GLAEngine {
         logger.info("=== Centroid Information ===");
         if (logger.isInfoEnabled()) {
             for (int i = 1; i <= partition.size(); i++) {
-                int size = partition.getSize(i);
+                int size = partition.getClusterSize(i);
                 Centroid centroid = centroids.get(i - 1);
                 double entropy = calculateEntropy(centroid, config.rounded());
 
@@ -1003,7 +1003,7 @@ public final class GLAEngine {
         // empty-cell fix is enabled (mirrors C inf_remove_empty()).
         if (config.alternateEmptyCellFix() || config.weights()) {
             for (int j = 1; j <= k; j++) {
-                if (partition.getSize(j) > 0) {
+                if (partition.getClusterSize(j) > 0) {
                     recomputeCentroids(partition, centroids, config.rounded(),
                             config.n());
                 }
@@ -1058,9 +1058,9 @@ public final class GLAEngine {
         // terminates instead of looping forever.
         int i = 1;
         while (i <= k && i < partition.size()) {
-            if (partition.getSize(i) == 0) {
+            if (partition.getClusterSize(i) == 0) {
                 fillEmptyCell(partition, centroids, config, l, i);
-                if (partition.getSize(i) == 0) {
+                if (partition.getClusterSize(i) == 0) {
                     i++;
                 }
             } else {
@@ -1090,7 +1090,7 @@ public final class GLAEngine {
         int bestDist = -1;
         BinaryVector best = null;
         for (int cls = 1; cls < k; cls++) {
-            if (partition.getSize(cls) <= 1) {
+            if (partition.getClusterSize(cls) <= 1) {
                 continue;
             }
             VectorSet cluster = partition.getElements(cls);
@@ -1128,7 +1128,7 @@ public final class GLAEngine {
         int bestClass = 0;
         double bestDistortion = -1.0;
         for (int cls = 1; cls < k; cls++) {
-            if (partition.getSize(cls) <= 1) {
+            if (partition.getClusterSize(cls) <= 1) {
                 continue;
             }
             double distortion = DistanceCalculator.classDistortion(
@@ -1295,7 +1295,7 @@ public final class GLAEngine {
     private static int countNonEmptyClusters(Partition partition) {
         int nonEmpty = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 nonEmpty++;
             }
         }
@@ -1321,7 +1321,7 @@ public final class GLAEngine {
             InfiniteCentroids centroids, int newK) {
         int writeIdx = 0;
         for (int readIdx = 1; readIdx <= partition.size(); readIdx++) {
-            if (partition.getSize(readIdx) > 0) {
+            if (partition.getClusterSize(readIdx) > 0) {
                 if (writeIdx + 1 != readIdx) {
                     centroids.set(writeIdx, centroids.get(readIdx - 1));
                 }

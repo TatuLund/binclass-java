@@ -68,7 +68,7 @@ class CutEngineTest {
         Partition result = CutEngine.simpleIntersection(p1, p2);
 
         assertEquals(1, result.size());
-        assertTrue(result.getSize(1) > 0);
+        assertTrue(result.getClusterSize(1) > 0);
     }
 
     @Test
@@ -96,8 +96,8 @@ class CutEngineTest {
         Partition result = CutEngine.maximalInterval(p1, p2);
 
         assertEquals(2, result.size());
-        assertEquals(1, result.getSize(1));
-        assertEquals(1, result.getSize(2));
+        assertEquals(1, result.getClusterSize(1));
+        assertEquals(1, result.getClusterSize(2));
     }
 
     @Test
@@ -199,7 +199,7 @@ class CutEngineTest {
     private static int totalElements(Partition partition) {
         int total = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            total += partition.getSize(i);
+            total += partition.getClusterSize(i);
         }
         return total;
     }

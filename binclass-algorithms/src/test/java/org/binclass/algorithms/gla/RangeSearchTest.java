@@ -112,7 +112,7 @@ class RangeSearchTest {
             int expectedSize) {
         int total = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            total += partition.getSize(i);
+            total += partition.getClusterSize(i);
         }
         assertEquals(expectedSize, total,
                 "every vector must be assigned to exactly one cluster");

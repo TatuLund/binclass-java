@@ -294,7 +294,7 @@ class AutomaticSearchTest {
     private static int totalPartitionSize(Partition p) {
         int tot = 0;
         for (int i = 1; i <= p.size(); i++) {
-            tot += p.getSize(i);
+            tot += p.getClusterSize(i);
         }
         return tot;
     }

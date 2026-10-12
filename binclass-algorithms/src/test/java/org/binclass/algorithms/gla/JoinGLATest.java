@@ -398,7 +398,7 @@ class JoinGLATest {
 
         int total = 0;
         for (int i = 1; i <= result.size(); i++) {
-            total += result.getSize(i);
+            total += result.getClusterSize(i);
         }
 
         assertEquals(inputCount, total,
@@ -429,7 +429,7 @@ class JoinGLATest {
 
         int total = 0;
         for (int i = 1; i <= result.size(); i++) {
-            total += result.getSize(i);
+            total += result.getClusterSize(i);
         }
 
         assertEquals(inputCount, total,
@@ -745,7 +745,7 @@ class JoinGLATest {
         assertNotNull(result);
         int total = 0;
         for (int i = 1; i <= result.size(); i++) {
-            total += result.getSize(i);
+            total += result.getClusterSize(i);
         }
         assertEquals(n, total,
                 "Sum of cluster sizes must equal input vector count");
@@ -800,7 +800,7 @@ class JoinGLATest {
         assertTrue(result.size() >= 1 && result.size() <= n,
                 "Result cluster count should be within [1, n]");
         for (int i = 1; i <= result.size(); i++) {
-            assertTrue(result.getSize(i) >= 0,
+            assertTrue(result.getClusterSize(i) >= 0,
                     "Cluster size must be non-negative");
         }
     }

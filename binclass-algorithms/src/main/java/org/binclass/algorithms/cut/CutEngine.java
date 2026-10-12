@@ -292,7 +292,7 @@ public final class CutEngine {
         int writeIdx = 0;
 
         for (int readIdx = 1; readIdx <= k; readIdx++) {
-            if (partition.getSize(readIdx) > 0) {
+            if (partition.getClusterSize(readIdx) > 0) {
                 if (writeIdx != readIdx) {
                     for (BinaryVector bv : partition.getElements(readIdx)) {
                         partition.addElement(writeIdx + 1, bv);
@@ -380,7 +380,7 @@ public final class CutEngine {
         Partition result = new Partition(k1);
 
         for (int i = 1; i <= k1; i++) {
-            if (c1.getSize(i) == 0) {
+            if (c1.getClusterSize(i) == 0) {
                 continue;
             }
             mergeClusterWithCounterparts(c1, c2, i, result);
@@ -398,7 +398,7 @@ public final class CutEngine {
     private static void mergeClusterWithCounterparts(Partition c1,
             Partition c2, int i, Partition result) {
         for (int j = 1; j <= c2.size(); j++) {
-            if (c2.getSize(j) == 0) {
+            if (c2.getClusterSize(j) == 0) {
                 continue;
             }
             for (BinaryVector bv : c1.getElements(i)) {

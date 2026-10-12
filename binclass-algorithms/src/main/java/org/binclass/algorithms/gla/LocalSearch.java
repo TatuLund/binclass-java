@@ -299,7 +299,7 @@ public final class LocalSearch {
         int newK = Math.min(k, partition.size());
         int s = 0;
         for (int i = 1; i <= newK; i++) {
-            s += partition.getSize(i);
+            s += partition.getClusterSize(i);
         }
         for (int i = 1; i <= newK; i++) {
             infAverage(partition.getElements(i), centroids.get(i - 1), true, s);
@@ -435,7 +435,7 @@ public final class LocalSearch {
         int[] size = new int[k];
         double[] distortion = new double[k];
         for (int i = 1; i < k; i++) {
-            size[i] = partition.getSize(i);
+            size[i] = partition.getClusterSize(i);
             distortion[i] = DistanceCalculator.classDistortion(
                     partition.getElements(i), centroids.get(i - 1));
         }
@@ -559,7 +559,7 @@ public final class LocalSearch {
 
         int[] size = new int[k];
         for (int i = 1; i < k; i++) {
-            size[i] = partition.getSize(i);
+            size[i] = partition.getClusterSize(i);
         }
         int imax = 1;
         int max = 0;
@@ -811,7 +811,7 @@ public final class LocalSearch {
     private static int countNonEmptyClusters(Partition partition) {
         int count = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 count++;
             }
         }
@@ -929,7 +929,7 @@ public final class LocalSearch {
      */
     private static boolean isEmptyPartition(Partition partition) {
         for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 return false;
             }
         }

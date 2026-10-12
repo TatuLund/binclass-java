@@ -38,7 +38,7 @@ class ClassifierTest {
                 centroids);
 
         assertNotNull(result);
-        assertEquals(2, result.getSize(1)); // Both vectors in single cluster
+        assertEquals(2, result.getClusterSize(1)); // Both vectors in single cluster
     }
 
     @Test
@@ -75,13 +75,13 @@ class ClassifierTest {
                 centroids);
 
         assertNotNull(result);
-        assertEquals(4, result.getSize(1) + result.getSize(2)); // All vectors
+        assertEquals(4, result.getClusterSize(1) + result.getClusterSize(2)); // All vectors
                                                                 // assigned
 
         // Verify cluster assignments (1-based) - check that both clusters have
         // elements
-        assertTrue(result.getSize(1) > 0, "Cluster 1 should have elements");
-        assertTrue(result.getSize(2) > 0, "Cluster 2 should have elements");
+        assertTrue(result.getClusterSize(1) > 0, "Cluster 1 should have elements");
+        assertTrue(result.getClusterSize(2) > 0, "Cluster 2 should have elements");
     }
 
     @Test
@@ -165,7 +165,7 @@ class ClassifierTest {
                 centroids);
 
         assertNotNull(result);
-        assertEquals(0, result.getSize(1)); // No vectors in the single cluster
+        assertEquals(0, result.getClusterSize(1)); // No vectors in the single cluster
     }
 
     @Test
@@ -198,14 +198,14 @@ class ClassifierTest {
 
         assertNotNull(result);
         assertEquals(3,
-                result.getSize(1) + result.getSize(2) + result.getSize(3)); // All
+                result.getClusterSize(1) + result.getClusterSize(2) + result.getClusterSize(3)); // All
                                                                             // vectors
                                                                             // assigned
 
         // Verify all clusters are represented (1-based) - check each cluster
         // has elements
-        assertTrue(result.getSize(1) > 0, "Cluster 1 should have elements");
-        assertTrue(result.getSize(2) > 0, "Cluster 2 should have elements");
-        assertTrue(result.getSize(3) > 0, "Cluster 3 should have elements");
+        assertTrue(result.getClusterSize(1) > 0, "Cluster 1 should have elements");
+        assertTrue(result.getClusterSize(2) > 0, "Cluster 2 should have elements");
+        assertTrue(result.getClusterSize(3) > 0, "Cluster 3 should have elements");
     }
 }

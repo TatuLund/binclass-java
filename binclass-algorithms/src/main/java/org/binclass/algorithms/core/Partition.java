@@ -170,10 +170,8 @@ public final class Partition {
      * @param i
      *            the 1-based cluster index (1..k)
      * @return number of elements in that cluster
-     * @deprecated Use {@link #getElements(int)} instead.
      */
-    @Deprecated(forRemoval = true)
-    public int getSize(int i) {
+    public int getClusterSize(int i) {
         checkClusterIndex(i);
         return clusters[i - 1].size();
     }
@@ -184,7 +182,7 @@ public final class Partition {
      *
      * @return total number of elements in all clusters
      */
-    public int getSize() {
+    public int getNumberOfVectors() {
         int totalSize = 0;
         for (int i = 0; i < k; i++) {
             totalSize += clusters[i].size();

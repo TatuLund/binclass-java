@@ -98,7 +98,7 @@ public final class TreeBuilder {
         for (int i = 0; i < k; i++) {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
-            nodeSizes[i] = partition.getSize(i + 1); // Convert to 1-based
+            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to 1-based
             nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
                     l, jeffreysPrior), "C" + (i + 1));
         }
@@ -252,7 +252,7 @@ public final class TreeBuilder {
         for (int i = 0; i < k; i++) {
             Centroid c = centroids.get(i);
             nodeCentroids[i] = c.getArray().clone();
-            nodeSizes[i] = partition.getSize(i + 1); // Convert to 1-based
+            nodeSizes[i] = partition.getClusterSize(i + 1); // Convert to 1-based
             nodes[i] = new TreeNode(leafStochasticComplexity(partition, i + 1,
                     l, jeffreysPrior), "C" + (i + 1));
         }
@@ -534,7 +534,7 @@ public final class TreeBuilder {
      */
     private static double leafStochasticComplexity(Partition partition,
             int clusterIndex, int l, boolean jeffreysPrior) {
-        if (partition.getSize(clusterIndex) == 0) {
+        if (partition.getClusterSize(clusterIndex) == 0) {
             return 0.0;
         }
         Partition single = new Partition(2);
@@ -567,7 +567,7 @@ public final class TreeBuilder {
     private static double safeStochasticComplexity(Partition partition,
             int k, int l, boolean jeffreysPrior) {
         for (int j = 1; j < k; j++) {
-            if (partition.getSize(j) == 0) {
+            if (partition.getClusterSize(j) == 0) {
                 return 0.0;
             }
         }

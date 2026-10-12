@@ -28,7 +28,7 @@ class DynamicPartitionTest {
 
         dp.putVector(1, v1);
 
-        assertEquals(1, dp.convert().getSize(1));
+        assertEquals(1, dp.convert().getClusterSize(1));
     }
 
     @Test
@@ -39,10 +39,10 @@ class DynamicPartitionTest {
         BinaryVector v1 = new BinaryVector(el1, 0, 5, 0, "v1");
 
         dp.putVector(1, v1);
-        assertEquals(1, dp.convert().getSize(1));
+        assertEquals(1, dp.convert().getClusterSize(1));
 
         dp.removeVector(1, v1);
-        assertEquals(0, dp.convert().getSize(1));
+        assertEquals(0, dp.convert().getClusterSize(1));
     }
 
     @Test
@@ -143,7 +143,7 @@ class DynamicPartitionTest {
         dp.putVector(1, v1);
         dp.putVector(1, v2);
 
-        assertEquals(2, dp.convert().getSize(1));
+        assertEquals(2, dp.convert().getClusterSize(1));
 
         // Frequency table should reflect both vectors
         int[] freqs = dp.getFreqs(1);

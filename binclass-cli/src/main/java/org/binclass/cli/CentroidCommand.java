@@ -61,7 +61,7 @@ public class CentroidCommand implements BaseCommand {
         // denominator so each centroid stores class_size / total_vectors.
         int n = 0;
         for (int i = 1; i <= k; i++) {
-            n += partition.getSize(i);
+            n += partition.getClusterSize(i);
         }
 
         InfiniteCentroids centroids = new InfiniteCentroids(k,

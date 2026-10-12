@@ -232,7 +232,7 @@ public class BootstrapCommand implements BaseCommand {
     private static int countNonEmptyClusters(Partition partition) {
         int nonEmpty = 0;
         for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getSize(i) > 0) {
+            if (partition.getClusterSize(i) > 0) {
                 nonEmpty++;
             }
         }

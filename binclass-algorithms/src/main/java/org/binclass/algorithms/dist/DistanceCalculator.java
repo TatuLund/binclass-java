@@ -560,7 +560,7 @@ public final class DistanceCalculator {
 
         // Calculate sizes of classes and total number of vectors
         for (int j = 1; j < k; j++) {
-            classSizes[j] = partition.getSize(j);
+            classSizes[j] = partition.getClusterSize(j);
             if (classSizes[j] == 0) {
                 throw new IllegalStateException(
                         "Empty cluster in stochastic_complexity_j");
@@ -633,7 +633,7 @@ public final class DistanceCalculator {
 
         // Calculate sizes of classes and total number of vectors
         for (int j = 1; j < k; j++) {
-            classSizes[j] = partition.getSize(j);
+            classSizes[j] = partition.getClusterSize(j);
             if (classSizes[j] == 0) {
                 throw new IllegalStateException(
                         "Empty cluster in stochastic_complexity_u");
@@ -765,7 +765,7 @@ public final class DistanceCalculator {
 
         // Calculate total elements across all classes
         for (int i = 1; i <= k; i++) {
-            totalElements += partition.getSize(i);
+            totalElements += partition.getClusterSize(i);
         }
 
         if (totalElements == 0) {
@@ -775,7 +775,7 @@ public final class DistanceCalculator {
         // Start with entropy-based cost for cluster assignments
         double sc = 0.0;
         for (int i = 1; i <= k; i++) {
-            int classSize = partition.getSize(i);
+            int classSize = partition.getClusterSize(i);
             if (classSize > 0) {
                 double freq = (double) classSize / totalElements;
                 sc -= freq * MathUtils.log2(freq);

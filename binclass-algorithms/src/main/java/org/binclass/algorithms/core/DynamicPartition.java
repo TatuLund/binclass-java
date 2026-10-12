@@ -180,7 +180,7 @@ public final class DynamicPartition {
      */
     public int getClusterSize(int i) {
         checkClusterIndex(i);
-        return partition.getSize(i);
+        return partition.getClusterSize(i);
     }
 
     /**
@@ -208,7 +208,7 @@ public final class DynamicPartition {
         for (int i = 0; i < k; i++) {
             if (i > 0)
                 sb.append(", ");
-            sb.append(i + 1).append(": ").append(partition.getSize(i + 1))
+            sb.append(i + 1).append(": ").append(partition.getClusterSize(i + 1))
                     .append(" elements");
         }
         return sb.append("}").toString();
@@ -227,7 +227,7 @@ public final class DynamicPartition {
      * clusters using frequency table acceleration.
      */
     private void updateHammingDistances(int i) {
-        int sizeI = partition.getSize(i);
+        int sizeI = partition.getClusterSize(i);
         if (sizeI == 0)
             return; // Skip empty clusters
 
@@ -250,8 +250,8 @@ public final class DynamicPartition {
      * </p>
      */
     private double calculateClusterHammingDistanceOptimized(int i, int j) {
-        int sizeI = partition.getSize(i);
-        int sizeJ = partition.getSize(j);
+        int sizeI = partition.getClusterSize(i);
+        int sizeJ = partition.getClusterSize(j);
 
         if (sizeI == 0 || sizeJ == 0)
             return 0.0; // No elements to compare
