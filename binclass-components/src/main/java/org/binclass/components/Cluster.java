@@ -6,6 +6,7 @@ package org.binclass.components;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.Tag;
@@ -80,10 +81,12 @@ public class Cluster extends Details {
         sb.append("  (n=").append(data.vectorCount());
         if (!Double.isNaN(data.classDistortion())) {
             sb.append(", dist=")
-                    .append(String.format("%.3f", data.classDistortion()));
+                    .append(String.format(Locale.ROOT, "%.3f",
+                            data.classDistortion()));
         }
         if (!Double.isNaN(data.weight())) {
-            sb.append(", w=").append(String.format("%.3f", data.weight()));
+            sb.append(", w=").append(
+                    String.format(Locale.ROOT, "%.3f", data.weight()));
         }
         sb.append(")");
         return sb.toString();
