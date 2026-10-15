@@ -74,17 +74,6 @@ class CentroidTest {
     }
 
     @Test
-    void getGridSideLengthScalesWithProbabilityCount() {
-        Centroid small = new Centroid();
-        small.setProbabilities(new double[4]);
-        assertEquals(2, small.getGridSideLength());
-
-        Centroid large = new Centroid();
-        large.setProbabilities(new double[10_000]);
-        assertEquals(12, large.getGridSideLength());
-    }
-
-    @Test
     void getProbabilitiesReturnsDefensiveCopy() {
         Centroid centroid = new Centroid();
         centroid.setProbabilities(new double[] { 0.5 });

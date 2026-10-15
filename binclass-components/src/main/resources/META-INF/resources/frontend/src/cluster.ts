@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { css, html, LitElement } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, query } from "lit/decorators.js";
 import { Details } from "@vaadin/details/src/vaadin-details.js";
 
 /**
@@ -20,13 +20,6 @@ export class Cluster extends Details {
     return css`
       :host {
         display: block;
-      }
-
-      /* Summary row: caret + label (from Details) carrying the info text. */
-      .summary-row {
-        display: flex;
-        align-items: center;
-        gap: var(--vaadin-gap-s, 8px);
       }
 
       /* Centroid block sits below the summary and above the vectors. Its cells
@@ -53,41 +46,30 @@ export class Cluster extends Details {
       }
 
       :host(:not([opened])) [part="vectors"] {
-        display: none;
+         display: none;
       }
     `;
   }
 
-  /** Returns the slotted summary element (the caret toggle) in light DOM. */
-  private _summaryElement(): HTMLElement | null {
-    for (const child of this.children) {
-      if (child.getAttribute("slot") === "summary") {
-        return child as HTMLElement;
-      }
-    }
-    return null;
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    // The inherited Details click handler relies on detecting the summary via
-    // `focusElement`, which is unreliable once the element is renamed to
-    // `binclass-cluster`. Add an explicit listener that toggles the host
-    // `opened` attribute when the summary caret is clicked.
-    this.addEventListener("click", (event) => {
-      const target = event.target as Node;
-      const summary = this._summaryElement();
-      if (summary && (target === summary || summary.contains(target))) {
-        this.opened = !this.opened;
-      }
-    });
+  /**
+   * Runs the inherited Details/DetailsBaseMixin setup (which registers the
+   * content, summary and tooltip controllers). Cluster relies on the single
+   * click-to-toggle handler registered by CollapsibleMixin during
+   * `super.ready()` instead of adding its own, so clicking the caret toggles
+   * `opened` exactly once rather than twice and cancelling itself out.
+   */
+  protected ready() {
+    super.ready();
   }
 
   protected render() {
+    // super.render() (from Details) provides the summary, default content and
+    // tooltip slots that its SummaryController, ContentController and
+    // TooltipController observe. Without them those controllers call
+    // shadowRoot.querySelector(...) -> null and SlotObserver.connect throws,
+    // which also prevents the caret toggle handler from being registered.
     return html`
-      <div class="summary-row">
-        <slot name="summary"></slot>
-      </div>
+      ${super.render()}
       <div class="centroid-block"><slot name="centroid"></slot></div>
       <div part="vectors">
         <slot name="vectors"></slot>

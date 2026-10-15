@@ -119,6 +119,7 @@
                     <httpConnector>
                         <port>8080</port>
                     </httpConnector>
+					<scan>3</scan>
                     <!-- Use test scope because the UI/demo classes are in
                     the test package. -->
                     <useTestScope>true</useTestScope>
@@ -126,7 +127,7 @@
                         <supportedPackaging>jar</supportedPackaging>
                     </supportedPackagings>
                     <webApp>
-                        <resourceBases>${basedir}/src/main/resources</resourceBases>
+                        <resourceBases>${basedir}/src/main/resources/META-INF/resources</resourceBases>
                     </webApp>
                 </configuration>
             </plugin>
@@ -146,6 +147,11 @@
 				<configuration>
 				</configuration>
 				<executions>
+					<execution>
+						<goals>
+							<goal>prepare-frontend</goal>
+						</goals>
+					</execution>
 				</executions>
 			</plugin>
 			<plugin>
@@ -200,21 +206,6 @@
 				</executions>
 			</plugin>
 		</plugins>
-
-		<!-- This is needed for the sources required by the client-side compiler to be
-			included in the produced JARs -->
-		<resources>
-			<resource>
-				<directory>src/main/java</directory>
-				<excludes>
-                    <exclude>rebel.xml</exclude>
-                </excludes>
-			</resource>
-			<resource>
-				<directory>src/main/resources</directory>
-			</resource>
-		</resources>
-
 	</build>
 
     <profiles>
@@ -233,12 +224,6 @@
 							<stopKey>${project.artifactId}</stopKey>
 							<stopPort>8081</stopPort>
 		                    <useTestScope>true</useTestScope>
-        		            <supportedPackagings>
-                		        <supportedPackaging>jar</supportedPackaging>
-                		    </supportedPackagings>
-                 			<webApp>
-                        		<resourceBases>${basedir}/src/main/resources</resourceBases>
-                    		</webApp>
 						</configuration>
 						<executions>
 							<execution>

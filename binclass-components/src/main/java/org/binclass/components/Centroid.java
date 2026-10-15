@@ -21,7 +21,7 @@ import com.vaadin.flow.component.Tag;
  * </p>
  */
 @Tag("binclass-centroid")
-@JsModule("./centroid.ts")
+@JsModule("./src/centroid.ts")
 public class Centroid extends Component {
 
     /**
@@ -126,13 +126,4 @@ public class Centroid extends Component {
         getElement().setProperty("vectorCount", vectorCount);
     }
 
-    /**
-     * Returns the grid side length for this centroid's probability count.
-     *
-     * @return the clamped grid side length between
-     *         {@link RenderMetrics#MIN_SIDE} and {@link RenderMetrics#MAX_SIDE}
-     */
-    public int getGridSideLength() {
-        return RenderMetrics.sideLength(getProbabilities().length);
-    }
 }

@@ -145,7 +145,6 @@ export class Centroid extends ThemableMixin(LitElement) {
            responsive space rather than the content's fixed pixel size. */
         flex-grow: 1;
         min-width: 0;
-        overflow-x: auto;
       }
 
       .cells.overflow {

@@ -26,7 +26,7 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 @Tag("binclass-cluster")
-@JsModule("./cluster.ts")
+@JsModule("./src/cluster.ts")
 public class Cluster extends Details {
 
     /** Slot name for the centroid child. */

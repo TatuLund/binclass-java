@@ -6,3 +6,5 @@ target/
 binclass-components/src/main/frontend/generated/
 binclass-components/node_modules/
 src/main/frontend/generated/
+node_modules/
+binclass-components/frontend/generated/

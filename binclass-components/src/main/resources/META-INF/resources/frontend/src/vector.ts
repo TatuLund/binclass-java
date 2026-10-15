@@ -105,9 +105,7 @@ export class Vector extends ThemableMixin(LitElement) {
 
   /**
    * Returns whether the vector name is shown inline instead of in a tooltip.
-   * Names render inline once the grid side length reaches
-   * {@code RenderMetrics.NAME_INLINE_THRESHOLD} cells, matching the server-side
-   * {@link Vector#shouldShowNameInline} decision.
+   * Names render inline once the grid side length reaches a 9x9 grid (or larger).
    */
   private _showNameInline(): boolean {
     const len = this.bits.length;
@@ -173,7 +171,6 @@ export class Vector extends ThemableMixin(LitElement) {
            responsive space rather than the content's fixed pixel size. */
         flex-grow: 1;
         min-width: 0;
-        overflow-x: auto;
       }
 
       /* Fade at the right edge when cells are smaller than available space and

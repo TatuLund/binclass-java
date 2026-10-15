@@ -25,7 +25,7 @@ import org.jspecify.annotations.NullMarked;
  */
 @NullMarked
 @Tag("binclass-partition")
-@JsModule("./partition.ts")
+@JsModule("./src/partition.ts")
 public class Partition extends Component {
 
     /** Slot name for the header child (optional custom header). */

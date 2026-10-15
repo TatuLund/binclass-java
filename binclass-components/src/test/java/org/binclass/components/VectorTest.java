@@ -6,9 +6,7 @@ package org.binclass.components;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -80,28 +78,6 @@ class VectorTest {
         List<?> rounded = vector.getElement().getPropertyBean("roundedCentroid",
                 List.class);
         assertEquals(List.of(1, 1, 0), rounded);
-    }
-
-    @Test
-    void shouldShowNameInlineSwitchesAtNine() {
-        Vector small = new Vector();
-        small.setBits(new int[64]);
-        assertFalse(small.shouldShowNameInline());
-
-        Vector large = new Vector();
-        large.setBits(new int[81]);
-        assertTrue(large.shouldShowNameInline());
-    }
-
-    @Test
-    void getGridSideLengthClamps() {
-        Vector tiny = new Vector();
-        tiny.setBits(new int[4]);
-        assertEquals(2, tiny.getGridSideLength());
-
-        Vector huge = new Vector();
-        huge.setBits(new int[10_000]);
-        assertEquals(12, huge.getGridSideLength());
     }
 
     @Test

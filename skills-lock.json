@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "aura-theme": {
+      "source": "vaadin/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/aura-theme/SKILL.md",
+      "computedHash": "562d6290e85dfbcd99a1e8d1bbb00197a00ea8405fe2afc314547c3d24ac4718"
+    },
+    "vaadin-frontend-design": {
+      "source": "vaadin/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vaadin-frontend-design/SKILL.md",
+      "computedHash": "c9ac7bd931d6d2218ea506dd6e9cf54e7445669d179af710ae9fd90e8bd57a66"
+    }
+  }
+}

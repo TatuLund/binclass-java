@@ -22,21 +22,20 @@
     "noUnusedParameters": false,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "baseUrl": "../../../../../src/main/frontend",
     "paths": {
       "lit": ["../../../../../node_modules/lit"],
       "lit/*": ["../../../../../node_modules/lit/*"],
       "@vaadin/*": ["../../../../../node_modules/@vaadin/*"],
-      "@vaadin/flow-frontend": ["../../../frontend/generated/jar-resources"],
-      "@vaadin/flow-frontend/*": ["../../../frontend/generated/jar-resources/*"],
-      "Frontend/*": ["*"]
+      "@vaadin/flow-frontend": ["../../../../../frontend/generated/jar-resources"],
+      "@vaadin/flow-frontend/*": ["../../../../../frontend/generated/jar-resources/*"],
+      "Frontend/*": ["../../../../..//frontend/*"]
     }
   },
   "include": [
-    "../../../frontend/**/*",
+    "../../../../../frontend/**/*",
     "../../../../../types.d.ts"
   ],
   "exclude": [
-    "../../../frontend/generated/jar-resources/**"
+    "../../../../../frontend/generated/jar-resources/**"
   ]
 }

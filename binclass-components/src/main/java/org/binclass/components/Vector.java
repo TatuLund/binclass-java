@@ -22,7 +22,7 @@ import com.vaadin.flow.component.Tag;
  * </p>
  */
 @Tag("binclass-vector")
-@JsModule("./vector.ts")
+@JsModule("./src/vector.ts")
 public class Vector extends Component {
 
     /**
@@ -125,24 +125,4 @@ public class Vector extends Component {
         getElement().setProperty("distanceToCentroid", distanceToCentroid);
     }
 
-    /**
-     * Returns whether this vector should show its name inline. Names are shown
-     * inline when the grid is larger than {@code 8x8}.
-     *
-     * @return {@code true} when the name is rendered next to the grid instead
-     *         of in a tooltip
-     */
-    public boolean shouldShowNameInline() {
-        return RenderMetrics.showNameInline(getBits().length);
-    }
-
-    /**
-     * Returns the computed grid side length for this vector's bit count.
-     *
-     * @return the clamped grid side length between
-     *         {@link RenderMetrics#MIN_SIDE} and {@link RenderMetrics#MAX_SIDE}
-     */
-    public int getGridSideLength() {
-        return RenderMetrics.sideLength(getBits().length);
-    }
 }

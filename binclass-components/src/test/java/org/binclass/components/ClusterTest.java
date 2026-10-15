@@ -126,7 +126,6 @@ class ClusterTest {
         Centroid stored = cluster.getCentroid();
         assertSame(stored,
                 SlotUtils.getChildInSlot(cluster, Cluster.SLOT_CENTROID));
-        assertEquals(2, stored.getGridSideLength());
     }
 
     @Test
