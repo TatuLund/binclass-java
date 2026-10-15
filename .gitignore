@@ -3,3 +3,6 @@ binclass-ui/src/main/frontend/generated/
 target/
 .devcontainer/
 .vscode/
+binclass-components/src/main/frontend/generated/
+binclass-components/node_modules/
+src/main/frontend/generated/
