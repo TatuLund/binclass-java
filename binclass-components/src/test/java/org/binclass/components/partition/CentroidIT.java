@@ -2,13 +2,15 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.components;
+package org.binclass.components.partition;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.binclass.components.ComponentIT;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 class CentroidIT extends ComponentIT {
+
+    private static final String TEST_ROUTE = "partition";
 
     /** Returns every {@code binclass-centroid} element rendered in the page. */
     private Locator centroids(Page page) {
@@ -50,7 +54,7 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void shortCentroidRendersOneCellPerProbability() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The short centroid carries five probabilities, so it must render
             // exactly five cells. It is the first centroid in DOM order.
             assertEquals(5, cells(centroids(page).nth(0)).count());
@@ -59,7 +63,7 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void longCentroidRendersOneCellPerProbability() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The long centroid carries six hundred probabilities. It is the
             // second centroid in DOM order.
             assertEquals(600, cells(centroids(page).nth(1)).count());
@@ -68,7 +72,7 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void shortCentroidCellsClampToMaximumSize() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // Five probabilities in a wide container would yield ~150px cells;
             // each must be clamped to at most the 12px maximum.
             for (Locator cell : cells(centroids(page).nth(0)).all()) {
@@ -81,10 +85,9 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void longCentroidCellsClampToMinimumSize() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // Six hundred probabilities in a narrow container would yield
-            // sub-2px
-            // cells; each must be clamped to at least the 2px minimum.
+            // sub-2px cells; each must be clamped to at least the 2px minimum.
             for (Locator cell : cells(centroids(page).nth(1)).all()) {
                 assertTrue(cellWidth(cell) >= 2,
                         "cell width should not fall below 2px, was: "
@@ -95,7 +98,7 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void longCentroidShowsOverflowFade() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // Six hundred cells at the 2px minimum still exceed the container
             // width, so the strip must scroll and carry the overflow class that
             // drives the right-edge fade.
@@ -109,7 +112,7 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void allCellsStayWithinBoundsAndAreSquare() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // Every rendered cell across every centroid must be square and stay
             // within the 2px..12px bounds.
             for (Locator centroid : centroids(page).all()) {
@@ -127,10 +130,9 @@ class CentroidIT extends ComponentIT {
 
     @Test
     void responsiveCellsResizeWhenContainerGrows() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The short centroid's cells grow as the container widens. Resize
-            // the
-            // element and assert the cell width increases with it.
+            // the § element and assert the cell width increases with it.
             Locator first = centroids(page).nth(0);
             double before = cellWidth(first.locator(".cells > .cell").first());
 

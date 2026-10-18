@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.components;
+package org.binclass.components.partition;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;

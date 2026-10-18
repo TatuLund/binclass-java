@@ -8,12 +8,14 @@ import java.util.List;
 
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
-import org.binclass.components.Centroid;
-import org.binclass.components.Cluster;
-import org.binclass.components.Partition;
-import org.binclass.components.PartitionModel;
-import org.binclass.components.Vector;
-import org.binclass.components.VectorData;
+import org.binclass.components.partition.Centroid;
+import org.binclass.components.partition.CentroidData;
+import org.binclass.components.partition.Cluster;
+import org.binclass.components.partition.ClusterData;
+import org.binclass.components.partition.Partition;
+import org.binclass.components.partition.PartitionModel;
+import org.binclass.components.partition.Vector;
+import org.binclass.components.partition.VectorData;
 
 /**
  * Minimal Vaadin view that hosts the four custom components with representative
@@ -22,7 +24,7 @@ import org.binclass.components.VectorData;
  * boundaries, name-prefix vs. tooltip switch, centroid grey gradients, lazy
  * cluster population, and a multi-cluster partition header.
  */
-@Route("demo")
+@Route("partition")
 public class DemoView extends VerticalLayout {
 
     /**
@@ -113,7 +115,7 @@ public class DemoView extends VerticalLayout {
 
         Centroid shortCentroid = new Centroid();
         shortCentroid.getElement().setAttribute("id", "centroid-short");
-        shortCentroid.setData(new org.binclass.components.CentroidData(
+        shortCentroid.setData(new CentroidData(
                 new double[] { 0.0, 0.25, 0.5, 0.75, 1.0 },
                 "centroid-5",
                 1.5,
@@ -126,7 +128,7 @@ public class DemoView extends VerticalLayout {
         // overflow fade are visible: even at 2px per bit the strip scrolls.
         Centroid longCentroid = new Centroid();
         longCentroid.getElement().setAttribute("id", "centroid-long");
-        longCentroid.setData(new org.binclass.components.CentroidData(
+        longCentroid.setData(new CentroidData(
                 alternatingProbabilities(600),
                 "centroid-300",
                 1.5,
@@ -142,12 +144,12 @@ public class DemoView extends VerticalLayout {
         section.add(
                 "Cluster — centroid always visible, vectors lazily populated on open");
 
-        Cluster cluster = new Cluster(new org.binclass.components.ClusterData(
+        Cluster cluster = new Cluster(new ClusterData(
                 "cluster-1",
                 2.5,
                 0.4,
                 3,
-                new org.binclass.components.CentroidData(
+                new CentroidData(
                         alternatingProbabilities(16),
                         "centroid-16", 2.5, 0.4, 3),
                 List.of(
@@ -190,14 +192,14 @@ public class DemoView extends VerticalLayout {
                 6,
                 2.0,
                 List.of(
-                        new org.binclass.components.ClusterData(
+                        new ClusterData(
                                 "cluster-a", 1.0, 0.5, 3,
-                                new org.binclass.components.CentroidData(
+                                new CentroidData(
                                         new double[] { 1.0, 0.0 }),
                                 clusterVectors),
-                        new org.binclass.components.ClusterData(
+                        new ClusterData(
                                 "cluster-b", 2.0, 0.2, 3,
-                                new org.binclass.components.CentroidData(
+                                new CentroidData(
                                         new double[] { 0.0, 1.0 }),
                                 clusterVectors)));
 

@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.components;
+package org.binclass.components.partition;
 
 import java.util.List;
 import java.util.stream.Collectors;

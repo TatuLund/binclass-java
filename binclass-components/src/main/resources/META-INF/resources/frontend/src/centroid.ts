@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { TooltipController } from "@vaadin/component-base/src/tooltip-controller.js";
 import { ThemableMixin } from "@vaadin/vaadin-themable-mixin/vaadin-themable-mixin.js";

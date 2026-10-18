@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.components;
+package org.binclass.components.partition;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.shared.SlotUtils;
 import org.junit.jupiter.api.Test;
 

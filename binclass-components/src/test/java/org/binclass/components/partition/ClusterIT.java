@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.components;
+package org.binclass.components.partition;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+
+import org.binclass.components.ComponentIT;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -23,6 +25,8 @@ import org.junit.jupiter.api.Test;
  * </p>
  */
 class ClusterIT extends ComponentIT {
+
+    private static final String TEST_ROUTE = "partition";
 
     /**
      * Returns every {@code binclass-cluster} element rendered in the current
@@ -66,7 +70,7 @@ class ClusterIT extends ComponentIT {
 
     @Test
     void clickingCaretOpensCluster() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The standalone cluster starts closed; the vectors part is hidden.
             Locator first = clusters(page).first();
             caret(first)
@@ -88,7 +92,7 @@ class ClusterIT extends ComponentIT {
 
     @Test
     void openingClusterPopulatesVectors() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The standalone cluster buffers three vectors that render on open.
             Locator first = clusters(page).first();
             caret(first).click();
@@ -105,7 +109,7 @@ class ClusterIT extends ComponentIT {
 
     @Test
     void centroidAlwaysVisibleWhenClosed() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The standalone cluster starts closed; its centroid block is still
             // rendered and visible while the vectors part stays hidden.
             Locator first = clusters(page).first();
@@ -117,11 +121,10 @@ class ClusterIT extends ComponentIT {
 
     @Test
     void centroidCellsClampToMaximumSize() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The standalone cluster's sixteen-probability centroid in a wide
             // container would yield ~150px cells; each must be clamped to at
-            // most
-            // the 12px maximum.
+            // most the 12px maximum.
             Locator first = clusters(page).first();
             for (Locator cell : centroidCells(first).all()) {
                 assertTrue(cellWidth(cell) <= 12,
@@ -133,7 +136,7 @@ class ClusterIT extends ComponentIT {
 
     @Test
     void openingPartitionClusterPopulatesVectors() throws IOException {
-        try (Page page = openDemo()) {
+        try (Page page = openDemo(TEST_ROUTE)) {
             // The partition body hosts two clusters; each buffers three
             // vectors.
             Locator second = clusters(page).nth(1);

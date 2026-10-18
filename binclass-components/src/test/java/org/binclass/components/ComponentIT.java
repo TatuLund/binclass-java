@@ -90,32 +90,33 @@ public abstract class ComponentIT {
      */
     protected void waitForComponentsRendered(Page page) {
         page.waitForFunction(
-                "() => {"
-                        + "  const hasCells = (tag, sel) => {"
-                        + "    const el = document.querySelector(tag);"
-                        + "    return el && el.shadowRoot"
-                        + "      && el.shadowRoot.querySelectorAll(sel).length > 0;"
-                        + "  };"
-                        + "  const clusterReady = () => {"
-                        + "    const clusters = document.querySelectorAll('binclass-cluster');"
-                        + "    for (const c of clusters) {"
-                        + "      const slots = c.querySelectorAll('[slot=centroid]');"
-                        + "      for (const s of slots) {"
-                        + "        if (s.shadowRoot"
-                        + "          && s.shadowRoot.querySelectorAll('.cells > .cell').length > 0) return true;"
-                        + "      }"
-                        + "    }"
-                        + "    return false;"
-                        + "  };"
-                        + "  return hasCells('binclass-vector', '.cells > .cell') &&"
-                        + "         hasCells('binclass-centroid', '.cells > .cell') &&"
-                        + "         clusterReady();"
-                        + "}");
+                """
+                        () => {
+                          const hasCells = (tag, sel) => {
+                            const el = document.querySelector(tag);
+                            return el && el.shadowRoot
+                              && el.shadowRoot.querySelectorAll(sel).length > 0;
+                          };
+                          const clusterReady = () => {
+                            const clusters = document.querySelectorAll('binclass-cluster');
+                            for (const c of clusters) {
+                              const slots = c.querySelectorAll('[slot=centroid]');
+                              for (const s of slots) {
+                                if (s.shadowRoot
+                                  && s.shadowRoot.querySelectorAll('.cells > .cell').length > 0) return true;
+                              }
+                            }
+                            return false;
+                          };
+                          return hasCells('binclass-vector', '.cells > .cell') &&
+                                 hasCells('binclass-centroid', '.cells > .cell') &&
+                                 clusterReady();
+                        }""");
     }
 
     /** Convenience for opening the demo view that hosts all four components. */
-    protected Page openDemo() throws IOException {
-        Page page = openPage("/demo");
+    protected Page openDemo(String route) throws IOException {
+        Page page = openPage("/" + route);
         waitForComponentsRendered(page);
         return page;
     }
