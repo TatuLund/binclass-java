@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link Cluster}.
  */
+@SuppressWarnings("null")
 class ClusterTest {
 
     private CentroidData centroid() {
@@ -68,10 +69,11 @@ class ClusterTest {
     void setVectorsClearsPrevious() {
         Cluster cluster = new Cluster(
                 new ClusterData("c", 1.0, 0.5, 2, centroid()));
-        cluster.setVectors(List.of(new VectorData(new int[] { 1, 0 }, "v1")));
+        cluster.setVectors(List.of(new VectorData(new int[] { 1, 0, 1, 0 },
+                "v1")));
         cluster.setVectors(List.of(
-                new VectorData(new int[] { 1, 0 }, "a"),
-                new VectorData(new int[] { 0, 1 }, "b")));
+                new VectorData(new int[] { 1, 0, 1, 0 }, "a"),
+                new VectorData(new int[] { 0, 1, 0, 1 }, "b")));
 
         long count = SlotUtils.getElementsInSlot(cluster, Cluster.SLOT_VECTORS)
                 .filter(e -> e.getComponent().isPresent())
@@ -88,11 +90,28 @@ class ClusterTest {
     }
 
     @Test
+    void constructorThrowsOnLengthMismatch() {
+        ClusterData data = new ClusterData("c", 1.0, 0.5, 1, centroid(),
+                List.of(new VectorData(new int[] { 1, 0 }, "v1")));
+        assertThrows(IllegalStateException.class,
+                () -> new Cluster(data));
+    }
+
+    @Test
+    void setVectorsThrowsOnLengthMismatch() {
+        Cluster cluster = new Cluster(
+                new ClusterData("c", 1.0, 0.5, 2, centroid()));
+        assertThrows(IllegalStateException.class,
+                () -> cluster.setVectors(
+                        List.of(new VectorData(new int[] { 1, 0 }, "v1"))));
+    }
+
+    @Test
     void opensPopulatesVectorsFromBuffer() {
         ClusterData data = new ClusterData("c", 1.0, 0.5, 2, centroid(),
                 List.of(
-                        new VectorData(new int[] { 1, 0 }, "v1"),
-                        new VectorData(new int[] { 0, 1 }, "v2")));
+                        new VectorData(new int[] { 1, 0, 1, 0 }, "v1"),
+                        new VectorData(new int[] { 0, 1, 0, 1 }, "v2")));
         Cluster cluster = new Cluster(data);
 
         long before = SlotUtils.getElementsInSlot(cluster, Cluster.SLOT_VECTORS)

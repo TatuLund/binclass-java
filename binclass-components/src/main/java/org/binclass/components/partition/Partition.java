@@ -12,6 +12,9 @@ import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.shared.SlotUtils;
+import com.vaadin.flow.signals.Signal;
+import com.vaadin.flow.signals.local.ValueSignal;
+import com.vaadin.flow.shared.Registration;
 import org.jspecify.annotations.NullMarked;
 
 /**
@@ -19,7 +22,8 @@ import org.jspecify.annotations.NullMarked;
  * <p>
  * Renders a partition header with global metrics (Stochastic Complexity,
  * cluster count, vector count) and a body composed of {@link Cluster}
- * components. The header is pushed as properties on this element; the clusters
+ * components. The header is pushed either as individual properties on this
+ * element or reactively as a whole object through a bound signal; the clusters
  * are added as children in the {@code body} slot.
  * </p>
  */
@@ -35,9 +39,35 @@ public class Partition extends Component {
     public static final String SLOT_BODY = "body";
 
     /**
+     * Property name under which the whole {@link PartitionModel} is pushed to
+     * the client when bound as a reactive signal through
+     * {@link #bindPartitionModel(ValueSignal)}. The header metrics and cluster
+     * list travel together inside this object.
+     */
+    public static final String PROPERTY_MODEL = "partition";
+
+    /**
+     * Signal holding the currently bound model, or {@code null} when unbound.
+     */
+    private ValueSignal<PartitionModel> modelSignal;
+
+    /**
+     * Registration of the signal effect that rebuilds the body clusters
+     * whenever the bound {@link #modelSignal} changes. Removed when the
+     * partition is unbound through {@link #bindPartitionModel(ValueSignal)}
+     * with a null value.
+     */
+    private Registration effectRegistration;
+
+    /**
      * Sets all presentation data from a {@link PartitionModel} record, pushing
      * header metrics to the client and replacing the clusters in the body slot
      * with freshly built {@link Cluster} wrappers.
+     * <p>
+     * When a signal is bound through {@link #bindPartitionModel(ValueSignal)},
+     * the model travels reactively through that signal instead of setting the
+     * header properties individually, so later updates stay in sync with any
+     * external changes to the bound value.
      *
      * @param model
      *            the immutable partition presentation data; must not be null
@@ -47,6 +77,23 @@ public class Partition extends Component {
             throw new IllegalArgumentException(
                     "PartitionModel must not be null");
         }
+        if (modelSignal != null) {
+            modelSignal.set(model);
+        } else {
+            pushHeaderMetrics(model);
+        }
+        rebuildClusters(model.clusters());
+    }
+
+    /**
+     * Pushes the header metrics of a model to the client as individual
+     * properties. Called when no partition-model signal is bound; ignored when
+     * one is, since the whole object travels through {@link #PROPERTY_MODEL}.
+     *
+     * @param model
+     *            the immutable partition presentation data; must not be null
+     */
+    private void pushHeaderMetrics(PartitionModel model) {
         getElement().setProperty("stochasticComplexity",
                 model.stochasticComplexity());
         getElement().setProperty("clusterCount", model.clusterCount());
@@ -57,17 +104,54 @@ public class Partition extends Component {
             getElement().setProperty("overallDistortion",
                     model.overallDistortion());
         }
+    }
 
-        List<Component> clusters = new ArrayList<>();
-        for (ClusterData cluster : model.clusters()) {
-            clusters.add(new Cluster(cluster));
+    /**
+     * Replaces the clusters rendered in the body slot with freshly built
+     * {@link Cluster} wrappers, clearing the slot when none are provided.
+     *
+     * @param clusters
+     *            the cluster presentation data to render; may be empty but must
+     *            not be null
+     */
+    private void rebuildClusters(List<ClusterData> clusters) {
+        List<Component> clusterComponents = new ArrayList<>();
+        for (ClusterData cluster : clusters) {
+            clusterComponents.add(new Cluster(cluster));
         }
-        if (!clusters.isEmpty()) {
+        if (!clusterComponents.isEmpty()) {
             SlotUtils.setSlot(this, SLOT_BODY,
-                    clusters.toArray(new Component[0]));
+                    clusterComponents.toArray(new Component[0]));
         } else {
             SlotUtils.clearSlot(this, SLOT_BODY);
         }
+    }
+
+    /**
+     * Binds the given partition-model signal to this component. The whole
+     * {@link PartitionModel} is pushed to the client under
+     * {@link #PROPERTY_MODEL} whenever the signal value changes, and the body
+     * clusters are rebuilt reactively through a {@link Signal} effect so no
+     * manual update is required after a signal change. Passing {@code null}
+     * unbinds any existing binding and restores manual property updates.
+     *
+     * @param model
+     *            the signal to bind, or {@code null} to clear a previous
+     *            binding; must not be null otherwise
+     */
+    public void bindPartitionModel(ValueSignal<PartitionModel> model) {
+        if (model == null) {
+            if (effectRegistration != null) {
+                effectRegistration.remove();
+                effectRegistration = null;
+            }
+            this.modelSignal = null;
+            return;
+        }
+        this.modelSignal = model;
+        getElement().bindProperty(PROPERTY_MODEL, model, null);
+        effectRegistration = Signal.effect(this,
+                () -> rebuildClusters(model.get().clusters()));
     }
 
     /**

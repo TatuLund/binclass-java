@@ -4,10 +4,13 @@
  */
 package org.binclass.components.demo;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.signals.local.ValueSignal;
 import org.binclass.components.partition.Centroid;
 import org.binclass.components.partition.CentroidData;
 import org.binclass.components.partition.Cluster;
@@ -25,7 +28,7 @@ import org.binclass.components.partition.VectorData;
  * cluster population, and a multi-cluster partition header.
  */
 @Route("partition")
-public class DemoView extends VerticalLayout {
+public class PartitionView extends VerticalLayout {
 
     /**
      * Builds a bit array of the given length with an alternating 0/1 pattern.
@@ -63,7 +66,7 @@ public class DemoView extends VerticalLayout {
         return probs;
     }
 
-    public DemoView() {
+    public PartitionView() {
         setSpacing(true);
         setPadding(true);
 
@@ -166,46 +169,68 @@ public class DemoView extends VerticalLayout {
         return section;
     }
 
-    /**
-     * Builds the set of vectors used by the demo clusters. All vectors share
-     * the same length so their responsive grids size identically and line up
-     * vertically with the centroid block above them.
-     */
-    private static List<VectorData> demoVectors() {
-        return List.of(
-                new VectorData(alternating(16), "vec-a", null, 2,
-                        alternatingCentroid(16)),
-                new VectorData(alternating(16), "vec-b", null, 3,
-                        alternatingCentroid(16)),
-                new VectorData(alternating(16), "vec-c", null, 0,
-                        alternatingCentroid(16)));
-    }
-
     private VerticalLayout createPartitionSection() {
         VerticalLayout section = new VerticalLayout();
         section.add("Partition — header metrics plus a body of clusters");
 
-        List<VectorData> clusterVectors = demoVectors();
+        // Each cluster owns its own vectors with distinct names so the move
+        // button below can relocate one unambiguously. Length-16 bits match the
+        // length-16 centroids, satisfying Cluster's length invariant.
+        List<VectorData> aVectors = List.of(
+                vector("vec-a"),
+                vector("vec-b"),
+                vector("vec-c"));
+        List<VectorData> bVectors = List.of(
+                vector("vec-d"),
+                vector("vec-e"),
+                vector("vec-f"));
+        CentroidData centroidA = new CentroidData(alternatingProbabilities(16),
+                "centroid-a", 1.0, 0.5, aVectors.size());
+        CentroidData centroidB = new CentroidData(alternatingProbabilities(16),
+                "centroid-b", 2.0, 0.2, bVectors.size());
+
         PartitionModel model = new PartitionModel(
                 1234.5,
                 2,
                 6,
                 2.0,
                 List.of(
-                        new ClusterData(
-                                "cluster-a", 1.0, 0.5, 3,
-                                new CentroidData(
-                                        new double[] { 1.0, 0.0 }),
-                                clusterVectors),
-                        new ClusterData(
-                                "cluster-b", 2.0, 0.2, 3,
-                                new CentroidData(
-                                        new double[] { 0.0, 1.0 }),
-                                clusterVectors)));
+                        new ClusterData("cluster-a", 1.0, 0.5, aVectors.size(),
+                                centroidA, aVectors),
+                        new ClusterData("cluster-b", 2.0, 0.2, bVectors.size(),
+                                centroidB, bVectors)));
 
         Partition partition = new Partition();
-        partition.setModel(model);
+        ValueSignal<PartitionModel> modelSignal = new ValueSignal<>(model);
+        // Bind the whole model through a Signal so the header and clusters are
+        // pushed reactively; calling modelSignal.set(newModel) later would
+        // refresh both without a manual setModel() call.
+        partition.bindPartitionModel(modelSignal);
         section.add(partition);
+
+        // Moves vec-c from cluster-a to cluster-b, pushing a new model through
+        // the signal so the header and clusters rebuild reactively. The button
+        // id is used by PartitionIT to trigger the move.
+        Button moveButton = new Button(
+                "Move vec-c from cluster-a to cluster-b");
+        moveButton.getElement().setAttribute("id", "move-vector-btn");
+        moveButton.addClickListener(event -> {
+            List<VectorData> movedA = List.of(aVectors.get(0), aVectors.get(1));
+            List<VectorData> movedB = new ArrayList<>(bVectors);
+            movedB.add(aVectors.get(2));
+            PartitionModel moved = new PartitionModel(
+                    1234.5,
+                    2,
+                    6,
+                    2.0,
+                    List.of(
+                            new ClusterData("cluster-a", 1.0, 0.5,
+                                    movedA.size(), centroidA, movedA),
+                            new ClusterData("cluster-b", 2.0, 0.2,
+                                    movedB.size(), centroidB, movedB)));
+            modelSignal.set(moved);
+        });
+        section.add(moveButton);
 
         // Each cluster buffers its vectors and renders them when the caret is
         // opened. Uniform-length vectors keep every grid sized identically so
@@ -213,5 +238,15 @@ public class DemoView extends VerticalLayout {
         section.add("Vectors render when a caret is opened");
 
         return section;
+    }
+
+    /**
+     * Builds a length-16 vector with an alternating bit pattern, matching the
+     * length-16 centroids used by the partition demo so Cluster's length
+     * invariant holds.
+     */
+    private static VectorData vector(String name) {
+        return new VectorData(alternating(16), name, null, 0,
+                alternatingCentroid(16));
     }
 }

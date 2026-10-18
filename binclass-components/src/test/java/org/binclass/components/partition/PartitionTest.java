@@ -9,12 +9,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.shared.SlotUtils;
+import com.vaadin.flow.signals.local.ValueSignal;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link Partition}.
  */
+@SuppressWarnings("null")
 class PartitionTest {
 
     private ClusterData cluster(String name, int vectorCount) {
@@ -136,5 +139,101 @@ class PartitionTest {
                 List.of(cluster("new", 2))));
 
         assertEquals(1, partition.getClusterCount());
+    }
+
+    @Test
+    void bindPartitionModelSetsPropertyOnElement() {
+        Partition partition = new Partition();
+        ValueSignal<PartitionModel> signal = new ValueSignal<>(
+                new PartitionModel(5.0));
+
+        partition.bindPartitionModel(signal);
+
+        org.junit.jupiter.api.Assertions.assertTrue(partition.getElement()
+                .hasProperty(Partition.PROPERTY_MODEL));
+    }
+
+    @Test
+    void setModelUpdatesBoundSignal() {
+        Partition partition = new Partition();
+        ValueSignal<PartitionModel> signal = new ValueSignal<>(
+                new PartitionModel(1.0));
+        partition.bindPartitionModel(signal);
+
+        PartitionModel updated = new PartitionModel(
+                42.0,
+                2,
+                8,
+                Double.NaN,
+                List.of(cluster("a", 4), cluster("b", 4)));
+        partition.setModel(updated);
+
+        assertEquals(updated, signal.peek());
+    }
+
+    @Test
+    void setModelUsesSignalPathWhenBound() {
+        Partition partition = new Partition();
+        ValueSignal<PartitionModel> signal = new ValueSignal<>(
+                new PartitionModel(1.0));
+        partition.bindPartitionModel(signal);
+        partition.setModel(new PartitionModel(
+                42.0,
+                2,
+                8,
+                Double.NaN,
+                List.of(cluster("a", 4), cluster("b", 4))));
+
+        // Header metrics travel inside the bound object, not as individual
+        // scalar properties.
+        assertEquals(Double.NaN,
+                partition.getElement().getProperty("stochasticComplexity",
+                        Double.NaN));
+    }
+
+    @Test
+    void bindPartitionModelNullClearsBoundSignal() {
+        Partition partition = new Partition();
+        ValueSignal<PartitionModel> signal = new ValueSignal<>(
+                new PartitionModel(1.0));
+        partition.bindPartitionModel(signal);
+
+        partition.bindPartitionModel((ValueSignal<PartitionModel>) null);
+
+        // After unbinding, setModel falls back to pushing scalar properties
+        // because no signal is bound anymore.
+        partition.setModel(new PartitionModel(42.0));
+        assertEquals(42.0, partition.getElement()
+                .getProperty("stochasticComplexity", Double.NaN));
+    }
+
+    @Test
+    void signalSetPropagatesToComponentAutomatically() {
+        PartitionModel model = new PartitionModel(
+                10.0,
+                2,
+                4,
+                Double.NaN,
+                List.of(cluster("a", 2), cluster("b", 2)));
+        ValueSignal<PartitionModel> signal = new ValueSignal<>(model);
+        Partition partition = new Partition();
+        partition.bindPartitionModel(signal);
+
+        UI ui = new UI();
+        ui.setId("reactive");
+        ui.getElement().appendChild(partition.getElement());
+        UI.setCurrent(ui);
+
+        // Directly change the bound value; no setModel() call is made.
+        PartitionModel updated = new PartitionModel(
+                20.0,
+                3,
+                6,
+                Double.NaN,
+                List.of(cluster("a", 2), cluster("b", 2), cluster("c", 2)));
+        signal.set(updated);
+
+        // Clusters are rebuilt reactively through the bound signal effect.
+        assertEquals(3, partition.getClusterCount());
     }
 }

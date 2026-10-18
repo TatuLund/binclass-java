@@ -28,7 +28,7 @@ export class Cluster extends Details {
          visible while the details are closed. */
       .centroid-block {
         margin-top: 4px;
-        padding-left: calc(96px + var(--vaadin-gap-s, 8px));
+        padding-left: calc(92px + var(--vaadin-gap-s, 8px));
       }
 
       /*

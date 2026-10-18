@@ -55,6 +55,8 @@ public class Cluster extends Details {
         if (data == null) {
             throw new IllegalArgumentException("ClusterData must not be null");
         }
+        assertConsistentLengths(data.centroid().probabilities().length,
+                data.vectors());
         setSummaryText(buildSummary(data));
         this.centroid = new Centroid();
         centroid.setData(data.centroid());
@@ -93,6 +95,32 @@ public class Cluster extends Details {
     }
 
     /**
+     * Validates that every vector assigned to the cluster has the same number
+     * of bits as the centroid probabilities. In the application a centroid and
+     * its vectors always share the same bit length, so a mismatch signals a
+     * broken translation layer rather than valid data.
+     *
+     * @param centroidLength
+     *            the number of bits in the cluster centroid; must not be null
+     * @param vectors
+     *            the vectors assigned to the cluster; may be empty
+     * @throws IllegalStateException
+     *             when any vector's bit count differs from the centroid
+     *             probability length
+     */
+    private static void assertConsistentLengths(int centroidLength,
+            List<VectorData> vectors) {
+        for (VectorData vector : vectors) {
+            if (vector.bits().length != centroidLength) {
+                throw new IllegalStateException(
+                        "Cluster has a centroid of length " + centroidLength
+                                + " but a vector of length "
+                                + vector.bits().length);
+            }
+        }
+    }
+
+    /**
      * Replaces the vectors rendered in this cluster. Existing vector children
      * are removed and the new ones are added to the {@code vectors} slot.
      *
@@ -103,6 +131,10 @@ public class Cluster extends Details {
     public void setVectors(List<VectorData> vectors) {
         if (vectors == null) {
             throw new IllegalArgumentException("Vector list must not be null");
+        }
+        if (centroid != null) {
+            assertConsistentLengths(centroid.getProbabilities().length,
+                    vectors);
         }
         this.bufferedVectors = List.copyOf(vectors);
         populateSlot();
