@@ -67,6 +67,7 @@ Vaadin's server-side annotations (`@Tag`, `@JsModule`, `@ClientCallable`). Note:
 - Collapse/expand implemented with `vaadin-detail` (or equivalent).
 - **Lazy population:** when opened, the cluster requests/parses its vector list. The Java side observes the open event and pushes the vector data to the web component.
 - **Slots:** `centroid` and `vectors`.
+- **Length invariant:** a centroid and its vectors always share the same bit length, so `Cluster` validates this on construction and in `setVectors(...)`. If any vector's bit count differs from the centroid probability length it throws `IllegalStateException` (see §3.4.1). A mismatch signals a broken translation layer rather than valid data.
 
 ### 3.4 `binclass-partition` (Partition)
 
@@ -75,6 +76,27 @@ Vaadin's server-side annotations (`@Tag`, `@JsModule`, `@ClientCallable`). Note:
 - The Java `Partition` component consumes a presentation-specific model (built from the algorithms
   `Partition`) and propagates clusters/centroids with their data; each cluster in turn populates its
   vectors. Components depend only on their own presentation records, not on `binclass-algorithms`.
+- **Length invariant:** because every vector belongs to a centroid of equal length, `Cluster`
+  validates the invariant (see §3.4.1). The demo view keeps all partition vectors at length 16 so
+  both clusters satisfy it; the move button below preserves that invariant when relocating a vector.
+
+### 3.4.1 Length-mismatch sanity check (`Cluster`)
+
+In the application a centroid and its assigned vectors always share the same bit length, so `Cluster`
+enforces this as an invariant rather than silently tolerating drift:
+
+- **`assertConsistentLengths(int centroidLength, List<VectorData> vectors)`** — private helper that
+  throws `IllegalStateException` when any vector's `bits().length` differs from the centroid probability
+  length.
+- Called from two places:
+  - The **constructor**, using `data.centroid().probabilities().length` vs. `data.vectors()`.
+  - **`setVectors(List<VectorData>)`**, using the current `centroid.getProbabilities().length`, so vectors
+    set after construction are validated against the already-wired centroid.
+- The check is intentionally a *sanity* guard: it assumes equal length by design and surfaces a broken
+  translation layer (e.g. wrong bit width) as a hard failure instead of rendering inconsistent grids.
+- **Length invariant:** because every vector belongs to a centroid of equal length, `Cluster`
+  validates the invariant (see §3.3). The demo view keeps all partition vectors at length 16 so
+  both clusters satisfy it; the move button below preserves that invariant when relocating a vector.
 
 ---
 
@@ -166,6 +188,11 @@ Follow Vaadin's [Testing Applications with Playwright](https://vaadin.com/docs/l
 - **Server lifecycle:** reuse the existing jetty-ee11-maven-plugin config (`useTestScope=true`) and the `it` profile's `start-jetty`/`stop-jetty` executions bound to `pre-integration-test`/`post-integration-test`. No Spring Boot needed — start the dev build on a fixed port, then drive it from Playwright.
 - **Playwright lifecycle:** one shared `static Playwright playwright = Playwright.create()` in `@BeforeAll`, launch Chromium per test, and `playwright.close()` in `@AfterAll`.
 - **Locators/assertions:** use XPath/CSS locators (e.g. `//binclass-vector`) with implicit wait; assert on rendered cells, grid dimensions, hover-red state, lazy-populated vectors, and collapse toggling.
+- **Reactive move (`PartitionIT`):** drives the real web component in a browser to prove that changing
+  the bound model propagates reactively. It opens a partition cluster (index 1 — index 0 is the standalone
+  demo cluster), clicks `#move-vector-btn`, reopens both clusters, and asserts the moved vector left its old
+  cluster and arrived in the other one. Because `Partition` rebuilds fresh `Cluster` instances on every model
+  change (which start closed), the test re-queries and re-opens each cluster before asserting.
 
 ### 7.2 Minimal demo application under test scope
 
@@ -174,6 +201,11 @@ A minimal Vaadin view that hosts the components for Playwright to drive. Placed 
 - **Location:** `binclass-components/src/test/java/...` (mirrors how `binclass-ui` copies test-scoped views into the runtime classpath for the client-side compiler).
 - **Mock data:** sufficient to exercise every representation edge case — does **not** need to be mathematically correct, only visually representative. Cover: short vectors (2×2 … 8×8), long vectors (>64 bits → up to 12×12 with remainder gaps), missing values, small/large clusters, empty clusters, single-cluster partitions, and a partition spanning many clusters for the header metrics.
 - **Edge cases to demonstrate:** grid sizing at each `N` boundary; name-as-prefix vs tooltip switch at `N = 9`; hover-red mismatch cells; centroid grey-shade gradient across probabilities near 0 / 0.5 / 1; lazy vector population on cluster open; collapse/expand caret state.
+- **Reactive move demo:** the partition section binds a whole `PartitionModel` through a Vaadin
+  `ValueSignal<PartitionModel>` and exposes a button (`#move-vector-btn`) that relocates one vector
+  between two clusters. Clicking it calls `modelSignal.set(newModel)`, which pushes a fresh model
+  reactively so the header and cluster list rebuild without any manual update. Vectors are kept at a
+  uniform length (16) so both clusters satisfy `Cluster`'s length invariant before and after the move.
 
 ---
 
@@ -200,6 +232,11 @@ All wrappers extend `com.vaadin.flow.component.Component` and use the three core
 - **Cluster collapse:** the `Cluster` wrapper extends `@Tag("vaadin-detail")` (`vaadin-details-flow`) and holds the centroid + vectors as light-DOM children inside it; collapse handled by Vaadin's detail (caret toggle, `setExpanded`/`open()`/`close()`).
 - **Lazy load trigger:** primary mechanism is observing the open event via `@DomEvent("open")`; Java then pushes vector batches with `setProperty(...)` as they become visible. `@ClientCallable` remains a fallback for pull-based loading if needed.
 - **Slots vs children:** named slots wired from Java with Vaadin's `SlotUtils` (e.g. `SlotUtils.setSlot(child, "vectors")`) which sets the slot attribute on child elements; append to root and TS template declares `<slot name="...">`. Cluster uses `centroid`/`vectors`; Partition uses `header`/`body`.
+- **Reactive model binding:** `Partition.bindPartitionModel(ValueSignal<PartitionModel>)` binds the whole
+  presentation object through Vaadin's local signal (`getElement().bindProperty(PROPERTY_MODEL, model, null)`)
+  and registers a `Signal.effect(...)` that rebuilds the body clusters whenever the bound value changes. Later
+  calls to `modelSignal.set(newModel)` refresh both header metrics and cluster list with no manual update; passing
+  `null` unbinds and restores manual property updates (`setStochasticComplexity`, etc.).
 
 ---
 
