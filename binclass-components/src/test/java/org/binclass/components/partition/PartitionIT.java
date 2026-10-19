@@ -6,15 +6,13 @@ package org.binclass.components.partition;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.options.WaitForSelectorState;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.binclass.components.ComponentIT;
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.binclass.components.ComponentIT;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,15 +49,12 @@ class PartitionIT extends ComponentIT {
     }
 
     /**
-     * Opens a cluster by clicking its caret and waits until at least one vector
-     * has been pushed to the client, so buffered vectors become countable.
+     * Opens a cluster by clicking its caret so buffered vectors are pushed to
+     * the client. Callers assert the resulting count with {@link #assertThat},
+     * which retries until the reactive population settles.
      */
     private void openAndPopulate(Locator cluster) {
         caret(cluster).click();
-        vectorsInContent(cluster)
-                .first()
-                .waitFor(new Locator.WaitForOptions()
-                        .setState(WaitForSelectorState.VISIBLE));
     }
 
     /** Returns the rendered name of every vector inside a cluster. */
@@ -68,53 +63,53 @@ class PartitionIT extends ComponentIT {
     }
 
     @Test
-    void movingVectorReactivatesPartitionModel() throws IOException {
-        try (Page page = openDemo(TEST_ROUTE)) {
-            // The partition body hosts two clusters at indices 1 and 2; index 0
-            // is
-            // the standalone cluster from createClusterSection(). Open the
-            // first
-            // partition cluster to populate its buffered vectors. It starts
-            // with
-            // three: vec-a, vec-b and vec-c.
-            Locator firstCluster = clusters(page).nth(1);
-            openAndPopulate(firstCluster);
-            assertEquals(3, vectorsInContent(firstCluster).count());
+    void movingVectorReactivatesPartitionModel() {
 
-            // Trigger the move by clicking the demo button; it pushes a new
-            // model
-            // through the bound signal so both clusters rebuild reactively. The
-            // fresh Cluster instances start closed, so the opened cluster snaps
-            // shut on its own.
-            page.locator("#move-vector-btn").click();
+        openDemo(TEST_ROUTE);
+        // The partition body hosts two clusters at indices 1 and 2; index 0
+        // is
+        // the standalone cluster from createClusterSection(). Open the
+        // first
+        // partition cluster to populate its buffered vectors. It starts
+        // with
+        // three: vec-a, vec-b and vec-c.
+        Locator firstCluster = clusters(page).nth(1);
+        openAndPopulate(firstCluster);
+        assertThat(vectorsInContent(firstCluster)).hasCount(3);
 
-            // Re-query and reopen the first partition cluster to populate its
-            // vectors again; it now holds two: vec-a and vec-b (vec-c was moved
-            // out).
-            Locator movedFirst = clusters(page).nth(1);
-            openAndPopulate(movedFirst);
-            assertEquals(2, vectorsInContent(movedFirst).count());
+        // Trigger the move by clicking the demo button; it pushes a new
+        // model
+        // through the bound signal so both clusters rebuild reactively. The
+        // fresh Cluster instances start closed, so the opened cluster snaps
+        // shut on its own.
+        page.locator("#move-vector-btn").click();
 
-            // Open the second partition cluster and confirm it now holds four
-            // vectors: vec-d, vec-e, vec-f and the moved vec-c.
-            Locator movedSecond = clusters(page).nth(2);
-            openAndPopulate(movedSecond);
-            assertEquals(4, vectorsInContent(movedSecond).count());
+        // Re-query and reopen the first partition cluster to populate its
+        // vectors again; it now holds two: vec-a and vec-b (vec-c was moved
+        // out).
+        Locator movedFirst = clusters(page).nth(1);
+        openAndPopulate(movedFirst);
+        assertThat(vectorsInContent(movedFirst)).hasCount(2);
 
-            // Assert vec-c left the first cluster and arrived in the second
-            // one.
-            List<String> firstClusterNames = vectorNames(movedFirst);
-            assertFalse(
-                    firstClusterNames.stream()
-                            .anyMatch(n -> n.contains("vec-c")),
-                    "vec-c should no longer be rendered in the first cluster");
+        // Open the second partition cluster and confirm it now holds four
+        // vectors: vec-d, vec-e, vec-f and the moved vec-c.
+        Locator movedSecond = clusters(page).nth(2);
+        openAndPopulate(movedSecond);
+        assertThat(vectorsInContent(movedSecond)).hasCount(4);
 
-            List<String> secondClusterNames = vectorNames(movedSecond);
-            assertTrue(
-                    secondClusterNames.stream()
-                            .anyMatch(n -> n.contains("vec-c")),
-                    "vec-c should now be rendered in the second cluster");
-        }
+        // Assert vec-c left the first cluster and arrived in the second
+        // one.
+        List<String> firstClusterNames = vectorNames(movedFirst);
+        assertFalse(
+                firstClusterNames.stream()
+                        .anyMatch(n -> n.contains("vec-c")),
+                "vec-c should no longer be rendered in the first cluster");
+
+        List<String> secondClusterNames = vectorNames(movedSecond);
+        assertTrue(
+                secondClusterNames.stream()
+                        .anyMatch(n -> n.contains("vec-c")),
+                "vec-c should now be rendered in the second cluster");
     }
 
 }

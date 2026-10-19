@@ -8,17 +8,19 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
-import java.io.IOException;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Base class for Playwright end-to-end tests of the custom Binclass components.
  * <p>
  * Follows Vaadin's guidance for driving a running dev build with a real
  * browser: a single shared {@link Playwright} instance is created in
- * {@link BeforeAll} and closed in {@link AfterAll}, while each test launches
- * its own headless Chromium page. The server itself is started by the
+ * {@link BeforeAll} and closed in {@link AfterAll}, while each test gets its
+ * own headless Chromium page opened in {@link #openBrowser()} and closed in
+ * {@link #closeBrowser()}. The server itself is started by the
  * jetty-ee11-maven-plugin bound to the {@code pre-integration-test} phase of
  * the {@code it} profile, so tests only need to navigate to routes and assert
  * on the rendered custom elements.
@@ -38,7 +40,7 @@ public abstract class ComponentIT {
      * Creates the shared Playwright instance used by all tests in the class.
      */
     @BeforeAll
-    static void createPlaywright() throws IOException {
+    static void createPlaywright() {
         playwright = Playwright.create();
     }
 
@@ -53,26 +55,30 @@ public abstract class ComponentIT {
     }
 
     /**
-     * Launches a headless Chromium page already pointed at the given route,
-     * relative to {@link #BASE_URL}.
-     * <p>
-     * Callers own the returned page and should close it, typically with
-     * {@code try (Page page = openPage("/demo"))}. A second navigation can be
-     * issued on the returned page when a different URL is required.
-     * </p>
-     *
-     * @param route
-     *            the route to navigate to after the page is created
-     * @return a fresh browser page bound to this test
-     * @throws IOException
-     *             when the browser cannot be launched or the navigation fails
+     * Fresh browser page for each test, created in {@link #openBrowser()} and
+     * closed in {@link #closeBrowser()}. Tests assert against this instance.
      */
-    protected Page openPage(String route) throws IOException {
+    protected Page page;
+
+    /**
+     * Launches a fresh headless Chromium page before each test so every test
+     * starts from a clean slate. The page is closed in {@link #closeBrowser()}.
+     */
+    @BeforeEach
+    void openBrowser() {
         Browser browser = playwright.chromium()
                 .launch(new BrowserType.LaunchOptions().setHeadless(true));
-        Page page = browser.newPage();
-        page.navigate(BASE_URL + route);
-        return page;
+        page = browser.newPage();
+    }
+
+    /**
+     * Closes the per-test page so it does not leak between tests.
+     */
+    @AfterEach
+    void closeBrowser() {
+        if (page != null) {
+            page.close();
+        }
     }
 
     /**
@@ -114,11 +120,21 @@ public abstract class ComponentIT {
                         }""");
     }
 
-    /** Convenience for opening the demo view that hosts all four components. */
-    protected Page openDemo(String route) throws IOException {
-        Page page = openPage("/" + route);
+    /**
+     * Navigates the per-test {@link #page} to the demo view that hosts all four
+     * components and waits until every custom component has rendered its cells.
+     * <p>
+     * The page is owned by the base class, so callers assert against the
+     * {@link #page} field directly instead of wrapping it in a
+     * {@code try}-with-resources block or declaring {@code IOException}.
+     * </p>
+     *
+     * @param route
+     *            the route to navigate to after the page is created
+     */
+    protected void openDemo(String route) {
+        page.navigate(BASE_URL + "/" + route);
         waitForComponentsRendered(page);
-        return page;
     }
 
     /**
