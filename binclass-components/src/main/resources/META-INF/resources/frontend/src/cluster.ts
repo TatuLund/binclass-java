@@ -59,6 +59,7 @@ export class Cluster extends Details {
    * `opened` exactly once rather than twice and cancelling itself out.
    */
   protected ready() {
+    // @ts-expect-error
     super.ready();
   }
 
@@ -69,7 +70,10 @@ export class Cluster extends Details {
     // shadowRoot.querySelector(...) -> null and SlotObserver.connect throws,
     // which also prevents the caret toggle handler from being registered.
     return html`
-      ${super.render()}
+      ${
+        // @ts-expect-error
+        super.render()
+      }
       <div class="centroid-block"><slot name="centroid"></slot></div>
       <div part="vectors">
         <slot name="vectors"></slot>
