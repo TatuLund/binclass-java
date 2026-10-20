@@ -46,7 +46,7 @@ export class Cluster extends Details {
       }
 
       :host(:not([opened])) [part="vectors"] {
-         display: none;
+        display: none;
       }
     `;
   }

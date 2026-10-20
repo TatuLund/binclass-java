@@ -32,6 +32,18 @@ export class Vector extends ThemableMixin(LitElement) {
   private _cellsEl?: HTMLElement;
   private _resizeObserver?: ResizeObserver;
   private _tooltipController?: TooltipController;
+  private _pendingCellSize?: number;
+  private _rafId?: number;
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._rafId !== undefined) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = undefined;
+    }
+    this._resizeObserver?.disconnect();
+    this._cellsEl = undefined;
+  }
 
   firstUpdated() {
     this._attachCellsObserver();
@@ -67,9 +79,27 @@ export class Vector extends ThemableMixin(LitElement) {
         Vector.MAX_CELL_SIZE,
         Math.max(Vector.MIN_CELL_SIZE, Math.floor(width / this.bits.length)),
       );
-      this._applyCellSize(size);
+      this._scheduleCellSize(size);
     });
     this._resizeObserver.observe(cellsEl);
+  }
+
+  /**
+   * Defers the cell-size update to the next animation frame so a synchronous
+   * ResizeObserver callback does not feed its own layout change back into the
+   * same frame, which would otherwise produce
+   * "ResizeObserver loop completed with undelivered notifications".
+   */
+  private _scheduleCellSize(size: number) {
+    this._pendingCellSize = size;
+    this._rafId ??= requestAnimationFrame(() => {
+      this._rafId = undefined;
+      const pending = this._pendingCellSize;
+      this._pendingCellSize = undefined;
+      if (pending !== undefined) {
+        this._applyCellSize(pending);
+      }
+    });
   }
 
   private _applyCellSize(size: number) {
@@ -233,6 +263,8 @@ export class Vector extends ThemableMixin(LitElement) {
           ${this.name}${this.identifier ? "  " + this.identifier : ""}
         </div>
         <div class="cells" part="grid">${cells}</div>
+        <!-- TooltipController observes this slot to attach the vaadin-tooltip. -->
+        <slot name="tooltip"></slot>
       </div>
     `;
   }

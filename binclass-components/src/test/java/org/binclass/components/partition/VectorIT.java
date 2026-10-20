@@ -145,4 +145,43 @@ class VectorIT extends ComponentIT {
                         + before + " -> " + after);
     }
 
+    @Test
+    void smallVectorHasTooltipChild() {
+        openDemo(TEST_ROUTE);
+
+        // The 2x2 vector hides its name inline, so a tooltip child element must
+        // be wired up to carry the name and distance. It is the first vector in
+        // DOM order.
+        assertThat(vectors(page).nth(0).locator("vaadin-tooltip"))
+                .hasCount(1);
+    }
+
+    @Test
+    void smallVectorShowsTooltipOnHover() {
+        openDemo(TEST_ROUTE);
+
+        // Hovering the 2x2 vector opens its tooltip, which shows the name and
+        // distance to centroid. It is the first vector in DOM order.
+        Locator small = vectors(page).nth(0);
+        small.hover();
+        assertThat(page.locator("vaadin-overlay")
+                .filter(new Locator.FilterOptions()
+                        .setHasText("Name: v-2x2")))
+                .isVisible();
+    }
+
+    @Test
+    void mediumVectorShowsTooltipWithIdentifier() {
+        openDemo(TEST_ROUTE);
+
+        // The 3x3 vector hides its name inline, so the tooltip carries the
+        // name, identifier, and distance. It is the second vector in DOM order.
+        Locator medium = vectors(page).nth(1);
+        medium.hover();
+        assertThat(page.locator("vaadin-overlay")
+                .filter(new Locator.FilterOptions()
+                        .setHasText("Identifier: id-9")))
+                .isVisible();
+    }
+
 }

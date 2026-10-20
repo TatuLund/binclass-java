@@ -139,4 +139,29 @@ class CentroidIT extends ComponentIT {
                         + before + " -> " + after);
     }
 
+    @Test
+    void shortCentroidHasTooltipChild() {
+        openDemo(TEST_ROUTE);
+
+        // The short centroid must have a tooltip child element to carry its
+        // name, distortion, weight, and vector count. It is the first centroid
+        // in DOM order.
+        assertThat(centroids(page).nth(0).locator("vaadin-tooltip"))
+                .hasCount(1);
+    }
+
+    @Test
+    void shortCentroidShowsTooltipOnHover() {
+        openDemo(TEST_ROUTE);
+
+        // Hovering the short centroid opens its tooltip, which shows the name.
+        // It is the first centroid in DOM order.
+        Locator shortCentroid = centroids(page).nth(0);
+        shortCentroid.hover();
+        assertThat(page.locator("vaadin-overlay")
+                .filter(new Locator.FilterOptions()
+                        .setHasText("Name: centroid-5")))
+                .isVisible();
+    }
+
 }

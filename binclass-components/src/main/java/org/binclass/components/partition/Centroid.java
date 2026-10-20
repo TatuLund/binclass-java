@@ -5,12 +5,12 @@
 package org.binclass.components.partition;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;
+import com.vaadin.flow.component.shared.HasTooltip;
 
 /**
  * Vaadin wrapper for the {@code binclass-centroid} web component.
@@ -22,7 +22,7 @@ import com.vaadin.flow.component.Tag;
  */
 @Tag("binclass-centroid")
 @JsModule("./src/centroid.ts")
-public class Centroid extends Component {
+public class Centroid extends Component implements HasTooltip {
 
     /**
      * DOM event fired when a cell is selected, carrying the clicked index and
@@ -46,6 +46,7 @@ public class Centroid extends Component {
         setClassDistortion(data.classDistortion());
         setWeight(data.weight());
         setVectorCount(data.vectorCount());
+        setTooltipText(tooltipText(data));
     }
 
     /**
@@ -62,7 +63,7 @@ public class Centroid extends Component {
         List<Double> values = IntStream.range(0, clamped.length)
                 .mapToDouble(i -> clamped[i])
                 .boxed()
-                .collect(Collectors.toList());
+                .toList();
         getElement().setPropertyList("probabilities", values);
     }
 
@@ -74,9 +75,6 @@ public class Centroid extends Component {
     public double[] getProbabilities() {
         List<?> values = getElement().getPropertyBean("probabilities",
                 List.class);
-        if (values == null) {
-            return new double[0];
-        }
         double[] result = new double[values.size()];
         for (int i = 0; i < values.size(); i++) {
             result[i] = ((Number) values.get(i)).doubleValue();
@@ -124,6 +122,43 @@ public class Centroid extends Component {
      */
     public void setVectorCount(int vectorCount) {
         getElement().setProperty("vectorCount", vectorCount);
+    }
+
+    /**
+     * Builds the tooltip text for a centroid from its name, class distortion,
+     * weight, and vector count, matching the client-side rendering.
+     *
+     * @param data
+     *            the immutable presentation data; must not be null
+     * @return the multi-line tooltip text shown on hover
+     */
+    private static String tooltipText(CentroidData data) {
+        String name = data.name();
+        StringBuilder text = new StringBuilder();
+        if (!name.isEmpty()) {
+            text.append("Name: ").append(name);
+        }
+        if (!Double.isNaN(data.classDistortion())) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append("Class distortion: ")
+                    .append(String.format(java.util.Locale.ROOT, "%.3f",
+                            data.classDistortion()));
+        }
+        if (!Double.isNaN(data.weight())) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append("Weight: ")
+                    .append(String.format(java.util.Locale.ROOT, "%.3f",
+                            data.weight()));
+        }
+        if (!text.isEmpty()) {
+            text.append('\n');
+        }
+        text.append("Vectors: ").append(data.vectorCount());
+        return text.toString();
     }
 
 }

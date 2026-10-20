@@ -5,12 +5,12 @@
 package org.binclass.components.partition;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;
+import com.vaadin.flow.component.shared.HasTooltip;
 
 /**
  * Vaadin wrapper for the {@code binclass-vector} web component.
@@ -23,7 +23,7 @@ import com.vaadin.flow.component.Tag;
  */
 @Tag("binclass-vector")
 @JsModule("./src/vector.ts")
-public class Vector extends Component {
+public class Vector extends Component implements HasTooltip {
 
     /**
      * DOM event fired when a cell is selected, carrying the clicked index and
@@ -47,6 +47,7 @@ public class Vector extends Component {
         setIdentifier(data.identifier());
         setDistanceToCentroid(data.distanceToCentroid());
         setRoundedCentroid(data.roundedCentroid());
+        setTooltipText(tooltipText(data));
     }
 
     /**
@@ -58,7 +59,7 @@ public class Vector extends Component {
     public void setBits(int[] bits) {
         List<Integer> values = bits == null
                 ? List.of()
-                : IntStream.of(bits).boxed().collect(Collectors.toList());
+                : IntStream.of(bits).boxed().toList();
         getElement().setPropertyList("bits", values);
     }
 
@@ -69,9 +70,6 @@ public class Vector extends Component {
      */
     public int[] getBits() {
         List<?> values = getElement().getPropertyBean("bits", List.class);
-        if (values == null) {
-            return new int[0];
-        }
         int[] result = new int[values.size()];
         for (int i = 0; i < values.size(); i++) {
             result[i] = ((Number) values.get(i)).intValue();
@@ -110,7 +108,7 @@ public class Vector extends Component {
         List<Integer> values = roundedCentroid == null
                 ? List.of()
                 : IntStream.of(roundedCentroid).boxed()
-                        .collect(Collectors.toList());
+                        .toList();
         getElement().setPropertyList("roundedCentroid", values);
     }
 
@@ -123,6 +121,35 @@ public class Vector extends Component {
      */
     public void setDistanceToCentroid(int distanceToCentroid) {
         getElement().setProperty("distanceToCentroid", distanceToCentroid);
+    }
+
+    /**
+     * Builds the tooltip text for a vector from its name, optional identifier,
+     * and distance to centroid, matching the client-side rendering.
+     *
+     * @param data
+     *            the immutable presentation data; must not be null
+     * @return the multi-line tooltip text shown on hover
+     */
+    private static String tooltipText(VectorData data) {
+        String name = data.name();
+        String identifier = data.identifier();
+        StringBuilder text = new StringBuilder();
+        if (!name.isEmpty()) {
+            text.append("Name: ").append(name);
+        }
+        if (identifier != null && !identifier.isEmpty()) {
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append("Identifier: ").append(identifier);
+        }
+        if (!text.isEmpty()) {
+            text.append('\n');
+        }
+        text.append("Distance to centroid: ")
+                .append(data.distanceToCentroid());
+        return text.toString();
     }
 
 }

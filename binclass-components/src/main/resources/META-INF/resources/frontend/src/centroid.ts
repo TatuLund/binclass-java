@@ -16,8 +16,8 @@ import { ThemableMixin } from "@vaadin/vaadin-themable-mixin/vaadin-themable-mix
 export class Centroid extends ThemableMixin(LitElement) {
   @property({ type: Array }) probabilities: number[] = [];
   @property() name = "";
-  @property({ type: Number }) classDistortion = NaN;
-  @property({ type: Number }) weight = NaN;
+  @property({ type: Number }) classDistortion = Number.NaN;
+  @property({ type: Number }) weight = Number.NaN;
   @property({ type: Number }) vectorCount = 0;
 
   /** Smallest cell edge in pixels used when the container is narrower than the bit count. */
@@ -29,6 +29,18 @@ export class Centroid extends ThemableMixin(LitElement) {
   private _cellsEl?: HTMLElement;
   private _resizeObserver?: ResizeObserver;
   private _tooltipController?: TooltipController;
+  private _pendingCellSize?: number;
+  private _rafId?: number;
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._rafId !== undefined) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = undefined;
+    }
+    this._resizeObserver?.disconnect();
+    this._cellsEl = undefined;
+  }
 
   firstUpdated() {
     this._attachCellsObserver();
@@ -67,9 +79,27 @@ export class Centroid extends ThemableMixin(LitElement) {
           Math.floor(width / this.probabilities.length),
         ),
       );
-      this._applyCellSize(size);
+      this._scheduleCellSize(size);
     });
     this._resizeObserver.observe(cellsEl);
+  }
+
+  /**
+   * Defers the cell-size update to the next animation frame so a synchronous
+   * ResizeObserver callback does not feed its own layout change back into the
+   * same frame, which would otherwise produce
+   * "ResizeObserver loop completed with undelivered notifications".
+   */
+  private _scheduleCellSize(size: number) {
+    this._pendingCellSize = size;
+    this._rafId ??= requestAnimationFrame(() => {
+      this._rafId = undefined;
+      const pending = this._pendingCellSize;
+      this._pendingCellSize = undefined;
+      if (pending !== undefined) {
+        this._applyCellSize(pending);
+      }
+    });
   }
 
   private _applyCellSize(size: number) {
@@ -182,6 +212,8 @@ export class Centroid extends ThemableMixin(LitElement) {
     return html`
       <div class="label" part="name">${this.name}</div>
       <div class="cells" part="grid">${cells}</div>
+      <!-- TooltipController observes this slot to attach the vaadin-tooltip. -->
+      <slot name="tooltip"></slot>
     `;
   }
 }

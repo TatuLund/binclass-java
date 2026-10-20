@@ -88,7 +88,8 @@ export class Partition extends ThemableMixin(LitElement) {
       model?.stochasticComplexity ?? this.stochasticComplexity;
     const clusterCount = model?.clusterCount ?? this.clusterCount;
     const vectorCount = model?.vectorCount ?? this.vectorCount;
-    const overallDistortion = model?.overallDistortion ?? this.overallDistortion;
+    const overallDistortion =
+      model?.overallDistortion ?? this.overallDistortion;
 
     return html`
       <div class="header" part="header">
