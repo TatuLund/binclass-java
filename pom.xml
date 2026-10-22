@@ -18,7 +18,8 @@
 		<jetty.plugin.version>12.1.10</jetty.plugin.version>
 		<jspecify.version>1.0.0</jspecify.version>
 		<servlet.version>6.1.0</servlet.version>
-		<spotless.version>3.2.1</spotless.version>
+		<spotless.version>3.10.4</spotless.version>
+		<prettier.version>3.9.10</prettier.version>
 		<spotless.skip>false</spotless.skip>
 		<junit6.version>6.1.1</junit6.version>
 		<browserless-test.version>1.1.1</browserless-test.version>
@@ -52,8 +53,21 @@
 							    <version>4.35</version>
 								<file>${project.parent.basedir}/eclipse-formatter.xml</file>
 							</eclipse>
-						</java>
-					</configuration>
+						</java>						<format id="frontend">
+							<includes>
+								<include>**/*.ts</include>
+								<include>**/*.tsx</include>
+							</includes>
+							<excludes>
+								<exclude>**/node_modules/**</exclude>
+								<exclude>**/target/**</exclude>
+								<exclude>**/generated/**</exclude>
+								<exclude>**/jar-resources/**</exclude>
+							</excludes>
+							<prettier>
+								<version>${prettier.version}</version>
+							</prettier>
+						</format>					</configuration>
 					<executions>
 						<execution>
 							<goals>
@@ -102,6 +116,21 @@
 							<file>${project.basedir}/eclipse-formatter.xml</file>
 						</eclipse>
 					</java>
+					<format id="frontend">
+						<includes>
+							<include>**/*.ts</include>
+							<include>**/*.tsx</include>
+						</includes>
+						<excludes>
+							<exclude>**/node_modules/**</exclude>
+							<exclude>**/target/**</exclude>
+							<exclude>**/generated/**</exclude>
+							<exclude>**/jar-resources/**</exclude>
+						</excludes>
+						<prettier>
+							<version>${prettier.version}</version>
+						</prettier>
+					</format>
 				</configuration>
 			</plugin>
 

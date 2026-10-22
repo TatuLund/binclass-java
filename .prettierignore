@@ -1,0 +1,15 @@
+# Build output and dependencies
+node_modules/
+target/
+binclass-ui/target/
+binclass-components/target/
+
+# Generated frontend code (do not format)
+**/generated/**
+binclass-ui/src/main/frontend/generated/
+binclass-components/src/main/frontend/generated/
+src/main/frontend/generated/
+binclass-components/frontend/generated/
+
+# Bundled vendor resources
+**/jar-resources/**
