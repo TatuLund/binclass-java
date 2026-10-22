@@ -18,6 +18,7 @@
 		<jetty.plugin.version>12.1.10</jetty.plugin.version>
 		<jspecify.version>1.0.0</jspecify.version>
 		<servlet.version>6.1.0</servlet.version>
+		<jsoup.version>1.22.2</jsoup.version>
 		<spotless.version>3.10.4</spotless.version>
 		<prettier.version>3.9.10</prettier.version>
 		<spotless.skip>false</spotless.skip>

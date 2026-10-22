@@ -7,6 +7,8 @@ package org.binclass.components.partition;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import org.jspecify.annotations.Nullable;
+
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;
@@ -68,8 +70,12 @@ public class Vector extends Component implements HasTooltip {
      *
      * @return the bit array, or an empty array when none have been set
      */
+    @SuppressWarnings("unused")
     public int[] getBits() {
         List<?> values = getElement().getPropertyBean("bits", List.class);
+        if (values == null) {
+            return new int[0];
+        }
         int[] result = new int[values.size()];
         for (int i = 0; i < values.size(); i++) {
             result[i] = ((Number) values.get(i)).intValue();

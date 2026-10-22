@@ -72,9 +72,13 @@ public class Centroid extends Component implements HasTooltip {
      *
      * @return the probability array, or an empty array when none have been set
      */
+    @SuppressWarnings("unused")
     public double[] getProbabilities() {
         List<?> values = getElement().getPropertyBean("probabilities",
                 List.class);
+        if (values == null) {
+            return new double[0];
+        }
         double[] result = new double[values.size()];
         for (int i = 0; i < values.size(); i++) {
             result[i] = ((Number) values.get(i)).doubleValue();
