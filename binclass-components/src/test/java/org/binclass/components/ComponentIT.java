@@ -64,11 +64,24 @@ public abstract class ComponentIT {
      * Launches a fresh headless Chromium page before each test so every test
      * starts from a clean slate. The page is closed in {@link #closeBrowser()}.
      */
+    /**
+     * Default viewport used for every test so tooltips, which open relative to
+     * their trigger element, stay inside the headless browser area and are not
+     * clipped out of view by Playwright's small default size.
+     */
+    private static final int VIEWPORT_WIDTH = 1600;
+
+    /**
+     * Height paired with {@link #VIEWPORT_WIDTH} so tall pages render fully.
+     */
+    private static final int VIEWPORT_HEIGHT = 900;
+
     @BeforeEach
     void openBrowser() {
         Browser browser = playwright.chromium()
                 .launch(new BrowserType.LaunchOptions().setHeadless(true));
         page = browser.newPage();
+        page.setViewportSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
     }
 
     /**

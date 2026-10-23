@@ -158,10 +158,9 @@ class CentroidIT extends ComponentIT {
         // It is the first centroid in DOM order.
         Locator shortCentroid = centroids(page).nth(0);
         shortCentroid.hover();
-        assertThat(page.locator("vaadin-overlay")
-                .filter(new Locator.FilterOptions()
-                        .setHasText("Name: centroid-5")))
-                .isVisible();
+        assertThat(shortCentroid.locator("vaadin-tooltip"))
+                .hasAttribute("opened", "");
+        assertThat(page.locator("text=Name: centroid-5")).isVisible();
     }
 
 }

@@ -164,10 +164,11 @@ class VectorIT extends ComponentIT {
         // distance to centroid. It is the first vector in DOM order.
         Locator small = vectors(page).nth(0);
         small.hover();
-        assertThat(page.locator("vaadin-overlay")
-                .filter(new Locator.FilterOptions()
-                        .setHasText("Name: v-2x2")))
-                .isVisible();
+        // Vaadin 25 renders the tooltip inside its own shadow DOM, so assert on
+        // the vaadin-tooltip element itself (opened) and the visible text it
+        // carries, mirroring the BadgeIT tooltip test pattern.
+        assertThat(small.locator("vaadin-tooltip")).hasAttribute("opened", "");
+        assertThat(page.locator("text=Name: v-2x2")).isVisible();
     }
 
     @Test
@@ -178,10 +179,8 @@ class VectorIT extends ComponentIT {
         // name, identifier, and distance. It is the second vector in DOM order.
         Locator medium = vectors(page).nth(1);
         medium.hover();
-        assertThat(page.locator("vaadin-overlay")
-                .filter(new Locator.FilterOptions()
-                        .setHasText("Identifier: id-9")))
-                .isVisible();
+        assertThat(medium.locator("vaadin-tooltip")).hasAttribute("opened", "");
+        assertThat(page.locator("text=Identifier: id-9")).isVisible();
     }
 
 }
