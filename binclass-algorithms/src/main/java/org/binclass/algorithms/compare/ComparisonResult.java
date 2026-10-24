@@ -195,7 +195,7 @@ public record ComparisonResult(
         sb.append("==================\n\n");
         sb.append(renderMatrix());
         sb.append("\nOverall distance = ")
-                .append(String.format("%.4f", distance))
+                .append(String.format(java.util.Locale.ROOT, "%.4f", distance))
                 .append("\n");
         return sb.toString();
     }
