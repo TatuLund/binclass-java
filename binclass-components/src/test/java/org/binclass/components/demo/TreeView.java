@@ -35,7 +35,7 @@ public class TreeView extends VerticalLayout {
         section.add("Tree — single cluster (one leaf, no branches)");
 
         Tree tree = new Tree();
-        tree.getElement().setAttribute("id", "tree-single");
+        tree.setId("tree-single");
         tree.setData(new TreeModelBuilder(Map.of("C1", "A"), Map.of("C1", 5))
                 .build(leaf("C1", 2.0)));
         section.add(tree);
@@ -48,7 +48,7 @@ public class TreeView extends VerticalLayout {
         section.add("Tree — two-cluster merge (two leaves, one knob)");
 
         Tree tree = new Tree();
-        tree.getElement().setAttribute("id", "tree-two");
+        tree.setId("tree-two");
         TreeNode root = merge("Merged", 3.0, leaf("C1", 1.0), leaf("C2", 2.0));
         tree.setData(new TreeModelBuilder(Map.of("C1", "A", "C2", "B"),
                 Map.of("C1", 5, "C2", 7)).build(root));
@@ -62,7 +62,7 @@ public class TreeView extends VerticalLayout {
         section.add("Tree — deeper ladder (three leaves, three knobs)");
 
         Tree tree = new Tree();
-        tree.getElement().setAttribute("id", "tree-ladder");
+        tree.setId("tree-ladder");
         TreeNode root = merge("Merged_123", 7.0,
                 merge("Merged_12", 3.0, leaf("C1", 1.0), leaf("C2", 2.0)),
                 leaf("C3", 4.0));

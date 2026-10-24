@@ -2,8 +2,8 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-import { css, html, LitElement } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
 import { Details } from "@vaadin/details/src/vaadin-details.js";
 
 /**
@@ -16,6 +16,19 @@ import { Details } from "@vaadin/details/src/vaadin-details.js";
  */
 @customElement("binclass-cluster")
 export class Cluster extends Details {
+  /** Theme attribute value propagated through the shadow DOM. */
+  @property()
+  theme: string | null = null;
+
+  static get is() {
+    return "binclass-cluster";
+  }
+
+  /** Stores the theme attribute value so it propagates through shadow DOM. */
+  _set_theme(theme: string) {
+    this.theme = theme;
+  }
+
   static get styles() {
     return css`
       :host {

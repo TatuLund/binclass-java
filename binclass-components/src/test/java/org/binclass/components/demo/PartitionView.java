@@ -83,14 +83,14 @@ public class PartitionView extends VerticalLayout {
 
         // 4 bits -> 2x2, no name inline.
         Vector small = new Vector();
-        small.getElement().setAttribute("id", "vector-small");
+        small.setId("vector-small");
         small.setData(new VectorData(alternating(4), "v-2x2"));
         section.add(small);
 
         // 9 bits -> 3x3 perfect square, name shown inline (N >= 9 is false here
         // so tooltip).
         Vector medium = new Vector();
-        medium.getElement().setAttribute("id", "vector-medium");
+        medium.setId("vector-medium");
         medium.setData(new VectorData(alternating(9), "v-medium", "id-9", 2,
                 alternatingCentroid(9)));
         section.add(medium);
@@ -103,7 +103,7 @@ public class PartitionView extends VerticalLayout {
 
         // 145 bits -> 12x12 with one remainder gap (clamped at MAX_SIDE).
         Vector big = new Vector();
-        big.getElement().setAttribute("id", "vector-big");
+        big.setId("vector-big");
         big.setData(new VectorData(alternating(145), "v-12x12", "id-145", 3,
                 alternatingCentroid(145)));
         section.add(big);
@@ -117,7 +117,7 @@ public class PartitionView extends VerticalLayout {
                 "Centroids — grey gradient across probabilities near 0 / 0.5 / 1");
 
         Centroid shortCentroid = new Centroid();
-        shortCentroid.getElement().setAttribute("id", "centroid-short");
+        shortCentroid.setId("centroid-short");
         shortCentroid.setData(new CentroidData(
                 new double[] { 0.0, 0.25, 0.5, 0.75, 1.0 },
                 "centroid-5",
@@ -130,7 +130,7 @@ public class PartitionView extends VerticalLayout {
         // right-edge
         // overflow fade are visible: even at 2px per bit the strip scrolls.
         Centroid longCentroid = new Centroid();
-        longCentroid.getElement().setAttribute("id", "centroid-long");
+        longCentroid.setId("centroid-long");
         longCentroid.setData(new CentroidData(
                 alternatingProbabilities(600),
                 "centroid-300",
@@ -213,7 +213,7 @@ public class PartitionView extends VerticalLayout {
         // id is used by PartitionIT to trigger the move.
         Button moveButton = new Button(
                 "Move vec-c from cluster-a to cluster-b");
-        moveButton.getElement().setAttribute("id", "move-vector-btn");
+        moveButton.setId("move-vector-btn");
         moveButton.addClickListener(event -> {
             List<VectorData> movedA = List.of(aVectors.get(0), aVectors.get(1));
             List<VectorData> movedB = new ArrayList<>(bVectors);

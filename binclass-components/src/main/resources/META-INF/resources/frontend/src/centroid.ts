@@ -20,6 +20,10 @@ export class Centroid extends ThemableMixin(LitElement) {
   @property({ type: Number }) weight = Number.NaN;
   @property({ type: Number }) vectorCount = 0;
 
+  /** Theme attribute value propagated through the shadow DOM. */
+  @property()
+  theme: string | null = null;
+
   /** Smallest cell edge in pixels used when the container is narrower than the bit count. */
   private static readonly MIN_CELL_SIZE = 2;
 
@@ -151,6 +155,15 @@ export class Centroid extends ThemableMixin(LitElement) {
     if (this._tooltipController && changed.has("name")) {
       this._tooltipController.setContext({ text: this._tooltipText() });
     }
+  }
+
+  static get is() {
+    return "binclass-centroid";
+  }
+
+  /** Stores the theme attribute value so it propagates through shadow DOM. */
+  _set_theme(theme: string) {
+    this.theme = theme;
   }
 
   static get styles() {

@@ -33,8 +33,21 @@ export class Partition extends ThemableMixin(LitElement) {
   /** Whole-partition model pushed by the server when a signal is bound. */
   @property({ type: Object }) partition?: PartitionHeader;
 
+  /** Theme attribute value propagated through the shadow DOM. */
+  @property()
+  theme: string | null = null;
+
   private _format(value: number): string {
     return Number.isNaN(value) ? "n/a" : value.toFixed(3);
+  }
+
+  static get is() {
+    return "binclass-partition";
+  }
+
+  /** Stores the theme attribute value so it propagates through shadow DOM. */
+  _set_theme(theme: string) {
+    this.theme = theme;
   }
 
   static get styles() {

@@ -23,6 +23,10 @@ export class Vector extends ThemableMixin(LitElement) {
   @property({ type: Number }) distanceToCentroid = 0;
   @property({ type: Array }) roundedCentroid: number[] = [];
 
+  /** Theme attribute value propagated through the shadow DOM. */
+  @property()
+  theme: string | null = null;
+
   /** Smallest cell edge in pixels used when the container is narrower than the bit count. */
   private static readonly MIN_CELL_SIZE = 2;
 
@@ -168,6 +172,15 @@ export class Vector extends ThemableMixin(LitElement) {
     if (changed.has("bits") || changed.has("roundedCentroid")) {
       this._attachCellsObserver();
     }
+  }
+
+  static get is() {
+    return "binclass-vector";
+  }
+
+  /** Stores the theme attribute value so it propagates through shadow DOM. */
+  _set_theme(theme: string) {
+    this.theme = theme;
   }
 
   static get styles() {

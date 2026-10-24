@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { css, html, LitElement } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, query } from "lit/decorators.js";
 import { ThemableMixin } from "@vaadin/vaadin-themable-mixin/vaadin-themable-mixin.js";
 
 /**
@@ -41,6 +41,10 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 export class Tree extends ThemableMixin(LitElement) {
   @property({ type: Object }) model?: TreeModel;
 
+  /** Theme attribute value propagated through the shadow DOM. */
+  @property()
+  theme: string | null = null;
+
   /** Fixed width of the leaf-label column in pixels. */
   private static readonly LABEL_WIDTH = 120;
   /** Left margin so the root branch is not drawn on the container's edge. */
@@ -50,7 +54,10 @@ export class Tree extends ThemableMixin(LitElement) {
   /** Vertical spacing between adjacent leaves, in layout units. */
   private static readonly LEAF_GAP = 24;
 
-  private _svg?: SVGSVGElement;
+  /** Canvas SVG element, queried from shadow DOM after first render. */
+  @query(".canvas") private _svg?: SVGSVGElement;
+  /** Scroll container pinned to the canvas size for responsive sizing. */
+  @query(".scroll") private _scroll?: HTMLElement;
   private _layout: TreeLayout | null = null;
 
   protected render() {
@@ -66,9 +73,7 @@ export class Tree extends ThemableMixin(LitElement) {
   }
 
   firstUpdated() {
-    this._svg = this.renderRoot.querySelector(
-      ".canvas",
-    ) as SVGSVGElement | null;
+    // @query populates _svg after the first render, so it is ready here.
     if (this._svg) {
       this._layout = new TreeLayout(this.model ?? { nodes: [] });
       this._draw();
@@ -95,10 +100,7 @@ export class Tree extends ThemableMixin(LitElement) {
     const height = layout.height();
     svg.setAttribute("width", String(width));
     svg.setAttribute("height", String(height));
-    svg.setAttribute(
-      "viewBox",
-      `0 0 ${width} ${height}`,
-    );
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
     // Branches first so knobs and labels sit on top.
     for (const node of layout.nodes) {
@@ -121,9 +123,8 @@ export class Tree extends ThemableMixin(LitElement) {
       knob.setAttribute("cx", String(node.x));
       knob.setAttribute("cy", String(node.y));
       knob.setAttribute("r", "4");
-      knob.appendChild(
-        document.createElementNS(SVG_NS, "title"),
-      ).textContent = this._tooltipText(node);
+      knob.appendChild(document.createElementNS(SVG_NS, "title")).textContent =
+        this._tooltipText(node);
       svg.appendChild(knob);
     }
 
@@ -141,20 +142,13 @@ export class Tree extends ThemableMixin(LitElement) {
     }
 
     // Size the scroll container to fit the canvas.
-    const scroll = this.renderRoot.querySelector(
-      ".scroll",
-    ) as HTMLElement | null;
-    if (scroll) {
-      scroll.style.width = `${width}px`;
-      scroll.style.height = `${height}px`;
+    if (this._scroll) {
+      this._scroll.style.width = `${width}px`;
+      this._scroll.style.height = `${height}px`;
     }
   }
 
-  private _drawEdge(
-    svg: SVGSVGElement,
-    parent: LayoutNode,
-    child: LayoutNode,
-  ) {
+  private _drawEdge(svg: SVGSVGElement, parent: LayoutNode, child: LayoutNode) {
     const path = document.createElementNS(SVG_NS, "path");
     // Orthogonal right-angle polyline: horizontal from the merge knob to the
     // child's column, vertical down/up to the child row.
@@ -180,6 +174,15 @@ export class Tree extends ThemableMixin(LitElement) {
   private _truncate(text: string): string {
     const max = Math.floor((Tree.LABEL_WIDTH - 8) / 7);
     return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}…` : text;
+  }
+
+  static get is() {
+    return "binclass-tree";
+  }
+
+  /** Stores the theme attribute value so it propagates through shadow DOM. */
+  _set_theme(theme: string) {
+    this.theme = theme;
   }
 
   static get styles() {
@@ -292,7 +295,7 @@ class TreeLayout {
       }
       for (const child of [node.leftChild, node.rightChild]) {
         if (child >= 0 && !depths.has(child)) {
-          depths.set(child, depths.get(id) as number + 1);
+          depths.set(child, (depths.get(id) as number) + 1);
           queue.push(child);
         }
       }
@@ -310,7 +313,7 @@ class TreeLayout {
         return;
       }
       if (node.isLeaf || node.leftChild < 0) {
-        node.y = leafColumns.get(id) as number * Tree.LEAF_GAP;
+        node.y = (leafColumns.get(id) as number) * Tree.LEAF_GAP;
         node.x = maxDepth * Tree.MERGE_SPACING;
         return;
       }
@@ -324,7 +327,8 @@ class TreeLayout {
     position(root?.id ?? this.nodeList[0].id);
 
     // Center the root's column so leaves spread evenly to the right.
-    const maxLeafColumn = leafColumns.size > 0 ? Math.max(...leafColumns.values()) : 0;
+    const maxLeafColumn =
+      leafColumns.size > 0 ? Math.max(...leafColumns.values()) : 0;
     for (const node of this.nodeList) {
       if (node.isLeaf || node.leftChild < 0) {
         continue;
