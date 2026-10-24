@@ -46,13 +46,13 @@ export class Tree extends ThemableMixin(LitElement) {
   theme: string | null = null;
 
   /** Fixed width of the leaf-label column in pixels. */
-  private static readonly LABEL_WIDTH = 120;
+  public static readonly LABEL_WIDTH = 120;
   /** Left margin so the root branch is not drawn on the container's edge. */
-  private static readonly LEFT_MARGIN = 24;
+  public static readonly LEFT_MARGIN = 24;
   /** Horizontal spacing between a merge level and its children, in layout units. */
-  private static readonly MERGE_SPACING = 60;
+  public static readonly MERGE_SPACING = 60;
   /** Vertical spacing between adjacent leaves, in layout units. */
-  private static readonly LEAF_GAP = 24;
+  public static readonly LEAF_GAP = 24;
 
   /** Canvas SVG element, queried from shadow DOM after first render. */
   @query(".canvas") private _svg?: SVGSVGElement;

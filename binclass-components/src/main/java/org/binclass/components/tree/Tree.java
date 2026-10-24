@@ -4,7 +4,6 @@
  */
 package org.binclass.components.tree;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -41,8 +40,10 @@ public class Tree extends Component {
      */
     public static final String PROPERTY_MODEL = "model";
 
+    @Nullable
     private ValueSignal<TreeModel> modelSignal;
 
+    @Nullable
     private Registration effectRegistration;
 
     /**
@@ -55,6 +56,7 @@ public class Tree extends Component {
      * @param model
      *            the immutable tree presentation data; must not be null
      */
+    @SuppressWarnings("unused")
     public void setData(TreeModel model) {
         if (model == null) {
             throw new IllegalArgumentException("TreeModel must not be null");
@@ -75,10 +77,9 @@ public class Tree extends Component {
      *            the immutable tree presentation data; must not be null
      */
     private void pushModel(TreeModel model) {
-        List<Map<String, Object>> nodes = new ArrayList<>();
-        for (TreeNodeData node : model.nodes()) {
-            nodes.add(toMap(node));
-        }
+        List<Map<String, Object>> nodes = model.nodes().stream()
+                .map(this::toMap)
+                .toList();
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("nodes", nodes);
         getElement().setPropertyMap(PROPERTY_MODEL, payload);
@@ -92,7 +93,7 @@ public class Tree extends Component {
      *            the node to serialize; must not be null
      * @return an ordered map of the node's fields
      */
-    private static Map<String, Object> toMap(TreeNodeData node) {
+    private Map<String, Object> toMap(TreeNodeData node) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", node.id());
         map.put("name", node.name());
@@ -117,6 +118,7 @@ public class Tree extends Component {
      *            the signal to bind, or {@code null} to clear a previous
      *            binding; must not be null otherwise
      */
+    @SuppressWarnings("unused")
     public void bindModel(ValueSignal<TreeModel> model) {
         if (model == null) {
             if (effectRegistration != null) {
@@ -136,7 +138,7 @@ public class Tree extends Component {
      *
      * @return an ordered list of node maps, or an empty list when none set
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "null" })
     public List<Map<String, Object>> getNodes() {
         Object model = getElement().getPropertyBean(PROPERTY_MODEL,
                 Object.class);
@@ -147,11 +149,9 @@ public class Tree extends Component {
         if (!(nodes instanceof List)) {
             return List.of();
         }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Object node : (List<?>) nodes) {
-            result.add((Map<String, Object>) node);
-        }
-        return result;
+        return ((List<?>) nodes).stream()
+                .map(node -> (Map<String, Object>) node)
+                .toList();
     }
 
     /**

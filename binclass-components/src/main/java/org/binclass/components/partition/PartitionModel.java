@@ -41,6 +41,7 @@ public record PartitionModel(
      * @param stochasticComplexity
      *            the Stochastic Complexity for the whole partition
      */
+    @SuppressWarnings("unused")
     public PartitionModel(double stochasticComplexity) {
         this(stochasticComplexity, 0, 0, Double.NaN, List.of());
         if (clusters == null) {

@@ -51,6 +51,7 @@ public class Cluster extends Details {
      * @param data
      *            the immutable cluster presentation data; must not be null
      */
+    @SuppressWarnings("unused")
     public Cluster(ClusterData data) {
         if (data == null) {
             throw new IllegalArgumentException("ClusterData must not be null");
@@ -128,6 +129,7 @@ public class Cluster extends Details {
      *            the vectors to render; may be empty for lazy loading, but must
      *            not be null
      */
+    @SuppressWarnings("unused")
     public void setVectors(List<VectorData> vectors) {
         if (vectors == null) {
             throw new IllegalArgumentException("Vector list must not be null");
@@ -185,6 +187,7 @@ public class Cluster extends Details {
      * @param data
      *            the centroid presentation data; must not be null
      */
+    @SuppressWarnings("unused")
     public void setCentroid(CentroidData data) {
         if (data == null) {
             throw new IllegalArgumentException("CentroidData must not be null");

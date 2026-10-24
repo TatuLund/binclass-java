@@ -4,7 +4,6 @@
  */
 package org.binclass.components.partition;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,6 +15,7 @@ import com.vaadin.flow.signals.Signal;
 import com.vaadin.flow.signals.local.ValueSignal;
 import com.vaadin.flow.shared.Registration;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Vaadin wrapper for the {@code binclass-partition} web component.
@@ -31,6 +31,8 @@ import org.jspecify.annotations.NullMarked;
 @Tag("binclass-partition")
 @JsModule("./src/partition.ts")
 public class Partition extends Component {
+
+    private static final String OVERALL_DISTORTION = "overallDistortion";
 
     /** Slot name for the header child (optional custom header). */
     public static final String SLOT_HEADER = "header";
@@ -49,6 +51,7 @@ public class Partition extends Component {
     /**
      * Signal holding the currently bound model, or {@code null} when unbound.
      */
+    @Nullable
     private ValueSignal<PartitionModel> modelSignal;
 
     /**
@@ -57,6 +60,7 @@ public class Partition extends Component {
      * partition is unbound through {@link #bindPartitionModel(ValueSignal)}
      * with a null value.
      */
+    @Nullable
     private Registration effectRegistration;
 
     /**
@@ -72,6 +76,7 @@ public class Partition extends Component {
      * @param model
      *            the immutable partition presentation data; must not be null
      */
+    @SuppressWarnings("unused")
     public void setModel(PartitionModel model) {
         if (model == null) {
             throw new IllegalArgumentException(
@@ -99,9 +104,9 @@ public class Partition extends Component {
         getElement().setProperty("clusterCount", model.clusterCount());
         getElement().setProperty("vectorCount", model.vectorCount());
         if (Double.isNaN(model.overallDistortion())) {
-            getElement().setProperty("overallDistortion", Double.NaN);
+            getElement().setProperty(OVERALL_DISTORTION, Double.NaN);
         } else {
-            getElement().setProperty("overallDistortion",
+            getElement().setProperty(OVERALL_DISTORTION,
                     model.overallDistortion());
         }
     }
@@ -115,10 +120,9 @@ public class Partition extends Component {
      *            not be null
      */
     private void rebuildClusters(List<ClusterData> clusters) {
-        List<Component> clusterComponents = new ArrayList<>();
-        for (ClusterData cluster : clusters) {
-            clusterComponents.add(new Cluster(cluster));
-        }
+        List<Component> clusterComponents = clusters.stream()
+                .map(Cluster::new)
+                .collect(Collectors.toList());
         if (!clusterComponents.isEmpty()) {
             SlotUtils.setSlot(this, SLOT_BODY,
                     clusterComponents.toArray(new Component[0]));
@@ -139,6 +143,7 @@ public class Partition extends Component {
      *            the signal to bind, or {@code null} to clear a previous
      *            binding; must not be null otherwise
      */
+    @SuppressWarnings("unused")
     public void bindPartitionModel(ValueSignal<PartitionModel> model) {
         if (model == null) {
             if (effectRegistration != null) {
@@ -192,7 +197,7 @@ public class Partition extends Component {
      *            unavailable
      */
     public void setOverallDistortion(double overallDistortion) {
-        getElement().setProperty("overallDistortion", overallDistortion);
+        getElement().setProperty(OVERALL_DISTORTION, overallDistortion);
     }
 
     /**
@@ -202,6 +207,7 @@ public class Partition extends Component {
      * @param cluster
      *            the cluster to add; must not be null
      */
+    @SuppressWarnings("unused")
     public void addCluster(Cluster cluster) {
         if (cluster == null) {
             throw new IllegalArgumentException("Cluster must not be null");
@@ -229,6 +235,6 @@ public class Partition extends Component {
         return SlotUtils.getElementsInSlot(this, SLOT_BODY)
                 .filter(element -> element.getComponent().isPresent())
                 .map(element -> (Cluster) element.getComponent().get())
-                .collect(Collectors.toList());
+                .toList();
     }
 }

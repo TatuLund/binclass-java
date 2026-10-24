@@ -77,6 +77,7 @@ public final class TreeModelBuilder {
      *            null
      * @return an immutable, index-addressed tree model
      */
+    @SuppressWarnings("unused")
     public TreeModel build(TreeNode root) {
         if (root == null) {
             throw new IllegalArgumentException("Tree root must not be null");

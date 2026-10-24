@@ -48,6 +48,7 @@ public record VectorData(
      * @param name
      *            the display name
      */
+    @SuppressWarnings("unused")
     public VectorData(int[] bits, String name) {
         this(bits, name, null, 0, new int[bits.length]);
         if (bits == null || roundedCentroid == null) {

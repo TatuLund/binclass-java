@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.HasSize;
@@ -135,7 +136,7 @@ public class Graph extends Component implements HasSize {
      *
      * @return an ordered list of point maps, or an empty list when none set
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "null" })
     public List<Map<String, Object>> getPoints() {
         Object model = getElement().getPropertyBean(PROPERTY_MODEL,
                 Object.class);
@@ -146,11 +147,9 @@ public class Graph extends Component implements HasSize {
         if (!(points instanceof List)) {
             return List.of();
         }
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Object point : (List<?>) points) {
-            result.add((Map<String, Object>) point);
-        }
-        return result;
+        return ((List<?>) points).stream()
+                .map(point -> (Map<String, Object>) point)
+                .toList();
     }
 
     /**
