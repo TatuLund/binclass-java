@@ -16,8 +16,8 @@ import org.jspecify.annotations.NullMarked;
  * child). A leaf carries the inline label used for rendering; internal nodes
  * rely on their knob tooltip but still expose the subtree's most common name,
  * size and frequency. Independent of {@code binclass-algorithms}; the
- * translation layer in {@code binclass-ui} maps a
- * {@link org.binclass.algorithms.core.TreeNode} into this record.
+ * translation layer in {@code binclass-ui} maps an algorithm {@code TreeNode}
+ * into this record.
  * </p>
  */
 @NullMarked

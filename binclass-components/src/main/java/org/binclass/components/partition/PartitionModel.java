@@ -15,8 +15,8 @@ import org.jspecify.annotations.NullMarked;
  * Carries the global header metrics (Stochastic Complexity, cluster count,
  * vector count, and optional overall distortion) plus the ordered list of
  * {@link ClusterData}. Independent of {@code binclass-algorithms}; the
- * translation layer in {@code binclass-ui} maps a
- * {@link org.binclass.algorithms.core.Partition} into this record.
+ * translation layer in {@code binclass-ui} maps an algorithm {@code Partition}
+ * into this record.
  * </p>
  */
 @NullMarked

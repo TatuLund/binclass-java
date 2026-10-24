@@ -16,7 +16,7 @@ import org.jspecify.annotations.NullMarked;
  * is equal to each node's id, so children are referenced by plain int indices
  * and no per-node coordinates need to be pushed from Java. Independent of
  * {@code binclass-algorithms}; the translation layer in {@code binclass-ui}
- * maps a {@link org.binclass.algorithms.core.TreeNode} into this record.
+ * maps an algorithm {@code TreeNode} into this record.
  * </p>
  */
 @NullMarked

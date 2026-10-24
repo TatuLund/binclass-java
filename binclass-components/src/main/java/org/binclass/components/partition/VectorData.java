@@ -16,7 +16,7 @@ import org.jspecify.annotations.NullMarked;
  * rounded centroid values used to highlight mismatching cells on hover, and the
  * pre-computed Hamming distance to the cluster centroid. This is independent of
  * {@code binclass-algorithms}; the translation layer in {@code binclass-ui}
- * maps a {@link org.binclass.algorithms.core.BinaryVector} into this record.
+ * maps an algorithm {@code BinaryVector} into this record.
  * </p>
  */
 @NullMarked
