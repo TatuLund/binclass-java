@@ -682,7 +682,8 @@ export class Graph extends ThemableMixin(LitElement) {
 
       .scroll {
         overflow: auto;
-        border: 1px solid hsl(0, 0%, 82%);
+        box-sizing: border-box;
+        outline: 1px solid hsl(0, 0%, 82%);
         border-radius: 6px;
         background: var(--vaadin-background-color, #fff);
       }

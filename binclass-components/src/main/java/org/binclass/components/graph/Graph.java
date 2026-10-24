@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.HasSize;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.signals.local.ValueSignal;
@@ -32,7 +33,7 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 @Tag("binclass-graph")
 @JsModule("./src/graph.ts")
-public class Graph extends Component {
+public class Graph extends Component implements HasSize {
 
     /**
      * Property name under which the point list is pushed to the client as a

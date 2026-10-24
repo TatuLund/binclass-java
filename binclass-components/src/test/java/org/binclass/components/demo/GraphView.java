@@ -39,6 +39,8 @@ public class GraphView extends VerticalLayout {
         section.add("Graph — narrow range 1–10");
 
         Graph graph = new Graph();
+        graph.setWidth("700px");
+        graph.setHeight("400px");
         graph.setId("graph-narrow");
         graph.setData(new GraphModel(List.of(
                 new GraphPoint(1, 32.0),
@@ -62,6 +64,8 @@ public class GraphView extends VerticalLayout {
 
         Graph graph = new Graph();
         graph.setId("graph-wide");
+        graph.setWidth("700px");
+        graph.setHeight("400px");
         List<GraphPoint> points = new java.util.ArrayList<>();
         double sc = 35.0;
         for (int k = 1; k <= 200; k++) {
@@ -84,6 +88,8 @@ public class GraphView extends VerticalLayout {
         // Minimum sits at k = 6, not on an endpoint.
         Graph graph = new Graph();
         graph.setId("graph-interior");
+        graph.setWidth("700px");
+        graph.setHeight("400px");
         graph.setData(new GraphModel(List.of(
                 new GraphPoint(1, 30.0),
                 new GraphPoint(2, 27.0),
@@ -107,6 +113,8 @@ public class GraphView extends VerticalLayout {
         // Monotonically decreasing: minimum is the last point.
         Graph graph = new Graph();
         graph.setId("graph-endpoint");
+        graph.setWidth("700px");
+        graph.setHeight("400px");
         graph.setData(new GraphModel(List.of(
                 new GraphPoint(1, 30.0),
                 new GraphPoint(2, 28.5),
