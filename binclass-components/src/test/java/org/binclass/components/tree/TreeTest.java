@@ -249,6 +249,62 @@ class TreeTest {
         assertEquals("A", rootMerge.label());
     }
 
+    // --- Builder: frequency weighting -----------------------------------
+
+    @Test
+    void buildLeafAppliesWeightedFrequency() {
+        TreeModel model = new TreeModelBuilder(Map.of("C1", "A"),
+                Map.of("C1", 5),
+                Map.of("C1", 3)).build(leaf("C1", 2.0));
+
+        TreeNodeData only = model.nodes().get(0);
+        assertEquals(3, only.frequency());
+    }
+
+    @Test
+    void buildLeafCapsFrequencyAtSize() {
+        TreeModel model = new TreeModelBuilder(Map.of("C1", "A"),
+                Map.of("C1", 5),
+                Map.of("C1", 10)).build(leaf("C1", 2.0));
+
+        TreeNodeData only = model.nodes().get(0);
+        assertEquals(5, only.frequency());
+    }
+
+    @Test
+    void buildInternalNodeSumsWeightedCountsForSharedStrain() {
+        TreeModel model = new TreeModelBuilder(Map.of("C1", "A", "C2", "A"),
+                Map.of("C1", 5, "C2", 7), Map.of("C1", 4, "C2", 3)).build(
+                        merge("Merged", 3.0, leaf("C1", 1.0), leaf("C2", 2.0)));
+
+        TreeNodeData merged = model.nodes().get(2);
+        assertEquals("A", merged.label());
+        assertEquals(7, merged.frequency());
+    }
+
+    @Test
+    void buildInternalNodeUsesWeightedMostCommonStrain() {
+        // B has more vectors than A even though A is first; the weighted count
+        // makes B win and drives the merge frequency.
+        TreeModel model = new TreeModelBuilder(Map.of("C1", "A", "C2", "B"),
+                Map.of("C1", 5, "C2", 7), Map.of("C1", 2, "C2", 6)).build(
+                        merge("Merged", 3.0, leaf("C1", 1.0), leaf("C2", 2.0)));
+
+        TreeNodeData merged = model.nodes().get(2);
+        assertEquals("B", merged.label());
+        assertEquals(6, merged.frequency());
+    }
+
+    @Test
+    void buildDefaultFrequencyIsOneWhenMapAbsent() {
+        TreeModel model = new TreeModelBuilder(Map.of("C1", "A"),
+                Map.of("C1", 5))
+                .build(leaf("C1", 2.0));
+
+        TreeNodeData only = model.nodes().get(0);
+        assertEquals(1, only.frequency());
+    }
+
     // --- Tree wrapper ----------------------------------------------------
 
     @Test

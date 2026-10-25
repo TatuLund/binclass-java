@@ -35,6 +35,25 @@ public final class TreeModelBuilder {
 
     private final Function<String, String> labelProvider;
     private final Function<String, Integer> sizeProvider;
+    private final Function<String, Integer> frequencyProvider;
+
+    /**
+     * Creates a builder with map-based leaf providers keyed by leaf name.
+     *
+     * @param labels
+     *            mapping of each leaf's name to its most common strain label;
+     *            leaves absent from this map get an empty label
+     * @param sizes
+     *            mapping of each leaf's name to its cluster size; leaves absent
+     *            from this map get size zero
+     */
+    private TreeModelBuilder(Function<String, String> labelProvider,
+            Function<String, Integer> sizeProvider,
+            Function<String, Integer> frequencyProvider) {
+        this.labelProvider = labelProvider;
+        this.sizeProvider = sizeProvider;
+        this.frequencyProvider = frequencyProvider;
+    }
 
     /**
      * Creates a builder with map-based leaf providers keyed by leaf name.
@@ -48,10 +67,31 @@ public final class TreeModelBuilder {
      */
     public TreeModelBuilder(Map<String, String> labels,
             Map<String, Integer> sizes) {
-        this.labelProvider = labels == null ? n -> ""
-                : k -> labels.getOrDefault(k, "");
-        this.sizeProvider = sizes == null ? n -> 0
-                : k -> sizes.getOrDefault(k, 0);
+        this(labels, sizes, null);
+    }
+
+    /**
+     * Creates a builder with map-based leaf providers keyed by leaf name.
+     *
+     * @param labels
+     *            mapping of each leaf's name to its most common strain label;
+     *            leaves absent from this map get an empty label
+     * @param sizes
+     *            mapping of each leaf's name to its cluster size; leaves absent
+     *            from this map get size zero
+     * @param frequencies
+     *            mapping of each leaf's name to the number of vectors sharing
+     *            its most common strain. Leaves absent default to a frequency
+     *            of one, and every value is capped at that leaf's size so an
+     *            internal node never reports more vectors with a name than it
+     *            contains
+     */
+    public TreeModelBuilder(Map<String, String> labels,
+            Map<String, Integer> sizes, Map<String, Integer> frequencies) {
+        this(labels == null ? n -> "" : k -> labels.getOrDefault(k, ""),
+                sizes == null ? n -> 0 : k -> sizes.getOrDefault(k, 0),
+                frequencies == null ? n -> 1
+                        : k -> frequencies.getOrDefault(k, 1));
     }
 
     /**
@@ -65,8 +105,7 @@ public final class TreeModelBuilder {
      */
     public TreeModelBuilder(Function<String, String> labelProvider,
             Function<String, Integer> sizeProvider) {
-        this.labelProvider = labelProvider;
-        this.sizeProvider = sizeProvider;
+        this(labelProvider, sizeProvider, n -> 1);
     }
 
     /**
@@ -93,11 +132,13 @@ public final class TreeModelBuilder {
             int size = sizeProvider.apply(node.getName());
             Map<String, Integer> counts = new LinkedHashMap<>();
             if (!label.isEmpty()) {
-                counts.put(label, 1);
+                int freq = Math.min(frequencyProvider.apply(node.getName()),
+                        size);
+                counts.put(label, freq);
             }
             TreeNodeData data = new TreeNodeData(
                     nodes.size(), node.getName(), node.getSC(), size, label,
-                    frequencyOf(label), true, -1, -1);
+                    label.isEmpty() ? 0 : counts.get(label), true, -1, -1);
             nodes.add(data);
             return new NodeInfo(counts, size, nodes.size() - 1);
         }
@@ -112,10 +153,11 @@ public final class TreeModelBuilder {
         Map<String, Integer> counts = mergeCounts(left.counts, right.counts);
         String label = mostCommon(counts);
         int size = left.size + right.size;
+        int frequency = label.isEmpty() ? 0 : counts.getOrDefault(label, 0);
 
         TreeNodeData data = new TreeNodeData(
                 nodes.size(), node.getName(), node.getSC(), size, label,
-                frequencyOf(label), false, leftData.id(), rightData.id());
+                frequency, false, leftData.id(), rightData.id());
         nodes.add(data);
         return new NodeInfo(counts, size, nodes.size() - 1);
     }
@@ -144,10 +186,6 @@ public final class TreeModelBuilder {
             }
         }
         return best == null ? "" : best;
-    }
-
-    private static int frequencyOf(String label) {
-        return label.isEmpty() ? 0 : 1;
     }
 
     /** Intermediate build result: subtree label counts, size and list index. */

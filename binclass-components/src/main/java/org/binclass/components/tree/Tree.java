@@ -4,6 +4,7 @@
  */
 package org.binclass.components.tree;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +40,13 @@ public class Tree extends Component {
      * single object ({@code { nodes: [...] }}).
      */
     public static final String PROPERTY_MODEL = "model";
+
+    /**
+     * Vertical inset (in pixels) applied above the topmost node before
+     * rendering, mirroring {@code TOP_MARGIN} in the {@code binclass-tree} web
+     * component.
+     */
+    public static final int TOP_MARGIN = 24;
 
     @Nullable
     private ValueSignal<TreeModel> modelSignal;
@@ -165,18 +173,15 @@ public class Tree extends Component {
      * @return the multi-line tooltip text shown on hover
      */
     public static String tooltipText(TreeNodeData data) {
-        StringBuilder text = new StringBuilder();
-        if (!data.label().isEmpty()) {
-            text.append("Name: ").append(data.label());
+        List<String> parts = new ArrayList<>();
+        if (data.label() != null && !data.label().isEmpty()) {
+            parts.add("Name: " + data.label());
         }
-        text.append("\nSize: ").append(data.size());
+        parts.add("Size: " + data.size());
         if (data.frequency() > 0) {
-            if (!text.isEmpty()) {
-                text.append('\n');
-            }
-            text.append("Frequency: ").append(data.frequency());
+            parts.add("Frequency: " + data.frequency());
         }
-        return text.toString();
+        return String.join("\n", parts);
     }
 
     /**

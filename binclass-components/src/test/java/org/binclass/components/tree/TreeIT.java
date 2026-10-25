@@ -56,6 +56,7 @@ class TreeIT extends ComponentIT {
         page.waitForSelector("#tree-single .canvas");
         page.waitForSelector("#tree-two .canvas");
         page.waitForSelector("#tree-ladder .canvas");
+        page.waitForSelector("#tree-large .canvas");
     }
 
     @Test
@@ -108,11 +109,57 @@ class TreeIT extends ComponentIT {
         page.navigate(BASE_URL + "/" + TEST_ROUTE);
         waitForTreesRendered(page);
 
-        // The two leaves carry strains A and B respectively.
+        // The two leaves carry strains A and B respectively. Each label's text
+        // includes its <title> tooltip, so match on the visible name substring.
         List<String> texts = labels(tree(page, "tree-two")).allTextContents();
-        assertTrue(texts.contains("A"), "expected strain A among leaf labels: "
-                + texts);
-        assertTrue(texts.contains("B"), "expected strain B among leaf labels: "
-                + texts);
+        assertTrue(texts.stream().anyMatch(t -> t.contains("A")),
+                "expected strain A among leaf labels: " + texts);
+        assertTrue(texts.stream().anyMatch(t -> t.contains("B")),
+                "expected strain B among leaf labels: " + texts);
+    }
+
+    @Test
+    void topMostLeafIsInsetByTopMargin() {
+        page.navigate(BASE_URL + "/" + TEST_ROUTE);
+        waitForTreesRendered(page);
+
+        // The topmost leaf label sits below the canvas edge by TOP_MARGIN
+        // rather
+        // than flush against it: node.y starts at 0 and the layout adds
+        // TOP_MARGIN before rendering, so the first label y is at least that.
+        Locator two = tree(page, "tree-two");
+        // Every leaf is shifted down by TOP_MARGIN, so any label satisfies the
+        // bound; take the first to avoid a strict-mode violation on multiple.
+        int topY = Integer.parseInt(labels(two).first().getAttribute("y"));
+        assertTrue(topY >= Tree.TOP_MARGIN,
+                "topmost leaf should be inset by at least TOP_MARGIN ("
+                        + Tree.TOP_MARGIN
+                        + ") but was " + topY);
+    }
+
+    @Test
+    void leafLabelsCarrySizeAndFrequencyTooltips() {
+        page.navigate(BASE_URL + "/" + TEST_ROUTE);
+        waitForTreesRendered(page);
+
+        // Leaves expose the same Name/Size/Frequency tooltip as merge knobs.
+        Locator two = tree(page, "tree-two");
+        List<String> titles = labels(two).locator("title").allTextContents();
+        assertEquals(2, titles.size());
+        assertTrue(titles.get(0).contains("Name: A"));
+        assertTrue(titles.get(0).contains("Size: 5"));
+        assertTrue(titles.get(0).contains("Frequency: 1"));
+        assertTrue(titles.get(1).contains("Name: B"));
+        assertTrue(titles.get(1).contains("Size: 7"));
+    }
+
+    @Test
+    void largeTreeRendersFiftyLabelsAndFortyNineKnobs() {
+        page.navigate(BASE_URL + "/" + TEST_ROUTE);
+        waitForTreesRendered(page);
+
+        Locator large = tree(page, "tree-large");
+        assertThat(labels(large)).hasCount(50);
+        assertThat(knobs(large)).hasCount(49);
     }
 }

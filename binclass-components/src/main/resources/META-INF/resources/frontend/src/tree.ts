@@ -49,6 +49,8 @@ export class Tree extends ThemableMixin(LitElement) {
   public static readonly LABEL_WIDTH = 120;
   /** Left margin so the root branch is not drawn on the container's edge. */
   public static readonly LEFT_MARGIN = 24;
+  /** Top margin so the topmost leaf sits below the container's edge. */
+  public static readonly TOP_MARGIN = 24;
   /** Horizontal spacing between a merge level and its children, in layout units. */
   public static readonly MERGE_SPACING = 60;
   /** Vertical spacing between adjacent leaves, in layout units. */
@@ -135,9 +137,14 @@ export class Tree extends ThemableMixin(LitElement) {
       }
       const text = document.createElementNS(SVG_NS, "text");
       text.setAttribute("class", "label");
-      text.setAttribute("x", String(node.x - 8));
+      // Left-anchored just past the dot: the horizontal branch segment ends at
+      // node.x, so starting here keeps the label clear of the incoming branch.
+      text.setAttribute("x", String(node.x + 8));
       text.setAttribute("y", String(node.y + 4));
       text.textContent = this._truncate(node.label || node.name);
+      // Leaf labels carry the same Name/Size/Frequency tooltip as merge knobs.
+      text.appendChild(document.createElementNS(SVG_NS, "title")).textContent =
+        this._tooltipText(node);
       svg.appendChild(text);
     }
 
@@ -217,7 +224,7 @@ export class Tree extends ThemableMixin(LitElement) {
         font-size: 12px;
         font-family: var(--vaadin-font-family, sans-serif);
         fill: var(--vaadin-text-color, #1d2330);
-        text-anchor: end;
+        text-anchor: start;
         dominant-baseline: middle;
         white-space: nowrap;
         overflow: hidden;
@@ -326,21 +333,14 @@ class TreeLayout {
     };
     position(root?.id ?? this.nodeList[0].id);
 
-    // Center the root's column so leaves spread evenly to the right.
-    const maxLeafColumn =
-      leafColumns.size > 0 ? Math.max(...leafColumns.values()) : 0;
-    for (const node of this.nodeList) {
-      if (node.isLeaf || node.leftChild < 0) {
-        continue;
-      }
-      // Root sits at the smallest x.
-      const rootDepth = depths.get(root?.id ?? this.nodeList[0].id) ?? 0;
-      node.x = rootDepth * Tree.MERGE_SPACING;
-    }
-
     // Shift every node right so the root branch is not drawn on the edge.
     for (const node of this.nodeList) {
       node.x += Tree.LEFT_MARGIN;
+    }
+    // Shift every node down so the topmost leaf sits below the container's
+    // edge, mirroring the left margin applied to the root branch.
+    for (const node of this.nodeList) {
+      node.y += Tree.TOP_MARGIN;
     }
   }
 

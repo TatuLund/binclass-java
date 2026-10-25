@@ -6,6 +6,9 @@ package org.binclass.components.demo;
 
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.binclass.components.tree.Tree;
 import org.binclass.components.tree.TreeModelBuilder;
@@ -28,6 +31,7 @@ public class TreeView extends VerticalLayout {
         add(createSingleSection());
         add(createTwoClusterSection());
         add(createLadderSection());
+        add(createLargeSection());
     }
 
     private VerticalLayout createSingleSection() {
@@ -132,5 +136,106 @@ public class TreeView extends VerticalLayout {
                 return right;
             }
         };
+    }
+
+    /** Number of leaves in the large demo tree. */
+    private static final int LEAF_COUNT = 50;
+    /**
+     * Leaves grouped into contiguous blocks that share a cluster name so an
+     * internal merge can report a high frequency for its assumed name.
+     */
+    private static final int NAME_BLOCK = 6;
+
+    /** Realistic strain/cluster names, roughly ten characters long. */
+    private static final String[] CLUSTER_NAMES = {
+            "Aeromonads", "Pseudomona", "Klebsiella", "Salmonella",
+            "Escherich", "Staphyloco", "Streptococ", "Neisseria"
+    };
+
+    private VerticalLayout createLargeSection() {
+        VerticalLayout section = new VerticalLayout();
+        section.add("Tree — large cluster (fifty leaves)");
+
+        Tree tree = new Tree();
+        tree.setId("tree-large");
+        TreeNode root = buildBalancedTree(leafNodes());
+        tree.setData(new TreeModelBuilder(leafLabels(), leafSizes(),
+                leafFrequencies()).build(root));
+        section.add(tree);
+
+        return section;
+    }
+
+    /** Builds fifty bare leaves keyed {@code C0}..{@code C49}. */
+    private static List<TreeNode> leafNodes() {
+        List<TreeNode> leaves = new ArrayList<>();
+        for (int i = 0; i < LEAF_COUNT; i++) {
+            leaves.add(leaf("C" + String.format("%02d", i), 1.0));
+        }
+        return leaves;
+    }
+
+    /** Maps each leaf key to a realistic cluster name, cycling in blocks. */
+    private static Map<String, String> leafLabels() {
+        Map<String, String> labels = new LinkedHashMap<>();
+        for (int i = 0; i < LEAF_COUNT; i++) {
+            String key = "C" + String.format("%02d", i);
+            int nameIndex = (i / NAME_BLOCK) % CLUSTER_NAMES.length;
+            labels.put(key, CLUSTER_NAMES[nameIndex]);
+        }
+        return labels;
+    }
+
+    /** Maps each leaf key to a cluster size between ten and twenty. */
+    private static Map<String, Integer> leafSizes() {
+        Map<String, Integer> sizes = new LinkedHashMap<>();
+        for (int i = 0; i < LEAF_COUNT; i++) {
+            String key = "C" + String.format("%02d", i);
+            sizes.put(key, (i * 7 % 11) + 10);
+        }
+        return sizes;
+    }
+
+    /**
+     * Maps each leaf key to a frequency between five and twenty, capped at its
+     * size so an internal node never reports more vectors than it contains.
+     */
+    private static Map<String, Integer> leafFrequencies() {
+        Map<String, Integer> frequencies = new LinkedHashMap<>();
+        for (int i = 0; i < LEAF_COUNT; i++) {
+            String key = "C" + String.format("%02d", i);
+            int frequency = (i * 3 % 16) + 5;
+            frequencies.put(key, Math.min(frequency, sizesFor(key)));
+        }
+        return frequencies;
+    }
+
+    /** Returns the deterministic cluster size for a leaf key. */
+    private static int sizesFor(String key) {
+        int i = Integer.parseInt(key.substring(1));
+        return (i * 7 % 11) + 10;
+    }
+
+    /**
+     * Combines leaves into a balanced binary tree, naming merges sequentially.
+     * The merge cost grows with depth so inner nodes carry larger sum-of-costs
+     * than the leaves they descend from.
+     */
+    private static TreeNode buildBalancedTree(List<TreeNode> leaves) {
+        int[] counter = new int[] { 0 };
+        return buildBalanced(leaves, counter);
+    }
+
+    private static TreeNode buildBalanced(List<TreeNode> leaves,
+            int[] counter) {
+        if (leaves.size() == 1) {
+            return leaves.get(0);
+        }
+        int mid = leaves.size() / 2;
+        TreeNode left = buildBalanced(leaves.subList(0, mid), counter);
+        TreeNode right = buildBalanced(leaves.subList(mid, leaves.size()),
+                counter);
+        double sc = left.getSC() + right.getSC() + 10.0;
+        return merge("Merge_" + counter[0]++, sc, left, right);
     }
 }
