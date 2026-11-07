@@ -1,0 +1,58 @@
+{
+  "name": "Binclass Java Dev Container",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "JBR_VERSION": "25.0.4.1+329142-jbr",
+      "MAVEN_VERSION": "3.10.0",
+      "HOTSWAP_AGENT_VERSION": "2.0.3"
+    }
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    }
+  },
+
+  "mounts": [
+    "source=binclass-ui-target,target=/workspaces/binclass_java/binclass-ui/target,type=volume",
+    "source=binclass-maven-cache,target=/home/vscode/.m2,type=volume"
+  ],
+
+  "containerEnv": {
+    "JAVA_HOME": "/home/vscode/.sdkman/candidates/java/current",
+    "MAVEN_HOME": "/home/vscode/.sdkman/candidates/maven/current",
+    "MAVEN_OPTS": "-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=fatjar"
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "java.jdt.ls.java.home": "/home/vscode/.sdkman/candidates/java/current",
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-25",
+            "path": "/home/vscode/.sdkman/candidates/java/current",
+            "default": true
+          }
+        ]
+      },
+
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "redhat.java",
+        "vmware.vscode-boot-dev-pack",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+
+  "forwardPorts": [],
+
+  "postCreateCommand": "java -version && mvn -version && node --version && npm --version && test -f \"$JAVA_HOME/lib/hotswap/hotswap-agent.jar\"",
+
+  "remoteUser": "vscode"
+}
