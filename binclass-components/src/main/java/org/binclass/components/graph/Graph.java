@@ -4,12 +4,10 @@
  */
 package org.binclass.components.graph;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.HasSize;
@@ -81,12 +79,10 @@ public class Graph extends Component implements HasSize {
      *            the immutable graph presentation data; must not be null
      */
     private void pushModel(GraphModel model) {
-        List<Map<String, Object>> points = new ArrayList<>();
-        for (GraphPoint point : model.points()) {
-            points.add(toMap(point));
-        }
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("points", points);
+        payload.put("points", model.points().stream()
+                .map(Graph::toMap)
+                .toList());
         getElement().setPropertyMap(PROPERTY_MODEL, payload);
     }
 
