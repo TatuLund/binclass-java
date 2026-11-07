@@ -95,10 +95,12 @@ Records to add (one per long-running display, or a small shared set):
 ```java
 // binclass-algorithms/events — all @NullMarked records implementing AbstractEvent
 record SearchStarted(String display, String filebase, int expectedK) {}
+// Pure SC curve point per k; no partition payload (see SearchBestPartition below).
 record SearchProgress(String display, int k, double sc, boolean finished) {}
-// Carries the best partition + centroids whenever a new best is detected so the Partition tab can be
-// refreshed live (not only on completion); progress also appends one SC point per k to the SC curve.
-record SearchCompleted(String display, PartitionResult result) {}   // carries best partition/centroids + scs[]
+// A new best partition was found mid-search so the Partition tab can refresh live. Carries the full
+// snapshot — kept separate from SearchProgress so "SC curve" and "best partition" stay decoupled.
+record SearchBestPartition(String display, PartitionResult result) {}
+record SearchCompleted(String display, PartitionResult result) {}   // final best partition/centroids + scs[]
 record SearchError(String display, String message) {}
 
 // A minimal immutable payload the UI binds to; keep it small (k, sc, centroids-per-k optional).
@@ -108,7 +110,16 @@ record PartitionResult(int kmin, double scmin, int clusterCount, double[] scs, i
 > **Decision:** both automatic and range searches emit an SC point per `k` (SC curve tab updated after each
 > k) **and** push a full `Partition`/`InfiniteCentroids` snapshot whenever a new best partition is detected,
 > so the user can browse the improved partition live without waiting for the search to finish. Progress events
-> therefore carry scalars plus an optional best-partition snapshot; completion carries the final best result.
+> therefore carry scalars only; the best-partition snapshot rides on its own `SearchBestPartition` event (not
+> mixed into `SearchProgress`); completion carries the final best result.
+> > **Algorithm-module change required:** this UI promise is not yet satisfiable by the current algorithms API.
+> > `AutomaticSearch.Result` already exposes per-`k` data (`double[] scs`, `Map<Integer, InfiniteCentroids> bestPerK`),
+> > so automatic search can drive both the SC curve and live snapshots. But `RangeSearch.Result(partition, centroids)`
+> > carries **no** `scs[]` and no per-`k` record — it returns a single partition/centroids for the searched window. To
+> > support the SC-curve tab and live best-partition snapshots on range-only runs, `RangeSearch` must be extended in
+> > `binclass-algorithms` to emit per-k SC points (and best-partition snapshots) as it iterates its `[kstart, kstop]`
+> > window — either by firing events directly or by returning richer data. This is an algorithm-module change the UI
+> > depends on; see "Event wiring in the algorithms module" below.
 
 **Flow for a display (MVVM):**
 1. View creates its `*ViewModel` — which implements `EventBusListener` and hosts all signals — in its constructor; the VM
@@ -122,6 +133,30 @@ record PartitionResult(int kmin, double scmin, int clusterCount, double[] scs, i
    `ValueSignal`. Because the View is bound reactively, updating the signal rebuilds the component automatically — no manual
    `setProperty`/`setValue` from the View. On completion the final result sets the same signals so graph/partition/tree rebuild.
 4. View unregisters on detach (`beforeClientResolution` or a `@Before`).
+
+#### Event wiring in the algorithms module
+
+The UI only *consumes* events; the **algorithms module must produce them**, and today it ships neither concrete
+event records nor any firing code — only the `AbstractEvent` marker interface exists in
+`binclass-algorithms/events/`, while `EventBus.get()` / `post(...)` already work. The following additions are required:
+
+- **Concrete event records.** Add the immutable records from §1.2 (`SearchStarted`, `SearchProgress`,
+  `SearchBestPartition`, `SearchCompleted`, `SearchError`) to `binclass-algorithms/events/` as `@NullMarked` records
+  implementing `AbstractEvent`. Keep them small and value-typed; `PartitionResult` is the shared payload for best-partition
+  snapshots and completion.
+- **Fire from each long-running search.** Each entry point that runs on the search-execution pool must connect to the
+  singleton `EventBus.get()` and post events at the right points:
+  - `AutomaticSearch` — after every `k` in the forward scan and ping-pong phase, post `SearchProgress(k, sc)`; whenever a
+    new best SC/partition is recorded, post `SearchBestPartition(partition, centroids)`; on success post `SearchCompleted`;
+    on failure post `SearchError`. Its `Result` already carries `scs[]` and `bestPerK`, so the curve + snapshots are derivable.
+  - `RangeSearch` — extend it (see the §1.2 note above) to fire `SearchProgress` per `k` and `SearchBestPartition` snapshots
+    as it iterates its `[kstart, kstop]` window; today it returns only `(partition, centroids)` with no per-k data.
+  - Join-GLA / Split-GLA (Semi-Cumulative, Fast Classify) and Bootstrap — same pattern from their own entry points.
+- **Non-blocking dispatch.** `EventBus.post(...)` fans events out on the EventBus's own fixed virtual-thread executor, a pool
+  separate from the search-execution pool, so algorithms can call it directly without blocking or needing to marshal back to the
+  Vaadin server thread. The UI-side listener (`eventFired`, per the `EventBus.EventBusListener` interface) then updates signals.
+- **Testing.** JUnit 6 in `binclass-algorithms`: assert each search posts the expected sequence of events on a captured
+  `EventBus`; BrowserlessTests post fabricated records to verify the view reacts (already sketched per display).
 
 ### 1.3 Translation layer pattern (per display)
 
@@ -217,7 +252,7 @@ class GlaViewModel implements EventBusListener {
     }
 
     // EventBusListener: react to each event by populating a presentation model, then update its signal.
-    @Override public void onEvent(AbstractEvent event) {
+    @Override public void eventFired(AbstractEvent event) {
         if (event instanceof SearchCompleted(var display, var completed)) {
             partitionModel.update(m -> buildPartitionModel(completed.partition(), completed.centroids()));
         } else if (event instanceof SearchProgress(var k, var sc, _ finished)) {
@@ -331,10 +366,11 @@ The form-value record maps onto the confirmed `GLAConfig` fields: `epsilon`, `pn
 
 ### 3.3 EventBus events
 Per-`k` `SearchProgress("gla", k, sc, false)` updates the SC curve tab after each `k`; whenever a new best partition is
-detected a snapshot is pushed so the Partition tab refreshes live (not only on completion). Work is started by calling the
-ViewModel's `run()` command (which submits to the single-threaded executor); the optional `SearchStarted` event may be posted
-but is not required to trigger work. Progress events are consumed by the view's listener and pushed to the graph model; completion
-sets the bound result signal so the graph/partition rebuild automatically.
+detected a `SearchBestPartition("gla", PartitionResult(...))` snapshot is pushed so the Partition tab refreshes live (not only
+on completion). Work is started by calling the ViewModel's `run()` command (which submits to the single-threaded executor); the
+optional `SearchStarted` event may be posted but is not required to trigger work. Progress events are consumed by the view's
+listener and pushed to the graph model; best-partition snapshots build a `PartitionModel`; completion sets the bound result signal
+so the graph/partition rebuild automatically.
 
 ### 3.4 UI skeleton
 
@@ -758,7 +794,7 @@ RouteCompareView extends VerticalLayout   (@Route("compare"))
 
 **Why `Table` not `Grid`:** a contingency matrix is dense and square-ish with both row and column headers; an HTML
 `<table>` keeps cells aligned and reads as a real matrix. `Table` renders plain HTML so it inherits nothing from the theme —
-style it in `styles.css` (see §18.5). Build rows via `matrixTable.getBody().addRow()` with header/data cells, or reuse the
+style it in `styles.css` (see §18.7). Build rows via `matrixTable.getBody().addRow()` with header/data cells, or reuse the
 structured `ComparisonResult(matrix, …)` rather than stringifying it.
 
 ### 12.6 Testing
@@ -951,7 +987,7 @@ id="report-component"
 
 Report text is rendered as sanitized content (`SoupParser`/JSoup content mode, per Agents.md) so the raw
 report string cannot inject markup. When nearness or affinity output is requested, render it as a real HTML
-`<table>` via `Table` (styled in CSS, see §18.5) instead of only sanitized text — a square class-nearness or
+`<table>` via `Table` (styled in CSS, see §18.7) instead of only sanitized text — a square class-nearness or
 affinity matrix reads far better as aligned cells than as a monospace string block. The component recomputes
 centroids from the partition it is bound to and regenerates on flag change; each display binds it to its own
 currently displayed partition.
@@ -983,7 +1019,75 @@ Display raw report/function strings through JSoup content mode (`org.jsoup.Jsoup
 - `@NullMarked` on public view classes and translators; `@Nullable` for optional fields.
 - Form values → immutable records; EventBus events are records; translation helpers static.
 
-### 18.5 Design system
+### 18.5 Result persistence — download button
+Every display that produces a **persistable result** offers a *Download* control so the user can save it to disk;
+there is no file-pick dialog in the Electron shell, so the browser's native "save" prompt is how the file leaves the
+machine. The control generates its content **in memory** (no temp files on disk — consistent with §1.4) by reusing the
+`binclass-algorithms/io` writers directly.
+
+- **What each display exposes:**
+  - Classification displays (§3, §4, §6, §7): partition → `.partition` via `PartitionWriter.writePartition(partition, name)`;
+    centroids → `.centroids` via `CentroidWriter.save(centroids, name)`. Expose **two** downloads (a small dropdown or
+    two buttons), since the user may want either.
+  - Cumulative (§5): dynamic partition → `.partition` via `DynamicPartitionWriter`.
+  - Cut / Interval (§16): the resulting intersection partition → `.partition`.
+  - Report tab (§17): sanitized report text → `.txt` (or `.csv` for frequency tables).
+- **Vaadin 25.3 API.** Attach a `DownloadHandler` to an `Anchor`, or call `button.setDownloadHandler(...)` on a button.
+  Inside the handler set metadata and stream bytes from memory:
+
+```java
+// one per result type; build content in-memory, never write a temp file
+Anchor partitionDownload = new Anchor();
+partitionDownload.setDownloadHandler(event -> {
+    event.setFileName(filebase + ".partition");
+    event.setContentType("text/plain; charset=UTF-8");   // binclass partitions are text
+    byte[] bytes = PartitionWriter.toBytes(partition);     // reuse the io writer, in-memory
+    return new DownloadResponse(new ByteArrayInputStream(bytes), filebase + ".partition",
+            "text/plain; charset=UTF-8", bytes.length);
+});
+```
+
+  Centroids use `"text/plain; charset=UTF-8"` and `.centroids`; the report uses the sanitized string as its byte array.
+- **Placement.** Put the download control(s) next to the result area — e.g. beside the Partition tab in §3, under the cut
+  partition in §16, inside each Report tab in §17. Disable it while a search is running (bind to the same `running` signal)
+  and re-enable once a result exists.
+- **Testing.** BrowserlessTests: assert the download control is present/disabled-before-result/enabled-after-result; JUnit 6:
+  verify each writer produces the expected bytes/extension from the algorithm model. (The browser actually saving the file is
+  covered by Playwright IT if needed.)
+
+### 18.6 Parameter validation — Run enabled only when the form is valid
+Every display validates its parameters **before** allowing the algorithm to run, so the user cannot start a search with
+missing or conflicting inputs. Validation has two layers: per-field validity (which field is wrong and why) and an overall
+`canRun()` rule (is it safe to launch). Both live in the ViewModel so they are unit-testable; the View only reflects them.
+
+- **Per-field validity.** Each control uses Vaadin's built-in validation for its own constraints:
+  - `asRequired("…")` on fields that must be present — most importantly the filebase/upload, and any flag with no sensible
+    default. A required indicator appears next to the label.
+  - `setMin(...)` / `setMax(...)` (and a custom validator via `withValidator(...)`) for numeric ranges — e.g. `epsilon` in
+    `(0, 0.5)`, `kstart ≥ 1`. On violation the field turns red and shows an error message under it (`setErrorMessage`).
+  - Custom validators for cross-field or enum rules that a single field cannot express on its own.
+- **Overall rule — `canRun()`.** The ViewModel exposes `Signal<Boolean> canRun()` derived from all fields, e.g.:
+  - *Required present:* vectors (or an existing `.partition`/`.centroids`) are loaded; the filebase/upload is set.
+  - *Range order:* for range search `kstart ≤ kstop`; for a fixed-`k` run `kstart == kstop`.
+  - *Conflicting params:* e.g. LCENT (`-L`) requires a centroid file and a matching search type; decreasing-epsilon mode
+    (bare `-E`) is incompatible with an explicit epsilon value; bootstrap needs both a size and a k. Each display lists its
+    own conflicts in §3 … §16.
+  - *Running:* `canRun()` also returns false while any search on this UI is in flight (§1.7), so the button stays disabled
+    until the current one finishes or is cancelled.
+- **Reflecting validity in the View.** The Run button binds to `canRun()` (`runButton.bindEnabled(viewModel.canRun())`)
+  and, whenever it changes, its tooltip text is updated with `button.setTooltipText(reason)` so the user learns *why* it is
+  disabled — e.g. "Upload vectors first", "k-start must be ≤ k-stop", or "Provide a centroid file for LCENT". The same
+  reason drives any visible hint next to the form. Because the button is reactive, enabling/disabling and the tooltip update
+  happen together with no manual wiring.
+- **Testing.**
+  - **JUnit 6 — rules.** Unit-test `canRun()` (and each display's conflict checks) for the key cases: missing filebase,
+    `kstart > kstop`, out-of-range epsilon, LCENT without a centroid file. These are plain assertions on the UI-free VM.
+  - **BrowserlessTests — UI behaviour.** Drive the form and assert: *Run* is disabled before any input and enabled once the
+    filebase/upload is provided; setting `kstart > kstop` disables it again and shows the expected tooltip text; an invalid
+    field is marked (`isInvalid()`) with its error message. (Use the same fabricated-event technique as elsewhere to confirm
+    validation still holds while a search runs.)
+
+### 18.7 Design system
 
 The skeletons define *structure*; this section defines *how each view looks*. It is a plan of decisions, not yet applied CSS — the concrete values live in `binclass-ui/src/main/resources/META-INF/resources/styles.css` (to be created) and are imported by `Config.java`. Current state: `Config.java` applies Aura via `@StyleSheet(Aura.STYLESHEET)` with **no** `@ColorScheme`, so the app renders in Aura's default light scheme only. Add a `styles.css` here and, if dark mode is wanted later, an `@ColorScheme("light dark")` on `Config`.
 
@@ -1017,7 +1121,7 @@ The skeletons are sufficient for routing and testing anchors, but one rendered m
 - **Tree / Dendrogram** — scrollable canvas showing a small dendrogram on a surface.
 These can be screenshots of the running Vaadin view once §3 and §15 are implemented, or clean wireframes now. Add more (Graph-heavy views) only if layout decisions prove ambiguous during implementation.
 
-### 18.6 Testing matrix (per Agents.md)
+### 18.8 Testing matrix (per Agents.md)
 
 Algorithms are **non-deterministic**, so the test strategy targets *UI functions* rather than full end-to-end integration:
 
@@ -1040,7 +1144,7 @@ Per-display testing notes (§3.6 … §16.6) follow this split: model/config ass
 fabricated-event updates) go to BrowserlessTests, and Playwright IT is used sparingly for custom-component behaviour that the
 `binclass-components` module does not already cover.
 
-### 18.7 Implementation order (recommended)
+### 18.9 Implementation order (recommended)
 1. `MainLayout` + GLA Search display (§3) — establishes EventBus flow, translation layer, and demo view for tests.
 2. Report tab embedded in GLA (§17), then copy to other classifier displays.
 3. Local Search (§4), Semi-Cumulative (§6), Fast Classify (§7) — reuse `GlaParametersForm`.

@@ -134,6 +134,9 @@
                     <webApp>
                         <resourceBases>${basedir}/src/main/resources/META-INF/resources</resourceBases>
                     </webApp>
+					<jvmOptions>
+						<jvmOption>-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=fatjar</jvmOption>
+					</jvmOptions>
                 </configuration>
             </plugin>
             <plugin>

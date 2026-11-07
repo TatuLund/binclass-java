@@ -169,8 +169,12 @@
                 <groupId>org.eclipse.jetty.ee11</groupId>
                 <artifactId>jetty-ee11-maven-plugin</artifactId>
                 <version>${jetty.plugin.version}</version>
+                <configuration>
+					<jvmOptions>
+						<jvmOption>-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=fatjar</jvmOption>
+					</jvmOptions>                    
+                </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
