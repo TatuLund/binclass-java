@@ -19,6 +19,8 @@
 
   "mounts": [
     "source=binclass-ui-target,target=/workspaces/binclass_java/binclass-ui/target,type=volume",
+    "source=binclass-components-target,target=/workspaces/binclass_java/binclass-components/target,type=volume",
+    "source=binclass-algorithms-target,target=/workspaces/binclass_java/binclass-algorithms/target,type=volume",
     "source=binclass-maven-cache,target=/home/vscode/.m2,type=volume"
   ],
 
@@ -52,7 +54,18 @@
 
   "forwardPorts": [],
 
-  "postCreateCommand": "java -version && mvn -version && node --version && npm --version && test -f \"$JAVA_HOME/lib/hotswap/hotswap-agent.jar\"",
+  "postCreateCommand": [
+    "sudo mkdir -p /home/vscode/.m2/repository /workspaces/binclass_java/binclass-ui/target /workspaces/binclass_java/binclass-components/target",
+    "sudo mkdir -p /workspaces/binclass_java/binclass-algorithms/target /workspaces/binclass_java/binclass-cli/target",
+    "sudo chown -R vscode:vscode /home/vscode/.m2 /workspaces/binclass_java/binclass-ui/target /workspaces/binclass_java/binclass-components/target",
+    "sudo chown -R vscode:vscode /workspaces/binclass_java/binclass-algorithms/target",
+    "sudo chown -R vscode:vscode /workspaces/binclass_java/binclass-cli/target",
+    "java -version",
+    "mvn -version",
+    "node --version",
+    "npm --version",
+    "test -f \"$JAVA_HOME/lib/hotswap/hotswap-agent.jar\""
+  ],
 
   "remoteUser": "vscode"
 }
