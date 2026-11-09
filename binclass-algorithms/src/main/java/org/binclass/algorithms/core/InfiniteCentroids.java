@@ -6,20 +6,21 @@ package org.binclass.algorithms.core;
 
 import java.util.Objects;
 
+import org.jspecify.annotations.NullMarked;
+
 /**
  * An array of {@link Centroid} instances indexed 0..k-1 internally, mirroring
  * the C {@code InfiniteCentroids} struct from {@code binset.h}.
  * <p>
  * Used during clustering operations (GLA, Split-GLA) to maintain centroid
- * states for all clusters. Provides methods to compute sum-of-costs (SC) values
- * and manage centroid arrays.
+ * states for all clusters and manage the centroid array.
  * </p>
  */
+@NullMarked
 public final class InfiniteCentroids {
 
     private Centroid[] centroids; // 0-based internal indexing
     private int k; // number of centroids (1-based)
-    private double[][] scValues; // Sum-of-costs matrix: [cluster][bit_position]
 
     /**
      * Creates a new {@code InfiniteCentroids} with the given number of clusters
@@ -40,7 +41,6 @@ public final class InfiniteCentroids {
         }
         this.k = k;
         this.centroids = new Centroid[k];
-        this.scValues = new double[k][l];
 
         // Initialize with centroids of proper length (uninitialized state)
         for (int i = 0; i < k; i++) {
@@ -79,7 +79,6 @@ public final class InfiniteCentroids {
     public InfiniteCentroids(double[][] data, int k) {
         this.k = k;
         this.centroids = new Centroid[k];
-        this.scValues = new double[k][data[0].length];
 
         for (int i = 0; i < k; i++) {
             centroids[i] = new Centroid(data[i], data[i].length, 1.0);
@@ -97,6 +96,7 @@ public final class InfiniteCentroids {
      *            zero-based index (0..k-1)
      * @return the Centroid at that position
      */
+    @SuppressWarnings("null")
     public Centroid get(int i) {
         checkIndex(i);
         return centroids[i];
@@ -152,68 +152,6 @@ public final class InfiniteCentroids {
         for (int i = 0; i < k; i++) {
             centroids[i] = other.get(i).copy();
         }
-    }
-
-    /**
-     * Computes the sum-of-costs (SC, Stochastic Complexity) values for all
-     * clusters.
-     * <p>
-     * Equivalent to C function {@code infinite_centroids_calculate_sc()} from
-     * {@code binset.h}. SC represents the total cost of assigning vectors to
-     * their respective centroids using Shannon entropy per bit position.
-     * </p>
-     *
-     * @param partition
-     *            the DynamicPartition containing cluster assignments
-     */
-    public void calculateSC(DynamicPartition partition) {
-        Objects.requireNonNull(partition, "Partition must not be null");
-
-        for (int i = 0; i < k; i++) {
-            int clusterIdx = i + 1; // Convert to 1-based for partition access
-            Centroid centroid = centroids[i];
-            int[] freqs = partition.getFreqs(clusterIdx);
-            int classSize = partition.getClusterSize(clusterIdx);
-
-            double sc = 0.0;
-            for (int bit = 0; bit < centroid.getLength(); bit++) {
-                if (freqs[bit] > 0 || freqs[bit] < classSize) {
-                    // Cost contribution from this bit position using Shannon
-                    // entropy
-                    double prob1 = centroid.get(bit);
-                    double prob0 = 1.0 - prob1;
-
-                    // Handle edge cases where prob is 0 or 1 to avoid NaN
-                    // (0 * log(0) should be treated as 0, not NaN)
-                    double term1 = (prob1 > 0 && freqs[bit] > 0)
-                            ? freqs[bit] * (Math.log(prob1) / Math.log(2))
-                            : 0;
-                    int count0 = classSize - freqs[bit];
-                    double term2 = (count0 > 0 && prob0 > 0)
-                            ? count0 * (Math.log(prob0) / Math.log(2))
-                            : 0;
-
-                    sc += term1 + term2;
-                }
-            }
-            scValues[i][0] = sc; // Store in first column for simplicity
-        }
-    }
-
-    /**
-     * Returns the sum-of-costs value for a specific cluster.
-     * <p>
-     * Equivalent to C function {@code infinite_centroids_get_sc()} from
-     * {@code binset.h}.
-     * </p>
-     *
-     * @param i
-     *            zero-based index (0..k-1)
-     * @return the SC value for that cluster
-     */
-    public double getSC(int i) {
-        checkIndex(i);
-        return scValues[i][0]; // Return first column value
     }
 
     /**

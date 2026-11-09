@@ -21,7 +21,7 @@ package org.binclass.algorithms.util;
 public final class MathUtils {
 
     /** Inverse of natural logarithm of two: 1 / ln(2) ≈ 1.4426950408889634 */
-    public static final double ILOGOF2 = 1.4426950408889634;
+    public static final double ILOGOF2 = 1 / StrictMath.log(2);
 
     /** Small epsilon for numerical stability in logarithm computations */
     public static final double EPSILON = 0.001;

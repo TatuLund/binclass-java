@@ -6,6 +6,7 @@ package org.binclass.algorithms.gla;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.lang.reflect.Method;
 import java.util.Random;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -308,8 +309,9 @@ class LocalSearchTest {
 
     @Test
     void testSafeWorstMatchingVectorsSingleton() throws Exception {
-        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
-                "safeWorstMatchingVectors", VectorSet.class, Random.class);
+        Method m = LocalSearch.class.getDeclaredMethod(
+                "safeWorstMatchingVectors", VectorSet.class, int.class,
+                Random.class);
         m.setAccessible(true);
 
         // A singleton cluster pairs the lone element with itself instead of
@@ -321,7 +323,7 @@ class LocalSearchTest {
         singleton.addElement(only);
 
         BinaryVector[] pair = (BinaryVector[]) m.invoke(null, singleton,
-                new Random(2));
+                only.getLength(), new Random(2));
         assertNotNull(pair[0]);
         assertEquals(1, pair[0].getElement(0));
         assertSame(pair[0], pair[1], "singleton should pair with itself");
@@ -329,8 +331,9 @@ class LocalSearchTest {
 
     @Test
     void testSafeWorstMatchingVectorsNormal() throws Exception {
-        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
-                "safeWorstMatchingVectors", VectorSet.class, Random.class);
+        Method m = LocalSearch.class.getDeclaredMethod(
+                "safeWorstMatchingVectors", VectorSet.class, int.class,
+                Random.class);
         m.setAccessible(true);
 
         // With two or more vectors the resilient variant behaves like the
@@ -342,7 +345,7 @@ class LocalSearchTest {
         cluster.addElement(o);
 
         BinaryVector[] pair = (BinaryVector[]) m.invoke(null, cluster,
-                new Random(3));
+                L, new Random(3));
         assertNotNull(pair[0]);
         assertNotNull(pair[1]);
         assertEquals(L, DistanceCalculator.hammingDistanceVectors(pair[0],
@@ -356,7 +359,7 @@ class LocalSearchTest {
         // which is what the k == 1 SPLITJOIN2 path produces. It synthesises a
         // zero-filled fallback instead of throwing ArrayIndexOutOfBounds on
         // all[0].
-        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+        Method m = LocalSearch.class.getDeclaredMethod(
                 "safeWorstMatchingVectors", VectorSet.class, int.class,
                 Random.class);
         m.setAccessible(true);
@@ -377,7 +380,7 @@ class LocalSearchTest {
         // mseGla2 reassigns an empty vector set. The guarded removeEmpty must
         // not throw "All clusters are empty" before reaching
         // recomputeCentroids.
-        java.lang.reflect.Method m = LocalSearch.class.getDeclaredMethod(
+        Method m = LocalSearch.class.getDeclaredMethod(
                 "mseGla2", VectorSet.class, Partition.class,
                 InfiniteCentroids.class, int.class);
         m.setAccessible(true);

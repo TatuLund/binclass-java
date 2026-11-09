@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.binclass.algorithms.centroid.CentroidInitializer;
-import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
@@ -36,13 +35,13 @@ import org.mockito.ArgumentCaptor;
 
 import org.slf4j.LoggerFactory;
 
-import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.LoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 
 /**
  * Unit tests for ClassifyCommand to verify algorithm execution.
  */
+@SuppressWarnings("null")
 class ClassifyCommandTest {
 
     private ClassifyCommand command;

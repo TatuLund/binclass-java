@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Unit tests for MixtureCommand to verify algorithm execution.
  */
+@SuppressWarnings("null")
 class MixtureCommandTest {
 
     private MixtureCommand command;

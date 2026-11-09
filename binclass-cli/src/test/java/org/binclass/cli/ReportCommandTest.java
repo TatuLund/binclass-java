@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Unit tests for ReportCommand to verify report generation functionality.
  */
+@SuppressWarnings("null")
 class ReportCommandTest {
 
     private ReportCommand command;

@@ -56,45 +56,6 @@ class InfiniteCentroidsTest {
     }
 
     @Test
-    void testCalculateSC() {
-        DynamicPartition dp = new DynamicPartition(2, 5);
-
-        int[] el1 = { 1, 0, 1, 1, 0 };
-        BinaryVector v1 = new BinaryVector(el1, 0, 5, 0, "v1");
-
-        int[] el2 = { 1, 1, 0, 1, 0 };
-        BinaryVector v2 = new BinaryVector(el2, 0, 5, 0, "v2");
-
-        dp.putVector(1, v1);
-        dp.putVector(1, v2);
-
-        InfiniteCentroids ic = new InfiniteCentroids(2, 5);
-
-        double[] elC1 = { 1.0, 0.5, 0.5, 1.0, 0.0 }; // Centroid for cluster 1
-        ic.set(0, new Centroid(elC1, 5, 2));
-
-        ic.calculateSC(dp);
-
-        double sc = ic.getSC(0);
-        // SC should be a finite number (not NaN or Infinity)
-        assertFalse(Double.isNaN(sc));
-        assertFalse(Double.isInfinite(sc));
-    }
-
-    @Test
-    void testGetSC() {
-        InfiniteCentroids ic = new InfiniteCentroids(2, 5);
-
-        double[] el1 = { 0.8 };
-        Centroid c1 = new Centroid(el1, 1, 10);
-
-        ic.set(0, c1);
-
-        // Before calculateSC, SC should be 0 (default)
-        assertEquals(0.0, ic.getSC(0), 1e-10);
-    }
-
-    @Test
     void testBoundsChecking() {
         InfiniteCentroids ic = new InfiniteCentroids(2, 5);
 

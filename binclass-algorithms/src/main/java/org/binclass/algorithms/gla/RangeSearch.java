@@ -48,6 +48,7 @@ public final class RangeSearch {
             InfiniteCentroids centroids) {
     }
 
+    @SuppressWarnings("null")
     private static final Logger log = LoggerFactory
             .getLogger(RangeSearch.class);
 
@@ -231,7 +232,7 @@ public final class RangeSearch {
         }
 
         // Log centroid info if enabled
-        if (bestPartition != null) {
+        if (bestPartition != null && centroids != null) {
             logCentroidInfo(bestPartition, centroids, config.logCentroids());
         }
 
@@ -542,6 +543,7 @@ public final class RangeSearch {
      *            elapsed time expressed in whole seconds
      * @return a formatted string such as {@code " 0d 0h 0m 3s"}
      */
+    @SuppressWarnings("null")
     private static String formatTime(long totalSeconds) {
         long days = totalSeconds / 86400;
         long rem = Math.floorMod(totalSeconds, 86400);
