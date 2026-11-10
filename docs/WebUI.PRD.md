@@ -13,6 +13,56 @@
 
 ---
 
+## 0a. Implementation status (read first)
+
+This document is both a **plan** and, where noted, a record of what is already built. The UI currently ships as a
+**skeleton**: every display is a `@Route` view that extends `VerticalLayout` and renders an `H1` title plus a single
+placeholder `Span` body (`id="<route>-body"`). There are no `ViewModel`s, `FormLayout` parameter forms, `TabSheet`s,
+`Graph`/`Partition` components or `EventBus` wiring yet — those chapters (§3 … §16) describe the **full** implementation
+each display will grow into. Keep the two states straight:
+
+| Concern | Current skeleton state | Planned (per-display chapters) |
+|---------|------------------------|--------------------------------|
+| View base class | `VerticalLayout` for every view; only `MainLayout` extends `AppLayout` | unchanged |
+| Title | `H1(fullTitle)` inside each view **and** navbar title from the view's `@Menu.title()` (see §2) | unchanged |
+| Body placeholder | one `Span("… display goes here.")` with a stable id | real params form + results area |
+| Parameters | none yet | `FormLayout` → config record (§3 … §16) |
+| Results | none yet | `Graph` / `Partition` / `Tree` / `Centroid` components via translators (§1.3) |
+| Concurrency | single-threaded executor per UI/session (§1.7 concept only) | full MVVM + `EventBus` flow (§1.2, §1.6) |
+
+The skeleton exists so routing, the SideNav, and title lookup can be verified end-to-end; each chapter below is
+self-contained work to flesh out one display. Ids used in the skeletons (`#gla-body`, etc.) are stable anchors for
+Playwright/BrowserlessTests.
+
+### Routes & titles (implemented)
+
+All 15 routes live in `binclass-ui/src/main/java/org/binclass/ui/`. The navbar title comes from each view's
+`@Menu.title()`; the body `H1` uses a fuller display name where they differ (see Cumulative, Semi-Cumulative,
+Mixture, Bootstrap, Centroids, Compare, Tree, Cut).
+
+| Route | `@Menu.title()` (navbar) | Body `H1` | Order | Icon |
+|-------|--------------------------|-----------|:-----:|------|
+| `""` | Demo | Demo View | 0 | `vaadin:code` |
+| `gla` | GLA Search | GLA Search | 1 | `vaadin:search` |
+| `local-search` | Local Search | Local Search | 2 | `vaadin:crosshair` |
+| `cumulative` | Cumulative Class. | Cumulative Classification | 3 | `vaadin:cluster` |
+| `sclassify` | Semi-Cumulative | Semi-Cumulative Classification | 4 | `vaadin:scale` |
+| `fclassify` | Fast Classify | Fast Classify | 5 | `vaadin:bolt` |
+| `identify` | Identify | Identify | 6 | `vaadin:eye` |
+| `mixture` | Mixture (EM) | Mixture Classifier | 7 | `vaadin:flask` |
+| `bootstrap` | Bootstrap | Bootstrap Analysis | 8 | `vaadin:calc` |
+| `centroids` | Centroids | Centroid Manager | 9 | `vaadin:grid` |
+| `compare` | Compare | Compare Partitions | 10 | `vaadin:table` |
+| `function` | Function Plot | Function Plot | 11 | `vaadin:chart-line` |
+| `generate` | Data Generator | Data Generator | 12 | `vaadin:code` |
+| `tree` | Dendrogram | Dendrogram | 13 | `vaadin:file-tree` |
+| `cut` | Cut / Interval | Cut / Interval Analysis | 14 | `vaadin:scissors` |
+
+> **Note:** the tree route's menu title is **"Dendrogram"** (not "Tree / Dendrogram"); keep that spelling when
+> referencing it in code, tests, and the SideNav list below.
+
+---
+
 ## 0. How to read this document
 
 Each display chapter follows the same template so they can be implemented one at a time:
@@ -292,12 +342,14 @@ This keeps the "one search at a time" rule even if two displays are opened, with
 
 ## 2. MainLayout (AppLayout + SideNav)
 
-Root layout rendered around every view via the Vaadin `@Layout` annotation on a single `MainLayout`.
+Root layout rendered around every view via the Vaadin `@Layout` annotation on a single `MainLayout`. It is the only
+view that extends `AppLayout`; each display is a plain `VerticalLayout`, so titles live in the shared navbar rather than
+in each view.
 
 **Skeleton:**
 
 ```
-MainLayout extends AppLayout   (@Layout, route "")
+MainLayout extends AppLayout   (@Layout, route "")  implements AfterNavigationObserver
 ├─ addToNavbar: DrawerToggle(), H1("BinClass")          id="app-title"
 └─ addToDrawer: Scroller(SideNav)                        id="sidenav"
      └─ SideNav (id="sidenav")
@@ -313,11 +365,36 @@ MainLayout extends AppLayout   (@Layout, route "")
         ├─ SideNavItem("Compare",         "compare")     → RouteCompareView
         ├─ SideNavItem("Function Plot",   "function")    → RouteFunctionView
         ├─ SideNavItem("Data Generator",  "generate")    → RouteGenerateView
-        ├─ SideNavItem("Tree / Dendrogram","tree")       → RouteTreeView
+        ├─ SideNavItem("Dendrogram",      "tree")        → RouteTreeView
         └─ SideNavItem("Cut / Interval",  "cut")         → RouteCutView
 ```
 
-Notes:
+**How the title updates (implemented).** `MainLayout` implements `AfterNavigationObserver`; on every navigation it calls
+`getCurrentPageTitle()`, which reads the active view's own `@Menu.title()` via reflection:
+
+```java
+@Override public void afterNavigation(AfterNavigationEvent event) {
+    title.setText(getCurrentPageTitle());
+}
+private String getCurrentPageTitle() {
+    Component content = getContent();                 // current view in the content area
+    if (content == null) return title.getText();      // fallback to "BinClass"
+    Menu menu = content.getClass().getAnnotation(Menu.class);
+    return menu == null ? title.getText() : menu.title();
+}
+```
+
+This is a **reflection lookup on the active view class**, not a route-path loop: each display contributes its own label by
+carrying an `@Menu` annotation, so adding a display is one new `@Route`/`@Menu` class with no change to `MainLayout`. The
+fallback (`"BinClass"`) covers any view without a `@Menu` annotation.
+
+**How the SideNav is built (implemented).** `buildSideNav()` iterates `MenuConfiguration.getMenuEntries()`, which already
+returns every `@Route`/`@Menu` pair ordered by `order`. Each entry becomes a `SideNavItem(entry.title(), entry.path(), prefix)`;
+the icon prefix is resolved from `entry.icon()` via `VaadinIcon.valueOf(name.toUpperCase(Locale.ROOT)).create()` after stripping a
+leading `vaadin:` prefix, and entries without an icon (or with an unresolvable name) are added with no prefix component. The
+current-route highlight in the drawer follows routing automatically once each view is registered.
+
+**Notes:**
 - `SideNav` + `SideNavItem` are Vaadin 25.3 components; each maps to a `@Route` view. The string arg is the route value.
 - `DrawerToggle` auto-appears on narrow viewports (responsive drawer).
 - Report generation is **not** a top-level SideNav item — it is embedded as the `ReportComponent` in classifier displays' Report tabs (§17) because its output depends on whichever partition is currently displayed.
@@ -325,6 +402,9 @@ Notes:
 ---
 
 ## 3. Display A — GLA Search (`ClassifyCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("GLA Search")` title and a placeholder body
+> (`id="gla-body"`). The parameter form, results tabs, translator and EventBus wiring described below are not yet built.
 
 The flagship display. Mirrors `ClassifyCommand.execute()`: range search **and** automatic search,
 controlled by the same switches. Produces a best partition + centroids and per-`k` SC values.
@@ -429,6 +509,9 @@ cancelled in `onDetach(...`).
 
 ## 4. Display B — Local Search (`ClassifyCommand` `-r7`/`-r8`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Local Search")` title and a placeholder body
+> (`id="local-search-body"`). The parameter form, results area, translator and EventBus wiring described below are not yet built.
+
 A focused view on heuristic local search (cycler `-r7`, adaptive `-r8`) which route through
 `LocalSearch.localSearch()` instead of a single GLA variant. Shares the GLA parameter form; narrows scope to
 heuristic-related flags and shows per-operator progress.
@@ -466,6 +549,9 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 ---
 
 ## 5. Display C — Cumulative Classification (`CumulativeCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Cumulative Classification")` title and a placeholder body
+> (`id="cumulative-body"`). The parameter form, progress bar, log area, translator and EventBus wiring described below are not yet built.
 
 Processes vectors one at a time; each may create a new class or join an existing one, using Bayesian
 predictive identification with SC as criterion. Output is a `DynamicPartition` (grows over time).
@@ -526,6 +612,9 @@ RouteCumulativeView extends VerticalLayout   (@Route("cumulative"))
 
 ## 6. Display D — Semi-Cumulative Classification (`SemiCumulativeCommand`, `sclassify`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Semi-Cumulative Classification")` title and a placeholder body
+> (`id="sclassify-body"`). The parameter form, progress bar, SC graph, partition area, translator and EventBus wiring described below are not yet built.
+
 Join-GLA search: grow from a 2-cluster seed using join operations with SC selection.
 
 ### 6.1 Algorithm entry point
@@ -566,6 +655,9 @@ RouteSemiCumulativeView extends VerticalLayout   (@Route("sclassify"))
 
 ## 7. Display E — Fast Classify / Split-GLA (`FastClassifyCommand`, `fclassify`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Fast Classify")` title and a placeholder body
+> (`id="fclassify-body"`). The parameter form, progress bar, SC graph, partition area, translator and EventBus wiring described below are not yet built.
+
 Split-GLA hybrid for a fast k search seeded from the first two vectors.
 
 ### 7.1 Algorithm entry point
@@ -603,6 +695,9 @@ RouteFastClassifyView extends VerticalLayout   (@Route("fclassify"))
 ---
 
 ## 8. Display F — Identify nearest centroid (`IdentifyCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Identify")` title and a placeholder body
+> (`id="identify-body"`). The parameter form, partition area, log area, translator and EventBus wiring described below are not yet built.
 
 Classify a fresh set of vectors against an existing centroid model (no search). Useful as a "classify new
 samples" panel embedded in other displays, but also standalone.
@@ -648,6 +743,9 @@ RouteIdentifyView extends VerticalLayout   (@Route("identify"))
 
 ## 9. Display G — Mixture Classifier / EM (`MixtureCommand`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Mixture Classifier")` title and a placeholder body
+> (`id="mixture-body"`). The parameter form, progress bar, centroid area, translator and EventBus wiring described below are not yet built.
+
 Fit a Gaussian-mixture-like (Bernoulli) model via EM and return fitted centroids.
 
 ### 9.1 Algorithm entry point
@@ -682,6 +780,9 @@ RouteMixtureView extends VerticalLayout   (@Route("mixture"))
 ---
 
 ## 10. Display H — Bootstrap Analysis (`BootstrapCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Bootstrap Analysis")` title and a placeholder body
+> (`id="bootstrap-body"`). The parameter form, progress bar, stats text, SC graph, partition area, translator and EventBus wiring described below are not yet built.
 
 Run many GLA trials from resampled data and statistically analyse SC values; keep the best partition.
 
@@ -733,6 +834,9 @@ RouteBootstrapView extends VerticalLayout   (@Route("bootstrap"))
 
 ## 11. Display I — Centroid Manager (`CentroidCommand`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Centroid Manager")` title and a placeholder body
+> (`id="centroids-body"`). The parameter form, summary text, grid and translator described below are not yet built.
+
 Compute centroids from an existing `.partition` file (per-bit frequency average), optionally rounded.
 
 ### 11.1 Algorithm entry point
@@ -766,6 +870,9 @@ If visual fidelity matters, reuse `Centroid` per row.
 ---
 
 ## 12. Display J — Compare Partitions (`CompareCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Compare Partitions")` title and a placeholder body
+> (`id="compare-body"`). The parameter form, distance text, contingency table and translator described below are not yet built.
 
 Build a contingency matrix between two partitions and compute the nearness distance.
 
@@ -805,6 +912,9 @@ structured `ComparisonResult(matrix, …)` rather than stringifying it.
 
 ## 13. Display K — Function Plot / SC vs k (`FunctionCommand`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Function Plot")` title and a placeholder body
+> (`id="function-body"`). The parameter form, SC graph, table area and translator described below are not yet built.
+
 Render SC (and Shannon entropy) as a function of k from a `.centroids` file. Naturally reuses the `Graph`
 component; this display is the consumer that feeds it.
 
@@ -838,6 +948,9 @@ RouteFunctionView extends VerticalLayout   (@Route("function"))
 ---
 
 ## 14. Display L — Data Generator (`GenerateCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Data Generator")` title and a placeholder body
+> (`id="generate-body"`). The parameter form, summary text, preview grid and translator described below are not yet built.
 
 Produce synthetic binary vectors (RAND / MARKOV / BERN) from the reference data. Output feeds other displays.
 
@@ -874,6 +987,9 @@ RouteGenerateView extends VerticalLayout   (@Route("generate"))
 
 ## 15. Display M — Tree / Dendrogram (`TreeCommand`)
 
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Dendrogram")` title and a placeholder body
+> (`id="tree-body"`). The parameter form, scroller/tree area and translator described below are not yet built.
+
 Build a hierarchical dendrogram from a partition (or by classifying raw vectors when none exists). Reuses the
 existing `Tree` web component and `TreeModel`.
 
@@ -907,6 +1023,9 @@ RouteTreeView extends VerticalLayout   (@Route("tree"))
 ---
 
 ## 16. Display N — Cut / Interval Analysis (`CutCommand`)
+
+> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Cut / Interval Analysis")` title and a placeholder body
+> (`id="cut-body"`). The parameter form, summary text, partition area and translator described below are not yet built.
 
 Trim/partition via interval intersection strategies (relative/minimal/maximal/stability). Reuses `Partition`.
 
@@ -950,6 +1069,9 @@ RouteCutView extends VerticalLayout   (@Route("cut"))
 ---
 
 ## 17. Embedded — Report Generation (`ReportCommand`, no separate display)
+
+> **Status:** not yet built. No `ReportComponent` exists and none of the displays currently expose a Report tab; this chapter
+> describes the component each classifier display will embed once implemented.
 
 Per the request, *report* is not a top-level SideNav item. Its output (frequency tables, class-nearness
 matrix, summary stats) belongs to whichever classifier produced the partition. Provide a **Report tab** on the
@@ -995,6 +1117,10 @@ currently displayed partition.
 ---
 
 ## 18. Cross-cutting concerns
+
+> **Status:** the mechanisms below are *planned*, not yet wired into the skeleton views — none of the displays currently
+> expose a ViewModel, `ValueSignal` binding, `canRun()` validation, download controls or a search gate. Each is described
+> here so it can be added per display as §3 … §16 are implemented.
 
 ### 18.1 Routing & `@Layout`
 - `MainLayout extends AppLayout` annotated `@Layout`; every display view is a `@Route("…")` `VerticalLayout`.
@@ -1145,7 +1271,7 @@ fabricated-event updates) go to BrowserlessTests, and Playwright IT is used spar
 `binclass-components` module does not already cover.
 
 ### 18.9 Implementation order (recommended)
-1. `MainLayout` + GLA Search display (§3) — establishes EventBus flow, translation layer, and demo view for tests.
+1. `MainLayout` + GLA Search display (§3) — the `GlaViewModel` implements `EventBusListener`, establishing the EventBus flow, translation layer, and demo view for tests.
 2. Report tab embedded in GLA (§17), then copy to other classifier displays.
 3. Local Search (§4), Semi-Cumulative (§6), Fast Classify (§7) — reuse `GlaParametersForm`.
 4. Cumulative (§5), Identify (§8), Mixture (§9), Bootstrap (§10).
