@@ -71,6 +71,12 @@
             <artifactId>vaadin-dev</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Internal dependencies -->
+        <dependency>
+            <groupId>org.vaadin.tatu</groupId>
+            <artifactId>binclass-algorithms</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>

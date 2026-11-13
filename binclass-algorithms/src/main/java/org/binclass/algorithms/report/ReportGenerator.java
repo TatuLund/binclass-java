@@ -239,7 +239,7 @@ public final class ReportGenerator {
      *            centroids
      * @return the nearness distance between clusters i and j
      */
-    private static double classNearness(Partition partition,
+    public static double classNearness(Partition partition,
             InfiniteCentroids centroids, int clusterI, int clusterJ,
             boolean useHellinger) {
         Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
@@ -410,6 +410,37 @@ public final class ReportGenerator {
         }
 
         return matrix;
+    }
+
+    /**
+     * Computes the class nearness (or affinity) matrix for all cluster pairs.
+     * <p>
+     * Convenience wrapper around {@link #generateNearnessMatrix} that is safe
+     * to call from UI code: it returns an empty matrix when nearness output is
+     * disabled so callers can decide whether to render a table. The returned
+     * array uses 1-based indexing, matching the rest of this class — element
+     * {@code [i][j]} holds the distance between clusters {@code i} and
+     * {@code j}, with the diagonal left at its default value {@code 0}.
+     * </p>
+     *
+     * @param partition
+     *            the partition containing all clusters
+     * @param centroids
+     *            the centroid array defining cluster probabilities
+     * @param options
+     *            the reporting options controlling distance metric and scaling
+     * @return a symmetric matrix (1-based indexing), or an empty array when
+     *         nearness is disabled by {@code options}
+     */
+    public static double[][] classNearnessMatrix(Partition partition,
+            InfiniteCentroids centroids, ReportOptions options) {
+        Objects.requireNonNull(partition, PARTITION_MUST_NOT_BE_NULL);
+        Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
+
+        if (!options.showNearness()) {
+            return new double[0][0];
+        }
+        return generateNearnessMatrix(partition, centroids, options);
     }
 
     /**

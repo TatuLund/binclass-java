@@ -151,6 +151,25 @@ public abstract class ComponentIT {
     }
 
     /**
+     * Navigates the per-test {@link #page} to a route without waiting for any
+     * custom element to render.
+     * <p>
+     * Unlike {@link #openDemo(String)}, this does not poll for the
+     * {@code binclass-vector}, {@code binclass-centroid}, and
+     * {@code binclass-cluster} shadow-DOM cells, so it is appropriate for demo
+     * views that host only plain Vaadin components (such as a report page). The
+     * browser simply waits until the document finishes loading; callers assert
+     * against individual locators directly.
+     *
+     * @param route
+     *            the route to navigate to after the page is created
+     */
+    protected void openPage(String route) {
+        page.navigate(BASE_URL + "/" + route);
+        page.waitForLoadState();
+    }
+
+    /**
      * Returns the rendered width, in pixels, of a single cell's bounding box. A
      * null box (element not visible) is reported as zero so callers can treat
      * it as "no size".
