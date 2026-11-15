@@ -473,6 +473,17 @@ selected enums by calling `.code()`, so the config translation layer stays untou
 - **Run enabling:** the *Run* button is enabled by default and bound to `viewModel.canRun()` (data loaded
   and not already running). The view calls `viewModel.setForm(buildForm())` before `run(...)` so the VM has
   a form to build its config from — this fixes the early-return bug where an unbound form left *Run* inert.
+  - **Upload enables Run:** uploading a header/data pair (`/test.header` + `/test.data`) through the real
+    `Upload` parses the vectors (100 in the test fixture) and sets the status text to "Loaded…"; only then does
+    *Run* become usable, and clicking it flips `running()` to `true` synchronously.
+  - **Run disabled before upload:** with no data loaded and the upload set not yet validated, *Run* stays
+    disabled even though the form itself is valid — a user cannot start a search with nothing to classify.
+  - **`kstop` / `kstopwhen` mutual exclusion:** setting both `-s` (`k-stop`) and `-S` (`kstop-when`) to positive
+    values marks both fields invalid, each showing *"kstop (-s) and kstopwhen (-S) are mutually exclusive."*, and
+    disables *Run*. Clearing one bound restores validity and re-enables *Run*.
+  - **`epsilon` range with decreasing-epsilon mode:** an `epsilon` outside `(0, 0.5)` invalidates the form and
+    disables *Run*. Toggling *decreasing epsilon* treats `epsilon` as a bare value, so the same out-of-range number
+    becomes valid again; returning to normal mode with an in-range `epsilon` keeps it enabled.
 - **Summary tab:** clicking *Run* also renders a *Summary* tab that echoes the resolved configuration
   (search type, every flag, effective maxIter) and offers a *New search* button to return to the form.
 
@@ -519,6 +530,9 @@ the SC graph tab updates after each k; whenever a new best partition is detected
 The SC Graph tab shows the automatic-search curve with its global minimum (reuse `Graph`); the Partition tab renders the best
 partition via `Partition` (clusters → `ClusterData`, lazy vectors). On completion/cancellation the button is re-enabled and the
 future is cancelled in `onDetach(...)`. The *New search* button on the summary tab restores the form and hides the tabs.
+- **Fixed lower bound still runs (range search):** setting `kStart` (`-b`) above 1 selects range search; *Run* must still start it
+even though automatic search is not selected — a fixed lower bound does not disable Run. The same `beforeLeave` guard that
+postpones navigation while a search is in flight (see §3.2.2) also applies here, so the user can leave only after confirming.
 
 ### 3.5 Translation layer
 - `scs[]` + `ks[]` from `AutomaticSearch.Result` → `GraphModel(List<GraphPoint(k, sc))`; drop non-finite points.
@@ -545,7 +559,11 @@ heuristic-related flags and shows per-operator progress.
 
 ### 4.2 Parameters → control
 Reuse `GlaParametersForm`; add a `Select` for heuristic (2–6, or "cycler"/"adaptive") and a `IntegerField`
-for `heuristicCount`. Drop the search-type controls (always range/automatic).
+for `heuristicCount`. Drop the search-type controls (always range/automatic). The shared form carries the same
+edge cases as §3.2.2: uploading a header/data pair enables *Run* only after the vectors parse (status text loads),
+*Run* stays disabled before any data is loaded, and `epsilon` outside `(0, 0.5)` disables *Run* but re-enables via
+the decreasing-epsilon toggle and an in-range value. Because search-type controls are dropped, both fixed-k and
+automatic runs start from the same button — there is no `kstop`/`kstopwhen` mutual-exclusion branch here.
 
 ### 4.3 UI skeleton
 
