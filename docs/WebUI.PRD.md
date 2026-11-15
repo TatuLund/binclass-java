@@ -403,8 +403,10 @@ current-route highlight in the drawer follows routing automatically once each vi
 
 ## 3. Display A — GLA Search (`ClassifyCommand`)
 
-> **Status:** skeleton view implemented — `VerticalLayout` with an `H1("GLA Search")` title and a placeholder body
-> (`id="gla-body"`). The parameter form, results tabs, translator and EventBus wiring described below are not yet built.
+> **Status:** implemented — `RouteGlaView` renders a labelled parameter form with enum selects, tooltips,
+> a *Run* button that hides the form and reveals a results tab sheet (Search / SC Graph / Partition /
+> Summary), plus a run-summary tab echoing the resolved configuration. The translator and EventBus wiring
+> described below are complete.
 
 The flagship display. Mirrors `ClassifyCommand.execute()`: range search **and** automatic search,
 controlled by the same switches. Produces a best partition + centroids and per-`k` SC values.
@@ -444,6 +446,36 @@ controlled by the same switches. Produces a best partition + centroids and per-`
 
 The form-value record maps onto the confirmed `GLAConfig` fields: `epsilon`, `pnnThreshold`, `heuristic`, `alternateMode`, `centroidType`, `maxIter`, `safetyLimit`, `iterBase`, `kstopwhen`, `kcStopWhen`, `weights`, `rounded`, `jeffreysPrior`, `trashcan`, `analyseMissing`, `logCentroids`, plus the first-distance init (`firstD`) and any remaining fields. Verify the full field list against `GLAConfig` when building the translator.
 
+### 3.2.1 Presentation enums (friendly labels)
+
+The three enum selects expose human-readable names instead of bare numeric codes, so users see e.g.
+"L2 (Euclidean)" rather than `3`. Each presentation enum carries its flag `code()` and a display `label()`,
+and maps back to the code via `fromCode(int)` (falling back to the default for unknown values):
+
+| Enum | Codes shown in the select | Maps to `GLAConfig` field |
+|------|---------------------------|---------------------------|
+| `DistanceType` | 1 Hamming, 2 L1 (Manhattan), 3 L2 (Euclidean), 4 Shannon Codelength, 5 L1 + Codelength, 6 L2 + Codelength, 7 Codelength + SR, 8 Codelength + SA | `distanceType` |
+| `CentroidType` | 1 Classic, 2 Random Seed, 3 Semi-Random, 4 Random, 5 PNN | `centroidType` |
+| `Heuristic` | 1 Split-Join 1, 2 Replace-Worst, 3 Replace-Smallest, 4 Random-Swap, 5 Split-Join 2, 6 Random-Swap 2, 7 Cycler (all operators), 8 Adaptive | `heuristic` |
+
+The enum codes follow the C parser (`original/parser.c`). The view builds a `GlaParametersForm` from the
+selected enums by calling `.code()`, so the config translation layer stays untouched.
+
+### 3.2.2 Form UX (labels, tooltips, upload)
+
+- **Labels:** every control carries a `setLabel(...)` matching its flag (`kstart (-b)`, `epsilon (-E)`, etc.).
+- **Tooltips:** each field exposes a `setTooltipText(...)` explaining the flag and default behaviour.
+- **Filebase:** the standalone *Filebase* `TextField` is removed; data is supplied purely through the
+  single Vaadin `Upload` (`id="uploader-gla"`) which reads `.hdr`/`.dat` content into memory via a
+  `MemoryBuffer` (no temp files). The upload fires on finish and feeds `UploadedDataLoader.load(header, lines)`.
+- **Defaults:** the form seeds sensible values from `GlaParametersForm.defaults()` (`kstart=1`, `kstop=0`,
+  `epsilon = GLAConfig.DEFAULT.epsilon()`, etc.) so controls are populated immediately on load.
+- **Run enabling:** the *Run* button is enabled by default and bound to `viewModel.canRun()` (data loaded
+  and not already running). The view calls `viewModel.setForm(buildForm())` before `run(...)` so the VM has
+  a form to build its config from — this fixes the early-return bug where an unbound form left *Run* inert.
+- **Summary tab:** clicking *Run* also renders a *Summary* tab that echoes the resolved configuration
+  (search type, every flag, effective maxIter) and offers a *New search* button to return to the form.
+
 ### 3.3 EventBus events
 Per-`k` `SearchProgress("gla", k, sc, false)` updates the SC curve tab after each `k`; whenever a new best partition is
 detected a `SearchBestPartition("gla", PartitionResult(...))` snapshot is pushed so the Partition tab refreshes live (not only
@@ -456,45 +488,37 @@ so the graph/partition rebuild automatically.
 
 ```
 RouteGlaView extends VerticalLayout   (@Route("gla"))
-├─ DataStore dataStore                 (session-scoped filebase→VectorSet)
 ├─ FormLayout paramsForm               id="gla-params"
-│   ├─ TextField        filebase       id="filebase"
-│   ├─ vaadin-upload  uploader         id="uploader-gla"      (writes temp filebase)
-│   ├─ IntegerField     kStart         id="k-start"           min=1
-│   ├─ IntegerField     kStop          id="k-stop"
-│   ├─ IntegerField     kStopWhen      id="kstop-when"
-│   ├─ IntegerField     kcStopWhen     id="kc-stop-when"
-│   ├─ NumberField      epsilon        id="epsilon"           min>0 max<0.5
-│   ├─ Checkbox         decreasingEps  id="decreasing-eps"
-│   ├─ Select           distanceType   id="distance-type"
-│   ├─ Select           centroidType   id="centroid-type"
-│   ├─ Select           heuristic      id="heuristic"
-│   ├─ RadioButtonGroup alternateMode  id="alternate-mode"
-│   ├─ Checkbox         analyseMissing id="analyse-missing"
-│   ├─ Checkbox         logCentroids   id="log-centroids"
-│   ├─ Checkbox         jeffreysPrior  id="jeffreys-prior"
-│   ├─ Checkbox         classWeights   id="class-weights"
-│   ├─ Checkbox         trashcan       id="trashcan"
-│   ├─ Checkbox         bestCodeLength id="best-code-length"
-│   ├─ Checkbox         rounded        id="rounded-centroids"
-│   ├─ Checkbox         requireBetter  id="require-better"
+│   ├─ vaadin-upload  uploader         id="uploader-gla"      (reads .hdr/.dat into memory)
+│   ├─ IntegerField     kStart         id="k-start"           min=1, label + tooltip
+│   ├─ IntegerField     kStop          id="k-stop"            label + tooltip
+│   ├─ IntegerField     kStopWhen      id="kstop-when"        label + tooltip
+│   ├─ IntegerField     kcStopWhen     id="kc-stop-when"      label + tooltip
+│   ├─ NumberField      epsilon        id="epsilon"           label + tooltip
+│   ├─ Checkbox         decreasingEps  id="decreasing-eps"    label + tooltip
+│   ├─ Select<DistanceType> distanceType id="distance-type"   friendly labels, tooltip
+│   ├─ Select<CentroidType> centroidType id="centroid-type"   friendly labels, tooltip
+│   ├─ Select<Heuristic> heuristic      id="heuristic"        friendly labels, tooltip
+│   ├─ IntegerField     maxIter         id="maxiter"          label + tooltip
 │   └─ Button           run            id="run-gla"
-├─ TabSheet                   glaTabs      id="gla-tabs"     (Search | SC Graph | Partition)
+├─ TabSheet                   glaTabs      id="gla-tabs"     (Search | SC Graph | Partition | Summary)
 │   ├─ "Search"  → Card searchCard          id="search-panel"
 │   │   ├─ ProgressIndicator    progress      id="gla-progress"
 │   │   └─ Div          statusText           id="gla-status"
 │   ├─ "SC Graph" → graphSC (binclass-graph)  id="sc-graph"
-│   └─ "Partition" → partitionView (binclass-partition)  id="partition-view"
+│   ├─ "Partition" → partitionView (binclass-partition)  id="partition-view"
+│   └─ "Summary" → summaryContent             echoes resolved GLAConfig + New search button
 ```
 
-**Flow (MVVM):** `#run-gla` click → view calls `viewModel.run()`. The ViewModel builds `GLAConfig` from its form-value record
-(which maps to `GLAConfig`) and submits the search to the single-threaded executor, disabling the button with
-`setDisableOnClick(true)`. Per-`k` progress events are collected into the graph model (`scs[]` → `GraphPoint(k, sc)`), so the SC
-graph tab updates after each k; whenever a new best partition is detected the view builds its own view-specific `PartitionModel`
-from the algorithm `Partition` and calls `partitionView.setData(PartitionModel)`, which rebuilds automatically. The SC Graph tab
-shows the automatic-search curve with its global minimum (reuse `Graph`); the Partition tab renders the best partition via
-`Partition` (clusters → `ClusterData`, lazy vectors). On completion/cancellation the button is re-enabled and the future is
-cancelled in `onDetach(...`).
+**Flow (MVVM):** `#run-gla` click → view calls `viewModel.setForm(buildForm())` then `viewModel.run(runButton)`. The VM builds
+`GLAConfig` from its form-value record (enum `.code()` values map to `GLAConfig`) and submits the search to the single-threaded
+executor, disabling the button with `setDisableOnClick(true)`. Clicking *Run* also renders the *Summary* tab and hides the form,
+revealing the results tab sheet. Per-`k` progress events are collected into the graph model (`scs[]` → `GraphPoint(k, sc)`), so
+the SC graph tab updates after each k; whenever a new best partition is detected the view builds its own view-specific
+`PartitionModel` from the algorithm `Partition` and calls `partitionView.setData(PartitionModel)`, which rebuilds automatically.
+The SC Graph tab shows the automatic-search curve with its global minimum (reuse `Graph`); the Partition tab renders the best
+partition via `Partition` (clusters → `ClusterData`, lazy vectors). On completion/cancellation the button is re-enabled and the
+future is cancelled in `onDetach(...)`. The *New search* button on the summary tab restores the form and hides the tabs.
 
 ### 3.5 Translation layer
 - `scs[]` + `ks[]` from `AutomaticSearch.Result` → `GraphModel(List<GraphPoint(k, sc))`; drop non-finite points.

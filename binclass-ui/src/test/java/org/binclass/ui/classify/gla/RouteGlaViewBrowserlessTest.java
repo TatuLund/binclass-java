@@ -1,0 +1,250 @@
+/*
+ * Copyright (c) 2024 BinClass Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+package org.binclass.ui.classify.gla;
+
+import java.io.InputStream;
+import java.lang.reflect.Field;
+
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
+import com.vaadin.flow.component.textfield.IntegerField;
+import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.sidenav.SideNav;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.vaadin.browserless.BrowserlessTest;
+import com.vaadin.browserless.ViewPackages;
+
+import org.binclass.ui.MainLayout;
+import org.binclass.ui.classify.localsearch.RouteLocalSearchView;
+
+/**
+ * Browserless test for the {@link RouteGlaView} GLA Search display. It drives
+ * the real Vaadin components — the {@code Upload} and the {@code Run} button —
+ * through their tester wrappers, so the view's own signal bindings and the
+ * {@link GlaViewModel}'s event-bus listener run unmocked. The goal is to prove
+ * that uploading a header/data pair enables the Run button and that clicking it
+ * actually starts a search (the {@code running} signal flips to {@code true}).
+ */
+@ViewPackages(classes = {
+        RouteGlaView.class, RouteLocalSearchView.class })
+class RouteGlaViewBrowserlessTest extends BrowserlessTest {
+
+    /** Reads a classpath resource into bytes. */
+    private static byte[] readResource(String name) throws Exception {
+        try (InputStream in = RouteGlaViewBrowserlessTest.class
+                .getResourceAsStream(name)) {
+            assertNotNull(in, "Missing test resource: " + name);
+            return in.readAllBytes();
+        }
+    }
+
+    /** Returns the view's private {@link GlaViewModel} for state assertions. */
+    private static GlaViewModel viewModel(RouteGlaView view) throws Exception {
+        Field field = RouteGlaView.class.getDeclaredField("viewModel");
+        field.setAccessible(true);
+        return (GlaViewModel) field.get(view);
+    }
+
+    /**
+     * Navigates to the view, uploads the header/data pair through the real
+     * {@link UploadTester}, and flushes signal effects so the Run button's
+     * enabled state reflects the current form.
+     *
+     * @return the freshly navigated and populated view
+     */
+    private RouteGlaView loadedView() throws Exception {
+        RouteGlaView view = navigate(RouteGlaView.class);
+        Upload upload = find(Upload.class).withId("uploader-gla").single();
+        test(upload).upload("/test.header", "text/plain",
+                readResource("/test.header"));
+        test(upload).upload("/test.data", "text/plain",
+                readResource("/test.data"));
+        // Flush the signal effects so canRun() recomputes and binds to Run.
+        runPendingSignalsTasks();
+        return view;
+    }
+
+    @Test
+    void uploadEnablesRunAndClickStartsSearch() throws Exception {
+        RouteGlaView view = loadedView();
+        GlaViewModel vm = viewModel(view);
+
+        // The upload parsed into the view model and updated the status text.
+        assertEquals(100, vm.data().peek().vectorSet().size());
+        assertTrue(vm.statusText().peek().startsWith("Loaded"));
+
+        // With data loaded and a valid form, Run is enabled.
+        Button run = find(Button.class).withId("run-gla").single();
+        assertTrue(test(run).isUsable());
+
+        // Clicking Run starts the search: running flips to true synchronously.
+        test(run).click();
+        assertTrue(vm.running().peek());
+    }
+
+    @Test
+    void runDisabledBeforeUpload() throws Exception {
+        RouteGlaView view = navigate(RouteGlaView.class);
+        Button run = find(Button.class).withId("run-gla").single();
+        runPendingSignalsTasks();
+
+        // No data loaded and the upload set is not validated yet, so Run stays
+        // disabled even though the form itself is valid.
+        assertFalse(test(run).isUsable());
+    }
+
+    @Test
+    void kstopAndKstopwhenMutuallyExclusiveDisablesRun() throws Exception {
+        RouteGlaView view = loadedView();
+        Button run = find(Button.class).withId("run-gla").single();
+
+        IntegerField kStop = find(IntegerField.class).withId("k-stop").single();
+        IntegerField kStopWhen = find(
+                IntegerField.class).withId("kstop-when").single();
+        String message = "kstop (-s) and kstopwhen (-S) are mutually exclusive.";
+
+        // Setting both range bounds to a positive value marks both fields
+        // invalid with the mutual-exclusion message and disables Run.
+        kStop.setValue(3);
+        kStopWhen.setValue(5);
+        runPendingSignalsTasks();
+
+        assertTrue(kStop.isInvalid());
+        assertEquals(message, kStop.getErrorMessage());
+        assertTrue(kStopWhen.isInvalid());
+        assertEquals(message, kStopWhen.getErrorMessage());
+        assertFalse(test(run).isUsable());
+
+        // Clearing one bound restores validity and re-enables Run.
+        kStop.setValue(0);
+        runPendingSignalsTasks();
+        assertFalse(kStop.isInvalid());
+        assertEquals("", kStop.getErrorMessage());
+        assertTrue(test(run).isUsable());
+    }
+
+    @Test
+    void epsilonOutOfRangeDisablesRunButDecreasingReenables() throws Exception {
+        RouteGlaView view = loadedView();
+        Button run = find(Button.class).withId("run-gla").single();
+        NumberField epsilon = find(NumberField.class).withId("epsilon")
+                .single();
+        Checkbox decreasing = find(
+                Checkbox.class).withId("decreasing-eps").single();
+
+        // An epsilon outside (0, 0.5) invalidates the form and disables Run.
+        epsilon.setValue(0.9);
+        runPendingSignalsTasks();
+        assertFalse(test(run).isUsable());
+
+        // Toggling decreasing-epsilon treats epsilon as a bare value, so the
+        // same out-of-range number becomes valid again.
+        test(decreasing).check();
+        runPendingSignalsTasks();
+        assertTrue(test(run).isUsable());
+
+        // Returning to normal mode with an in-range epsilon keeps it enabled.
+        test(decreasing).uncheck();
+        epsilon.setValue(0.3);
+        runPendingSignalsTasks();
+        assertTrue(test(run).isUsable());
+    }
+
+    @Test
+    void kStartGreaterThanOneStillRunsSearch() throws Exception {
+        RouteGlaView view = loadedView();
+        GlaViewModel vm = viewModel(view);
+        Button run = find(Button.class).withId("run-gla").single();
+
+        // A fixed lower bound selects range search; Run must still start it.
+        IntegerField kStart = find(
+                IntegerField.class).withId("k-start").single();
+        kStart.setValue(3);
+        runPendingSignalsTasks();
+        assertTrue(test(run).isUsable());
+
+        test(run).click();
+        assertTrue(vm.running().peek());
+    }
+
+    /**
+     * Navigates to the GLA view, adds the app layout so its {@code SideNav} is
+     * present in the component tree for menu-item clicks (browserless
+     * navigation does not apply the router layout automatically), and forces a
+     * search into the {@code running} state without waiting for the background
+     * task, so {@code beforeLeave} deterministically postpones.
+     */
+    private RouteGlaView glaWithRunningSearch() throws Exception {
+        RouteGlaView view = navigate(RouteGlaView.class);
+        UI.getCurrent().add(new MainLayout());
+        viewModel(view).running().set(true);
+        return view;
+    }
+
+    /** Returns the app's {@code SideNav} built by {@link MainLayout}. */
+    private SideNav sideNav() {
+        return find(SideNav.class).withId("sidenav").single();
+    }
+
+    @Test
+    void confirmDialogAppearsWhenNavigatingAwayWhileRunning() throws Exception {
+        glaWithRunningSearch();
+
+        // Click another menu item; beforeLeave postpones and opens the dialog.
+        test(sideNav()).clickItem("Local Search");
+        runPendingSignalsTasks();
+
+        ConfirmDialog dialog = find(ConfirmDialog.class).single();
+        assertNotNull(dialog);
+    }
+
+    @Test
+    void confirmResumesNavigationAndCancelsSearch() throws Exception {
+        RouteGlaView view = glaWithRunningSearch();
+        GlaViewModel vm = viewModel(view);
+
+        test(sideNav()).clickItem("Local Search");
+        runPendingSignalsTasks();
+
+        ConfirmDialog dialog = find(ConfirmDialog.class).single();
+        assertNotNull(dialog);
+
+        // Selecting confirm cancels the search and proceeds to the target view.
+        test(dialog).confirm();
+        runPendingSignalsTasks();
+
+        assertEquals(false, vm.running().peek());
+        assertTrue(RouteLocalSearchView.class.isAssignableFrom(
+                getCurrentView().getClass()));
+    }
+
+    @Test
+    void cancelKeepsSearchRunningAndStaysInView() throws Exception {
+        RouteGlaView view = glaWithRunningSearch();
+        GlaViewModel vm = viewModel(view);
+
+        test(sideNav()).clickItem("Local Search");
+        runPendingSignalsTasks();
+
+        ConfirmDialog dialog = find(ConfirmDialog.class).single();
+        assertNotNull(dialog);
+
+        // Selecting cancel keeps the search running and stays on the GLA view.
+        test(dialog).cancel();
+        runPendingSignalsTasks();
+
+        assertEquals(true, vm.running().peek());
+        assertTrue(RouteGlaView.class.isAssignableFrom(
+                getCurrentView().getClass()));
+    }
+}

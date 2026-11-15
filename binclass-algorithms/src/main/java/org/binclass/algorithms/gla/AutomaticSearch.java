@@ -4,7 +4,9 @@
  */
 package org.binclass.algorithms.gla;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -14,6 +16,10 @@ import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.centroid.CentroidInitializer;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.events.SearchBestPartition;
+import org.binclass.algorithms.events.SearchCompleted;
+import org.binclass.algorithms.events.SearchProgress;
+import org.binclass.algorithms.eventbus.EventBus;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.dist.NearestNeighbor;
 import org.slf4j.Logger;
@@ -53,6 +59,17 @@ public final class AutomaticSearch {
 
     private final VectorSet vectorSet;
     private final GLAConfig config;
+    /** Display identifier attached to every event this search posts. */
+    private final String display;
+
+    /** Best cluster count seen so far across the whole search (1-based). */
+    private int kmin = 1;
+    /** Best stochastic complexity seen so far across the whole search. */
+    private double scmin = UNASSIGNED_SC;
+    /**
+     * Partition/centroids for the current best, refreshed on every improvement.
+     */
+    private Partition bestPartition = null;
 
     /**
      * Best centroids found for each cluster count {@code k} across the whole
@@ -61,6 +78,8 @@ public final class AutomaticSearch {
      * {@code save_centroids()} output consumed by {@code binclass function}.
      */
     private final Map<Integer, InfiniteCentroids> bestPerK = new HashMap<>();
+
+    private InfiniteCentroids bestCentroidsHolder;
 
     /**
      * Result of the automatic search: best partition/centroids and metadata.
@@ -85,8 +104,25 @@ public final class AutomaticSearch {
      *            (must not be {@code null})
      */
     public AutomaticSearch(VectorSet vectorSet, GLAConfig config) {
+        this(vectorSet, config, "gla");
+    }
+
+    /**
+     * Creates an automatic SC-minimizer over the given vectors and config.
+     *
+     * @param vectorSet
+     *            the vectors to cluster (must not be {@code null})
+     * @param config
+     *            the GLA configuration describing heuristic, scan limits, etc.
+     *            (must not be {@code null})
+     * @param display
+     *            identifier attached to every event this search posts
+     */
+    public AutomaticSearch(VectorSet vectorSet, GLAConfig config,
+            String display) {
         this.vectorSet = Objects.requireNonNull(vectorSet, "VectorSet");
         this.config = Objects.requireNonNull(config, "GLAConfig");
+        this.display = display;
     }
 
     /**
@@ -110,11 +146,7 @@ public final class AutomaticSearch {
                 : Integer.MAX_VALUE;
 
         // --- Forward scan (sca_scanner) -------------------------------------
-        int kmin = kstart;
-        double scmin = UNASSIGNED_SC;
         int lastk = kstart;
-        Partition bestPartition = null;
-        InfiniteCentroids bestCentroids = null;
         int kc = 0;
 
         for (int k = kstart; k <= Math.min(s, MAXIMUM_CLASS_NUMBER); k++) {
@@ -132,16 +164,19 @@ public final class AutomaticSearch {
             }
             saveCentroidsIfEnabled();
 
-            if (sc < scmin) {
+            boolean improved = sc < scmin;
+            if (improved) {
                 kmin = k;
                 scmin = sc;
                 lastk = k;
                 kc = 0;
-                bestPartition = step.partition();
-                bestCentroids = step.centroids();
+                this.bestPartition = step.partition();
+                this.bestCentroidsHolder = step.centroids();
             } else {
                 kc++;
             }
+
+            postProgress(k, scs, improved);
 
             if (kc >= kcStopWhen) {
                 break;
@@ -177,8 +212,92 @@ public final class AutomaticSearch {
             }
         }
 
-        return new Result(bestPartition, bestCentroids, scminHolder[0], kmin,
-                lastk, scs, bestPerK);
+        Result result = new Result(this.bestPartition, this.bestCentroidsHolder,
+                scminHolder[0], kmin, lastk, scs, bestPerK);
+        postCompletion(result);
+        return result;
+    }
+
+    /**
+     * Posts the final {@link SearchCompleted} event carrying the search's best
+     * partition and full SC curve.
+     *
+     * @param result
+     *            the finished automatic-search result
+     */
+    private void postCompletion(Result result) {
+        if (result.partition() != null) {
+            EventBus.get().post(new SearchCompleted(display, buildResult(
+                    result.kmin(), result.scmin(), result.partition(),
+                    result.scs())));
+        }
+    }
+
+    /**
+     * Posts a per-{@code k} {@link SearchProgress} event and, when the step is
+     * an improvement, a live {@link SearchBestPartition} snapshot so the UI can
+     * refresh both the SC curve and the partition tab mid-search.
+     *
+     * @param k
+     *            the cluster count just evaluated
+     * @param scs
+     *            the per-{@code k} best-SC array (used to build the completion
+     *            curve)
+     * @param improved
+     *            whether this step lowered the running minimum SC
+     */
+    private void postProgress(int k, double[] scs, boolean improved) {
+        EventBus.get().post(new SearchProgress(display, k, scs[k], false));
+        if (improved && bestPartition != null) {
+            EventBus.get().post(new SearchBestPartition(
+                    display, buildResult(kmin, scmin, bestPartition, scs)));
+        }
+    }
+
+    /**
+     * Builds the {@link org.binclass.algorithms.events.PartitionResult} payload
+     * from a best partition and the per-{@code k} SC array. Drops non-finite
+     * points so the graph tab never renders {@code NaN}/{@code Inf}.
+     *
+     * @param kmin
+     *            the current best cluster count
+     * @param scmin
+     *            the current best stochastic complexity
+     * @param partition
+     *            the current best partition (must not be {@code null})
+     * @param scs
+     *            the per-{@code k} best-SC array
+     * @return the immutable payload the UI binds to
+     */
+    private org.binclass.algorithms.events.PartitionResult buildResult(
+            int kmin, double scmin, Partition partition, double[] scs) {
+        List<Integer> ks = new ArrayList<>();
+        List<Double> scList = new ArrayList<>();
+        for (int k = 1; k < scs.length; k++) {
+            if (Double.isFinite(scs[k])) {
+                ks.add(k);
+                scList.add(scs[k]);
+            }
+        }
+        return new org.binclass.algorithms.events.PartitionResult(
+                kmin, scmin, partition.size(), toDoubleArray(scList),
+                toIntArray(ks), partition);
+    }
+
+    private static double[] toDoubleArray(java.util.List<Double> values) {
+        double[] out = new double[values.size()];
+        for (int i = 0; i < values.size(); i++) {
+            out[i] = values.get(i);
+        }
+        return out;
+    }
+
+    private static int[] toIntArray(java.util.List<Integer> values) {
+        int[] out = new int[values.size()];
+        for (int i = 0; i < values.size(); i++) {
+            out[i] = values.get(i);
+        }
+        return out;
     }
 
     /**
@@ -218,6 +337,13 @@ public final class AutomaticSearch {
             if (sc < scmin[0]) {
                 nkm = k;
                 scmin[0] = sc;
+                this.kmin = k;
+                this.scmin = sc;
+                this.bestPartition = step.partition();
+                this.bestCentroidsHolder = step.centroids();
+                postProgress(k, scs, true);
+            } else {
+                postProgress(k, scs, false);
             }
         }
         return nkm;
@@ -260,6 +386,13 @@ public final class AutomaticSearch {
             if (sc < scmin[0]) {
                 nkm = k;
                 scmin[0] = sc;
+                this.kmin = k;
+                this.scmin = sc;
+                this.bestPartition = step.partition();
+                this.bestCentroidsHolder = step.centroids();
+                postProgress(k, scs, true);
+            } else {
+                postProgress(k, scs, false);
             }
         }
         return nkm;

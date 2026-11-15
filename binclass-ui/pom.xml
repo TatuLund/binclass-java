@@ -15,6 +15,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
+        <playwright.version>1.47.0</playwright.version>
     </properties>
 
     <licenses>
@@ -111,6 +112,24 @@
         <dependency>
             <groupId>com.vaadin</groupId>
             <artifactId>browserless-test-junit6</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Playwright client + assertions for BrowserlessTests. The browserless
+             BOM manages the version transitively, but the client jar itself is not
+             pulled in by default, so declare it explicitly. -->
+        <dependency>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>${playwright.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- ComponentIT base class lives in binclass-components' test sources; the
+             test-jar (attached by that module) exposes it here. -->
+        <dependency>
+            <groupId>org.vaadin.tatu</groupId>
+            <artifactId>binclass-components</artifactId>
+            <type>test-jar</type>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

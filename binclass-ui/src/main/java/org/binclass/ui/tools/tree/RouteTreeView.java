@@ -2,7 +2,7 @@
  * Copyright (c) 2024 BinClass Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.binclass.ui;
+package org.binclass.ui.tools.tree;
 
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.html.H1;

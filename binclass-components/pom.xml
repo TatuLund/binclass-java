@@ -186,6 +186,17 @@
 						</manifestEntries>
 					</archive>
 				</configuration>
+				<executions>
+					<!-- Publish the test sources (ComponentIT, etc.) as a test-jar so
+					     sibling modules such as binclass-ui can extend it in their own
+					     BrowserlessTests. -->
+					<execution>
+						<id>make-test-jar</id>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 
 			<plugin>

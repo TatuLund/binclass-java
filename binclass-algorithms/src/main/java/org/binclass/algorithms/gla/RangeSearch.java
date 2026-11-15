@@ -7,6 +7,7 @@ package org.binclass.algorithms.gla;
 import java.util.Objects;
 
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +18,10 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.dist.NearestNeighbor;
+import org.binclass.algorithms.events.SearchBestPartition;
+import org.binclass.algorithms.events.SearchCompleted;
+import org.binclass.algorithms.events.SearchProgress;
+import org.binclass.algorithms.eventbus.EventBus;
 
 /**
  * Range GLA search, mirroring the C function
@@ -36,7 +41,8 @@ import org.binclass.algorithms.dist.NearestNeighbor;
 public final class RangeSearch {
 
     /** Result of a range search: best partition and its centroids. */
-    public record Result(Partition partition, InfiniteCentroids centroids) {
+    public record Result(@Nullable Partition partition,
+            @Nullable InfiniteCentroids centroids) {
     }
 
     /**
@@ -55,6 +61,27 @@ public final class RangeSearch {
     private final VectorSet vectorSet;
     private final GLAConfig config;
 
+    /** Display identifier attached to every event this search posts. */
+    private final String display;
+
+    /** Best cluster count seen so far across the whole range search. */
+    private int actualK = 1;
+    /** Best stochastic complexity seen so far across the whole range search. */
+    private double scmin = Double.MAX_VALUE;
+    /**
+     * Partition/centroids for the current best, refreshed on every improvement.
+     */
+    @Nullable
+    private Partition bestPartition = null;
+    /**
+     * Centroids matching {@link #bestPartition}, refreshed on every
+     * improvement.
+     */
+    @Nullable
+    private InfiniteCentroids bestCentroids = null;
+    /** Per-{@code k} best-SC array from the most recent run. */
+    private double[] scs = new double[0];
+
     /**
      * Creates a range search over the given vectors and configuration.
      *
@@ -65,8 +92,24 @@ public final class RangeSearch {
      *            (must not be {@code null})
      */
     public RangeSearch(VectorSet vectorSet, GLAConfig config) {
+        this(vectorSet, config, "gla");
+    }
+
+    /**
+     * Creates a range search over the given vectors and configuration.
+     *
+     * @param vectorSet
+     *            the vectors to cluster (must not be {@code null})
+     * @param config
+     *            the GLA configuration describing heuristic, scan limits, etc.
+     *            (must not be {@code null})
+     * @param display
+     *            identifier attached to every event this search posts
+     */
+    public RangeSearch(VectorSet vectorSet, GLAConfig config, String display) {
         this.vectorSet = Objects.requireNonNull(vectorSet, "VectorSet");
         this.config = Objects.requireNonNull(config, "GLAConfig");
+        this.display = display;
     }
 
     /**
@@ -92,12 +135,18 @@ public final class RangeSearch {
                     "More classes requested than possible");
         }
 
-        double scmin = Double.MAX_VALUE;
-        int actualK = kstart;
+        // Reset the running-best state so repeated run() calls on the same
+        // instance start from a clean slate. These fields are also read by
+        // postProgress()/postCompletion(), which reference them as bare names;
+        // keeping them as instance fields (rather than locals) ensures the live
+        // snapshots and completion event observe the latest best partition.
+        scmin = Double.MAX_VALUE;
+        actualK = kstart;
+        bestPartition = null;
+        bestCentroids = null;
+
         int noImprovementCount = 0;
         InfiniteCentroids centroids = null; // Declare outside loop for logging
-        Partition bestPartition = null;
-        InfiniteCentroids bestCentroids = null;
 
         // --- G5: allocate scs[] capped at maximum_class_number ------------
         // scs[k] holds the best SC seen for k clusters; uncomputed entries
@@ -121,7 +170,12 @@ public final class RangeSearch {
                 : 16;
 
         int attempts = config.maxIter() > 0 ? config.maxIter() : 1;
-        for (int k = kstart; k <= kstop; k++) {
+        // Iterate while `k < mk` to mirror C's `while (k < mk)` in
+        // search_classes_nonautomatic(). The scs[] array is capped at
+        // maximum_class_number, so when kstop reaches that cap the loop must
+        // stop at mk - 1 rather than kstop; an inclusive `k <= kstop` would
+        // index scs[kstop] out of bounds (e.g. scs[200] for length 200).
+        for (int k = kstart; k < mk; k++) {
             // Run GLA up to `attempts` times per cluster count with different
             // starting centroids, keeping the best SC so bad local minima are
             // not counted. Mirrors C use_gla() where -a sets the number of
@@ -197,6 +251,8 @@ public final class RangeSearch {
                         noImprovementCount);
             }
 
+            postProgress(k, scs, sc < scmin);
+
             // --- G8: emit elapsed-time messages ---------------------------
             if (log.isInfoEnabled()) {
                 long now = System.currentTimeMillis();
@@ -241,7 +297,93 @@ public final class RangeSearch {
         }
 
         log.info("Best classification: k={}, SC={}", actualK, scmin);
-        return new Result(bestPartition, bestCentroids);
+        Result result = new Result(bestPartition, bestCentroids);
+        postCompletion(result);
+        return result;
+    }
+
+    /**
+     * Posts a per-{@code k} {@link SearchProgress} event and, when the step is
+     * an improvement, a live {@link SearchBestPartition} snapshot so the UI can
+     * refresh both the SC curve and the partition tab mid-search. Range search
+     * has no ping-pong phase, so progress reflects each evaluated {@code k}.
+     *
+     * @param k
+     *            the cluster count just evaluated
+     * @param scs
+     *            the per-{@code k} best-SC array (used to build the completion
+     *            curve)
+     * @param improved
+     *            whether this step lowered the running minimum SC
+     */
+    private void postProgress(int k, double[] scs, boolean improved) {
+        EventBus.get().post(new SearchProgress(display, k, scs[k], false));
+        if (improved && bestPartition != null) {
+            EventBus.get().post(new SearchBestPartition(
+                    display, buildResult(actualK, scmin, bestPartition, scs)));
+        }
+    }
+
+    /**
+     * Posts the final {@link SearchCompleted} event carrying the search's best
+     * partition and full SC curve.
+     *
+     * @param result
+     *            the finished range-search result
+     */
+    private void postCompletion(Result result) {
+        if (result.partition() != null) {
+            EventBus.get().post(new SearchCompleted(display, buildResult(
+                    actualK, scmin, result.partition(), scs)));
+        }
+    }
+
+    /**
+     * Builds the {@link org.binclass.algorithms.events.PartitionResult} payload
+     * from a best partition and the per-{@code k} SC array. Drops non-finite
+     * points so the graph tab never renders {@code NaN}/{@code Inf}.
+     *
+     * @param kmin
+     *            the current best cluster count
+     * @param scmin
+     *            the current best stochastic complexity
+     * @param partition
+     *            the current best partition (must not be {@code null})
+     * @param scs
+     *            the per-{@code k} best-SC array
+     * @return the immutable payload the UI binds to
+     */
+    @SuppressWarnings("null")
+    private org.binclass.algorithms.events.PartitionResult buildResult(
+            int kmin, double scmin, @Nullable Partition partition,
+            double[] scs) {
+        java.util.List<Integer> ks = new java.util.ArrayList<>();
+        java.util.List<Double> scList = new java.util.ArrayList<>();
+        for (int kk = 1; kk < scs.length; kk++) {
+            if (Double.isFinite(scs[kk])) {
+                ks.add(kk);
+                scList.add(scs[kk]);
+            }
+        }
+        return new org.binclass.algorithms.events.PartitionResult(
+                kmin, scmin, partition.size(), toDoubleArray(scList),
+                toIntArray(ks), partition);
+    }
+
+    private static double[] toDoubleArray(java.util.List<Double> values) {
+        double[] out = new double[values.size()];
+        for (int i = 0; i < values.size(); i++) {
+            out[i] = values.get(i);
+        }
+        return out;
+    }
+
+    private static int[] toIntArray(java.util.List<Integer> values) {
+        int[] out = new int[values.size()];
+        for (int i = 0; i < values.size(); i++) {
+            out[i] = values.get(i);
+        }
+        return out;
     }
 
     /**
@@ -502,7 +644,8 @@ public final class RangeSearch {
      * @param logCentroids
      *            whether {@code -l} logging is requested
      */
-    private static void logCentroidInfo(Partition partition,
+    @SuppressWarnings("null")
+    private static void logCentroidInfo(@Nullable Partition partition,
             InfiniteCentroids centroids, boolean logCentroids) {
         if (!logCentroids)
             return;
