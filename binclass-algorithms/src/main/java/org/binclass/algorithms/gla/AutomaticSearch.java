@@ -16,6 +16,7 @@ import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.centroid.CentroidInitializer;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.events.PartitionResult;
 import org.binclass.algorithms.events.SearchBestPartition;
 import org.binclass.algorithms.events.SearchCompleted;
 import org.binclass.algorithms.events.SearchProgress;
@@ -270,9 +271,8 @@ public final class AutomaticSearch {
      *            the per-{@code k} best-SC array
      * @return the immutable payload the UI binds to
      */
-    private org.binclass.algorithms.events.PartitionResult buildResult(
-            int kmin, double scmin, Partition partition, double[] scs,
-            InfiniteCentroids centroids) {
+    private PartitionResult buildResult(int kmin, double scmin,
+            Partition partition, double[] scs, InfiniteCentroids centroids) {
         List<Integer> ks = new ArrayList<>();
         List<Double> scList = new ArrayList<>();
         for (int k = 1; k < scs.length; k++) {
@@ -281,12 +281,11 @@ public final class AutomaticSearch {
                 scList.add(scs[k]);
             }
         }
-        return new org.binclass.algorithms.events.PartitionResult(
-                kmin, scmin, partition.size(), toDoubleArray(scList),
-                toIntArray(ks), partition, centroids);
+        return new PartitionResult(kmin, scmin, partition.size(),
+                toDoubleArray(scList), toIntArray(ks), partition, centroids);
     }
 
-    private static double[] toDoubleArray(java.util.List<Double> values) {
+    private static double[] toDoubleArray(List<Double> values) {
         double[] out = new double[values.size()];
         for (int i = 0; i < values.size(); i++) {
             out[i] = values.get(i);
@@ -294,7 +293,7 @@ public final class AutomaticSearch {
         return out;
     }
 
-    private static int[] toIntArray(java.util.List<Integer> values) {
+    private static int[] toIntArray(List<Integer> values) {
         int[] out = new int[values.size()];
         for (int i = 0; i < values.size(); i++) {
             out[i] = values.get(i);
