@@ -398,8 +398,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         if (event instanceof SearchBestPartition(_, var result)) {
             applyResult(result);
         } else if (event instanceof SearchCompleted(_, var result)) {
-            graphPoints.update(_ -> GlaViewTranslator.toGraphModel(result.scs(),
-                    result.ks()));
+            // graphPoints.update(_ -> GlaViewTranslator.toGraphModel(result.scs(),
+            //         result.ks()));
             applyResult(result);
         } else if (event instanceof SearchProgress(_, var k, var sc, _)) {
             appendPoint(k, sc);

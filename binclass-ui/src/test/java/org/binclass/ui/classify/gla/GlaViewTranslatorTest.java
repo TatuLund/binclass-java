@@ -17,7 +17,6 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.partition.ClusterData;
 import org.binclass.components.partition.PartitionModel;
-import org.binclass.components.partition.VectorData;
 
 /**
  * Unit tests for {@link GlaViewTranslator}, covering the

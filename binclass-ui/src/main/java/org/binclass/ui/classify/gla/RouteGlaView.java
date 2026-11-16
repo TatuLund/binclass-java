@@ -140,8 +140,7 @@ public class RouteGlaView extends VerticalLayout
         Signal.effect(progress,
                 () -> progress.setIndeterminate(
                         viewModel.progressIndeterminate().get()));
-        Signal.effect(statusText, () -> statusText.setText(
-                viewModel.statusText().get()));
+        statusText.bindText(viewModel.statusText());
 
         // Refresh the download controls whenever a best partition appears or is
         // cleared. The controls are built lazily on first refresh so they only
@@ -490,7 +489,7 @@ public class RouteGlaView extends VerticalLayout
         String base = downloadFileName();
         partitionDownload = new Anchor(
                 DownloadHandler.fromInputStream(event -> {
-                    PartitionModel model = viewModel.partitionModel().get();
+                    PartitionModel model = viewModel.partitionModel().peek();
                     byte[] bytes = model == null ? new byte[0]
                             : PartitionWriter
                                     .toBytes(ReportTab.toPartition(model));
