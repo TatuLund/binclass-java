@@ -11,9 +11,11 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.UploadTester;
 import com.vaadin.flow.component.sidenav.SideNav;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,6 +80,8 @@ class RouteGlaViewBrowserlessTest extends BrowserlessTest {
     void uploadEnablesRunAndClickStartsSearch() throws Exception {
         RouteGlaView view = loadedView();
         GlaViewModel vm = viewModel(view);
+        FormLayout formLayout = find(FormLayout.class).withId("gla-params")
+                .single();
 
         // The upload parsed into the view model and updated the status text.
         assertEquals(100, vm.data().peek().vectorSet().size());
@@ -90,6 +94,8 @@ class RouteGlaViewBrowserlessTest extends BrowserlessTest {
         // Clicking Run starts the search: running flips to true synchronously.
         test(run).click();
         assertTrue(vm.running().peek());
+        // FormLayout is hidden while running.
+        assertFalse(formLayout.isVisible());
     }
 
     @Test
