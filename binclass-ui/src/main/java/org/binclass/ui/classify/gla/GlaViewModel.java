@@ -63,6 +63,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
     private final ValueSignal<Double> progress = new ValueSignal<>(0.0);
     private final ValueSignal<Boolean> progressIndeterminate = new ValueSignal<>(
             false);
+    private final ValueSignal<Boolean> resultAvailable = new ValueSignal<>(
+            false);
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             Thread.ofVirtual().factory());
@@ -76,6 +78,22 @@ public final class GlaViewModel implements EventBus.EventBusListener {
 
     @Nullable
     private GlaParametersForm form;
+
+    /**
+     * Centroids matching the best partition found so far, carried by the search
+     * events. Set whenever a result carries them and consumed by
+     * {@link #bestCentroidsFor} so the Partition tab can render real centroids
+     * instead of empty ones.
+     */
+    @Nullable
+    private InfiniteCentroids bestCentroids;
+
+    /**
+     * Whether the current search has finished or been cancelled, so late events
+     * arriving after {@link #cancel()} are ignored and do not resurrect a dead
+     * result on the Partition tab.
+     */
+    private boolean finished;
 
     /**
      * Creates a view model with empty data, not running, and no results yet.
@@ -102,7 +120,7 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      * @return an empty-but-valid {@link GraphModel}
      */
     private static GraphModel emptyGraph() {
-        return new GraphModel(List.of(new GraphPoint(1, 0.0)));
+        return GraphModel.empty();
     }
 
     /**
@@ -266,6 +284,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
             return;
         }
         running.set(true);
+        finished = false;
+        bestCentroids = null;
         statusText.set("Search started…");
 
         VectorSet vectorSet = data.peek().vectorSet();
@@ -297,6 +317,10 @@ public final class GlaViewModel implements EventBus.EventBusListener {
 
         future = task.whenComplete((result, error) -> {
             running.set(false);
+            // A finished search always reports a full bar, never a still-
+            // animating indeterminate one. The view's ProgressBar spans
+            // [0, 1] so 1.0 maps to 100%.
+            progressIndeterminate.set(false);
             progress.set(1.0);
             if (error != null) {
                 statusText.set("Search failed: " + error.getMessage());
@@ -311,6 +335,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      * Called by the view's {@code onDetach} so no stray task outlives the UI.
      */
     public void cancel() {
+        finished = true;
+        bestCentroids = null;
         if (future != null) {
             future.cancel(true);
             future = null;
@@ -335,9 +361,14 @@ public final class GlaViewModel implements EventBus.EventBusListener {
 
     @Override
     public void eventFired(AbstractEvent event) {
+        if (finished) {
+            return;
+        }
         if (event instanceof SearchBestPartition(_, var result)) {
             applyResult(result);
         } else if (event instanceof SearchCompleted(_, var result)) {
+            graphPoints.update(_ -> GlaViewTranslator.toGraphModel(result.scs(),
+                    result.ks()));
             applyResult(result);
         } else if (event instanceof SearchProgress(_, var k, var sc, _)) {
             appendPoint(k, sc);
@@ -356,14 +387,43 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      *            the event payload (must not be {@code null})
      */
     private void applyResult(PartitionResult result) {
+        if (finished) {
+            return;
+        }
         Partition partition = result.partition();
-        if (partition != null) {
+        // The search events now carry the best-partition centroids alongside
+        // the partition, so remember them for the next model rebuild.
+        bestCentroids = result.centroids();
+        boolean available = partition != null;
+        resultAvailable.update(_ -> available);
+        if (available) {
             InfiniteCentroids centroids = bestCentroidsFor(partition);
             partitionModel.update(_ -> GlaViewTranslator.toPartitionModel(
                     partition, centroids, result.scmin()));
         }
-        graphPoints.update(_ -> GlaViewTranslator.toGraphModel(result.scs(),
-                result.ks()));
+    }
+
+    /**
+     * Returns whether a best partition has been produced by the current search,
+     * so the view can show or hide its download controls. Bound to the same
+     * signal that drives the Partition tab.
+     *
+     * @return the result-availability signal (initially {@code false})
+     */
+    public ValueSignal<Boolean> resultAvailable() {
+        return resultAvailable;
+    }
+
+    /**
+     * Returns the best-partition centroids captured from the most recent search
+     * event, or {@code null} when none were carried. Used to build a centroid
+     * download after completion.
+     *
+     * @return the best partition's centroids, or {@code null} if unavailable
+     */
+    @Nullable
+    public InfiniteCentroids bestCentroids() {
+        return bestCentroids;
     }
 
     /**
@@ -413,10 +473,11 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      */
     @Nullable
     private InfiniteCentroids bestCentroidsFor(Partition partition) {
-        // The search events carry only scalar results plus the partition; the
-        // full centroids travel with the Result. When absent, render an empty
-        // centroid per cluster so the Partition tab still shows structure.
-        return null;
+        // The search events now carry the best-partition centroids alongside
+        // the partition, so return them directly. When absent (scalar-only
+        // events), fall back to empty centroids per cluster so the Partition
+        // tab still shows structure.
+        return bestCentroids;
     }
 
     /**

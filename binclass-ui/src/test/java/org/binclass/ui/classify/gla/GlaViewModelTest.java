@@ -18,16 +18,17 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.events.PartitionResult;
+import org.binclass.algorithms.events.SearchBestPartition;
+import org.binclass.algorithms.events.SearchCompleted;
+import org.binclass.algorithms.events.SearchProgress;
 import org.binclass.algorithms.eventbus.EventBus;
 import org.binclass.algorithms.gla.AutomaticSearch;
 import org.binclass.algorithms.gla.RangeSearch;
 import org.binclass.components.graph.GraphModel;
-import org.binclass.components.partition.ClusterData;
+import org.binclass.components.graph.GraphPoint;
 import org.binclass.components.partition.PartitionModel;
 
 import org.binclass.ui.MultiFileMemoryBuffer;
-import org.binclass.ui.classify.gla.GlaViewModel;
-import org.binclass.ui.classify.gla.GlaParametersForm;
 
 /**
  * Unit tests for {@link GlaViewModel}, covering signal state, search-type
@@ -107,23 +108,23 @@ class GlaViewModelTest {
     @Test
     void eventFiredProgressAppendsGraphPoint() {
         viewModel.setData(vectors(4, 3));
-        viewModel.eventFired(new org.binclass.algorithms.events.SearchProgress(
+        viewModel.eventFired(new SearchProgress(
                 "gla", 2, 12.5, false));
 
         GraphModel model = viewModel.graphPoints().peek();
-        List<org.binclass.components.graph.GraphPoint> points = model.points();
-        assertEquals(2, points.size()); // placeholder + appended point
-        assertEquals(2, points.get(1).x());
-        assertEquals(12.5, points.get(1).y());
+        List<GraphPoint> points = model.points();
+        assertEquals(1, points.size()); // single appended point (empty start)
+        assertEquals(2, points.get(0).x());
+        assertEquals(12.5, points.get(0).y());
     }
 
     @Test
     void eventFiredProgressDropsNonFiniteSc() {
         viewModel.setData(vectors(4, 3));
-        viewModel.eventFired(new org.binclass.algorithms.events.SearchProgress(
+        viewModel.eventFired(new SearchProgress(
                 "gla", 2, Double.NaN, false));
 
-        assertEquals(1, viewModel.graphPoints().peek().points().size());
+        assertEquals(0, viewModel.graphPoints().peek().points().size());
     }
 
     @Test
@@ -137,15 +138,13 @@ class GlaViewModelTest {
         PartitionResult result = new PartitionResult(1, 42.5, 2,
                 new double[] { Double.NaN, 50.0, 42.5 }, new int[] { 0, 1, 2 },
                 partition);
-        viewModel.eventFired(
-                new org.binclass.algorithms.events.SearchBestPartition(
-                        "gla", result));
+        viewModel.eventFired(new SearchBestPartition("gla", result));
 
         PartitionModel model = viewModel.partitionModel().peek();
         assertNotNull(model);
         assertEquals(2, model.clusterCount());
     }
-
+    
     @Test
     void eventFiredCompletedUpdatesGraphAndPartition() {
         viewModel.setData(vectors(4, 3));
@@ -156,8 +155,7 @@ class GlaViewModelTest {
         PartitionResult result = new PartitionResult(1, 30.0, 1,
                 new double[] { Double.NaN, 10.0, 30.0 }, new int[] { 0, 1, 2 },
                 partition);
-        viewModel.eventFired(new org.binclass.algorithms.events.SearchCompleted(
-                "gla", result));
+        viewModel.eventFired(new SearchCompleted("gla", result));
 
         assertEquals(30.0,
                 viewModel.partitionModel().peek().stochasticComplexity());

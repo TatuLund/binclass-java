@@ -11,6 +11,7 @@ import com.vaadin.flow.router.Route;
 import org.binclass.components.graph.Graph;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
+import java.util.ArrayList;
 
 /**
  * Minimal Vaadin view that hosts the {@link Graph} component with
@@ -66,7 +67,7 @@ public class GraphView extends VerticalLayout {
         graph.setId("graph-wide");
         graph.setWidth("700px");
         graph.setHeight("400px");
-        List<GraphPoint> points = new java.util.ArrayList<>();
+        List<GraphPoint> points = new ArrayList<>();
         double sc = 35.0;
         for (int k = 1; k <= 200; k++) {
             sc -= 8.0 / Math.sqrt(k);

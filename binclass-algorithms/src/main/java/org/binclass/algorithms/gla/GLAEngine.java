@@ -88,8 +88,8 @@ public final class GLAEngine {
      * @return maximum iteration count
      */
     private static int calculateMaxIter(GLAConfig config) {
-        if (config.maxIter() > 0) {
-            return config.maxIter();
+        if (config.safetyLimit() > 0) {
+            return config.safetyLimit();
         }
 
         // Use iterBase strategy if enabled and no explicit maxIter
@@ -329,7 +329,8 @@ public final class GLAEngine {
         // Phase 2: Iterative refinement with weighted codelength
         boolean improvement = true;
         int iter = 0;
-        int maxIter = config.maxIter() > 0 ? config.maxIter() : MAX_ITERATIONS;
+        int maxIter = config.safetyLimit() > 0 ? config.safetyLimit()
+                : MAX_ITERATIONS;
 
         // Start with larger epsilon for faster convergence. When the
         // decreasing_epsilon flag (-E two-char form) is set, force an initial

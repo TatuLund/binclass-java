@@ -5,6 +5,7 @@
 package org.binclass.algorithms.io;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -87,6 +88,44 @@ public final class CentroidWriter {
         Files.writeString(path, sb.toString());
 
         logger.info("Successfully saved {} centroids", k);
+    }
+
+    /**
+     * Serializes infinite centroids to the standard BinClass text format in
+     * memory, without touching the filesystem. Mirrors {@link #save} but
+     * returns the bytes so callers can stream them directly (e.g. a browser
+     * download) instead of writing a temp file first.
+     *
+     * @param centroids
+     *            the infinite centroids to serialize (must not be {@code null})
+     * @return the centroid content encoded as UTF-8
+     */
+    public static byte[] toBytes(InfiniteCentroids centroids) {
+        int k = centroids.size();
+        StringBuilder sb = new StringBuilder();
+        // Header: number of centroids and vector length, one per line.
+        sb.append(k).append('\n');
+        if (k > 0) {
+            sb.append(centroids.get(0).getLength()).append('\n');
+        } else {
+            sb.append(0).append('\n');
+        }
+
+        // One line per centroid: space-separated values then the weight.
+        for (int i = 0; i < k; i++) {
+            Centroid c = centroids.get(i);
+            double[] el = c.getEl();
+            double weight = c.getWeight();
+
+            for (int j = 0; j < el.length; j++) {
+                sb.append(String.format(Locale.ROOT, "%1.5f", el[j]))
+                        .append(' ');
+            }
+            sb.append(String.format(Locale.ROOT, "%1.10f", weight));
+            sb.append('\n');
+        }
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /**

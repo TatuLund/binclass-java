@@ -5,6 +5,7 @@
 package org.binclass.algorithms.io;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -69,6 +70,38 @@ public final class PartitionWriter {
         Path path = Path.of(outputFile);
         Files.writeString(path, sb.toString());
         logger.info("Partition written to {}", outputFile);
+    }
+
+    /**
+     * Serializes a partition to the standard BinClass text format in memory,
+     * without touching the filesystem. Mirrors {@link #writePartition} but
+     * returns the bytes so callers can stream them directly (e.g. a browser
+     * download) instead of writing a temp file first.
+     *
+     * @param partition
+     *            the partition to serialize (must not be {@code null})
+     * @return the partition content encoded as UTF-8
+     */
+    public static byte[] toBytes(Partition partition) {
+        StringBuilder sb = new StringBuilder();
+
+        // Sort partition by size (descending) using bubble sort like C
+        // implementation
+        Partition sorted = sortPartBySize(partition);
+
+        int k = sorted.size();
+        for (int i = 1; i <= k; i++) {
+            var cluster = sorted.getElements(i);
+            if (!cluster.isEmpty()) {
+                sb.append("Class ").append(i).append("\n");
+                // Write elements in PIC format matching input data.
+                for (var element : cluster) {
+                    sb.append(formatPicLine(element)).append("\n");
+                }
+            }
+        }
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /**

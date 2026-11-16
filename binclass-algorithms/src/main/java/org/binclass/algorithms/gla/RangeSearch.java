@@ -235,7 +235,8 @@ public final class RangeSearch {
             }
 
             // Always update scmin to track the best SC seen so far
-            if (sc < scmin) {
+            boolean improved = sc < scmin;
+            if (improved) {
                 scmin = sc;
                 bestPartition = partition;
                 bestCentroids = centroids;
@@ -251,7 +252,7 @@ public final class RangeSearch {
                         noImprovementCount);
             }
 
-            postProgress(k, scs, sc < scmin);
+            postProgress(k, scs, improved);
 
             // --- G8: emit elapsed-time messages ---------------------------
             if (log.isInfoEnabled()) {
@@ -320,7 +321,8 @@ public final class RangeSearch {
         EventBus.get().post(new SearchProgress(display, k, scs[k], false));
         if (improved && bestPartition != null) {
             EventBus.get().post(new SearchBestPartition(
-                    display, buildResult(actualK, scmin, bestPartition, scs)));
+                    display, buildResult(actualK, scmin, bestPartition, scs,
+                            bestCentroids)));
         }
     }
 
@@ -334,7 +336,8 @@ public final class RangeSearch {
     private void postCompletion(Result result) {
         if (result.partition() != null) {
             EventBus.get().post(new SearchCompleted(display, buildResult(
-                    actualK, scmin, result.partition(), scs)));
+                    actualK, scmin, result.partition(), scs,
+                    result.centroids())));
         }
     }
 
@@ -355,8 +358,8 @@ public final class RangeSearch {
      */
     @SuppressWarnings("null")
     private org.binclass.algorithms.events.PartitionResult buildResult(
-            int kmin, double scmin, @Nullable Partition partition,
-            double[] scs) {
+            int kmin, double scmin, @Nullable Partition partition, double[] scs,
+            @Nullable InfiniteCentroids centroids) {
         java.util.List<Integer> ks = new java.util.ArrayList<>();
         java.util.List<Double> scList = new java.util.ArrayList<>();
         for (int kk = 1; kk < scs.length; kk++) {
@@ -367,7 +370,7 @@ public final class RangeSearch {
         }
         return new org.binclass.algorithms.events.PartitionResult(
                 kmin, scmin, partition.size(), toDoubleArray(scList),
-                toIntArray(ks), partition);
+                toIntArray(ks), partition, centroids);
     }
 
     private static double[] toDoubleArray(java.util.List<Double> values) {

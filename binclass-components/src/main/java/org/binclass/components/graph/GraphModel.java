@@ -25,17 +25,14 @@ import org.jspecify.annotations.NullMarked;
 public record GraphModel(List<GraphPoint> points) {
 
     /**
-     * Creates a graph model from a list of points. The list is copied and kept
-     * non-empty so the chart always has data to render.
+     * Returns an empty-but-valid graph model so a bound chart can start with no
+     * data and grow as points are appended, instead of showing a misleading
+     * placeholder point.
      *
-     * @param points
-     *            the ordered point list; must not be null or empty
+     * @return an empty {@link GraphModel}
      */
-    public GraphModel(List<GraphPoint> points) {
-        this.points = List.copyOf(points);
-        if (this.points.isEmpty()) {
-            throw new IllegalArgumentException("points must not be empty");
-        }
+    public static GraphModel empty() {
+        return new GraphModel(List.of());
     }
 
     /**

@@ -229,7 +229,7 @@ public final class AutomaticSearch {
         if (result.partition() != null) {
             EventBus.get().post(new SearchCompleted(display, buildResult(
                     result.kmin(), result.scmin(), result.partition(),
-                    result.scs())));
+                    result.scs(), result.centroids())));
         }
     }
 
@@ -250,7 +250,8 @@ public final class AutomaticSearch {
         EventBus.get().post(new SearchProgress(display, k, scs[k], false));
         if (improved && bestPartition != null) {
             EventBus.get().post(new SearchBestPartition(
-                    display, buildResult(kmin, scmin, bestPartition, scs)));
+                    display, buildResult(kmin, scmin, bestPartition, scs,
+                            bestCentroidsHolder)));
         }
     }
 
@@ -270,7 +271,8 @@ public final class AutomaticSearch {
      * @return the immutable payload the UI binds to
      */
     private org.binclass.algorithms.events.PartitionResult buildResult(
-            int kmin, double scmin, Partition partition, double[] scs) {
+            int kmin, double scmin, Partition partition, double[] scs,
+            InfiniteCentroids centroids) {
         List<Integer> ks = new ArrayList<>();
         List<Double> scList = new ArrayList<>();
         for (int k = 1; k < scs.length; k++) {
@@ -281,7 +283,7 @@ public final class AutomaticSearch {
         }
         return new org.binclass.algorithms.events.PartitionResult(
                 kmin, scmin, partition.size(), toDoubleArray(scList),
-                toIntArray(ks), partition);
+                toIntArray(ks), partition, centroids);
     }
 
     private static double[] toDoubleArray(java.util.List<Double> values) {

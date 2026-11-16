@@ -4,6 +4,7 @@
  */
 package org.binclass.ui.classify.gla;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -15,15 +16,22 @@ import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.html.Anchor;
+import com.vaadin.flow.component.html.AttachmentType;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.shared.Tooltip;
 import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.server.HttpStatusCode;
+import com.vaadin.flow.server.streams.DownloadHandler;
+import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadin.flow.server.streams.UploadHandler;
 import com.vaadin.flow.component.tabs.TabSheet;
 import com.vaadin.flow.component.textfield.IntegerField;
@@ -37,8 +45,11 @@ import com.vaadin.flow.shared.Registration;
 import org.jspecify.annotations.NullMarked;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.SearchType;
+import org.binclass.algorithms.io.CentroidWriter;
+import org.binclass.algorithms.io.PartitionWriter;
 import org.binclass.components.graph.Graph;
 import org.binclass.components.partition.Partition;
+import org.binclass.components.partition.PartitionModel;
 import org.binclass.components.report.ReportComponent;
 import org.binclass.ui.MultiFileMemoryBuffer;
 import org.binclass.ui.UploadedDataLoader;
@@ -86,12 +97,20 @@ public class RouteGlaView extends VerticalLayout
 
     private final TabSheet glaTabs = new TabSheet();
     private final Card searchCard = new Card();
-    private final ProgressBar progress = new ProgressBar(0, 100);
+    // Range [0, 1] so the view model's fractional progress maps directly to a
+    // percentage; setValue(1.0) shows a full bar on completion.
+    private final ProgressBar progress = new ProgressBar(0, 1);
     private final Div statusText = new Div();
     private final VerticalLayout summaryContent = new VerticalLayout();
     private final Graph graphSC = new Graph();
     private final Partition partitionView = new Partition();
     private final ReportComponent reportComponent = new ReportComponent();
+
+    // Download controls for the best partition and its logged centroids, shown
+    // once a search completes. Built lazily so they only exist after a result.
+    private Anchor partitionDownload;
+    private Anchor centroidsDownload;
+    private HorizontalLayout downloadControls;
 
     private Registration unregisterRegistration;
     private Registration reportBinding;
@@ -125,18 +144,26 @@ public class RouteGlaView extends VerticalLayout
         Signal.effect(statusText, () -> statusText.setText(
                 viewModel.statusText().get()));
 
+        // Refresh the download controls whenever a best partition appears or is
+        // cleared. The controls are built lazily on first refresh so they only
+        // exist after a result arrives.
+        Signal.effect(this, () -> {
+            viewModel.resultAvailable().get();
+            refreshDownloadState();
+        });
+
         memoryBuffer.setOnReady(this::loadUploadedData);
-        uploader.addAllFinishedListener(_e -> viewModel.uploadValid()
+        uploader.addAllFinishedListener(_ -> viewModel.uploadValid()
                 .update(v -> memoryBuffer.validate()));
 
-        runButton.addClickListener(_e -> {
+        runButton.addClickListener(_ -> {
             viewModel.setForm(buildForm());
             viewModel.run();
             renderSummary();
             paramsForm.setVisible(false);
             glaTabs.setVisible(true);
         });
-        newSearchButton.addClickListener(_e -> {
+        newSearchButton.addClickListener(_ -> {
             viewModel.cancel();
             paramsForm.setVisible(true);
             glaTabs.setVisible(false);
@@ -160,11 +187,11 @@ public class RouteGlaView extends VerticalLayout
         dialog.setConfirmText("Cancel search");
         dialog.setConfirmButtonTheme("error primary");
         dialog.setCancelable(true);
-        dialog.addConfirmListener(_e -> {
+        dialog.addConfirmListener(_ -> {
             viewModel.cancel();
             action.proceed();
         });
-        dialog.addCancelListener(_e -> action.cancel());
+        dialog.addCancelListener(_ -> action.cancel());
         dialog.open();
     }
 
@@ -317,8 +344,19 @@ public class RouteGlaView extends VerticalLayout
         partitionView.setId("partition-view");
         reportComponent.setId("report-component-gla");
 
-        searchCard.add(new VerticalLayout(progress, statusText));
+        // Build the download controls up front so they are non-null when the
+        // search panel is assembled; refreshDownloadState() later toggles their
+        // visibility once a result arrives.
+        buildDownloadControls();
+
+        HorizontalLayout searchPanel = new HorizontalLayout(
+                new VerticalLayout(progress, statusText), downloadControls);
+        searchCard.add(searchPanel);
         glaTabs.add("Search", searchCard);
+        // A taller chart makes the SC curve easier to read and lets the global
+        // minimum stand out; the web component clamps its own height lower.
+        graphSC.setWidthFull();
+        graphSC.setHeight("500px");
         glaTabs.add("SC Graph", graphSC);
         glaTabs.add("Partition", partitionView);
         glaTabs.add("Report", reportComponent);
@@ -385,14 +423,15 @@ public class RouteGlaView extends VerticalLayout
      * Populates the run-summary tab with the configuration resolved from the
      * form, plus a button that returns to the parameter form.
      */
+    @SuppressWarnings("null")
     private void renderSummary() {
         summaryContent.removeAll();
         summaryContent.add(new H3("Run summary"));
 
-        newSearchButton.addClickListener(_ -> {
-            paramsForm.setVisible(true);
-            glaTabs.setVisible(false);
-        });
+        // The constructor already attaches the single "New search" handler,
+        // which cancels the in-flight future and returns to the parameter form.
+        // Adding another listener here would accumulate across runs and leave
+        // a copy that does not cancel the future, so reuse the existing button.
         summaryContent.add(newSearchButton);
 
         GlaParametersForm form = buildForm();
@@ -435,6 +474,88 @@ public class RouteGlaView extends VerticalLayout
                 "style", "font-weight:bold;margin-right:0.5em;");
         row.add(labelSpan, new Span(value));
         summaryContent.add(row);
+    }
+
+    /**
+     * Builds the partition and centroids download controls shown on the Search
+     * tab once a search completes. Each control streams its content in memory
+     * from the algorithm writers, so no temp file is written to disk. The
+     * controls stay disabled until {@link #refreshDownloadState()} runs after a
+     * result arrives.
+     */
+    private void buildDownloadControls() {
+        if (downloadControls != null) {
+            return;
+        }
+
+        String base = downloadFileName();
+        partitionDownload = new Anchor(
+                DownloadHandler.fromInputStream(event -> {
+                    PartitionModel model = viewModel.partitionModel().get();
+                    byte[] bytes = model == null ? new byte[0]
+                            : PartitionWriter
+                                    .toBytes(ReportTab.toPartition(model));
+                    event.setFileName(base + ".partition");
+                    event.setContentType("text/plain; charset=UTF-8");
+                    return new DownloadResponse(new ByteArrayInputStream(bytes),
+                            base + ".partition",
+                            "text/plain; charset=UTF-8", bytes.length);
+                }), AttachmentType.DOWNLOAD, "Download partition");
+        partitionDownload.setId("gla-partition-download");
+
+        centroidsDownload = new Anchor(
+                DownloadHandler.fromInputStream(event -> {
+                    org.binclass.algorithms.core.InfiniteCentroids c = viewModel
+                            .bestCentroids();
+                    byte[] bytes = c == null ? new byte[0]
+                            : CentroidWriter.toBytes(c);
+                    event.setFileName(base + ".centroids");
+                    event.setContentType("text/plain; charset=UTF-8");
+                    return new DownloadResponse(new ByteArrayInputStream(bytes),
+                            base + ".centroids",
+                            "text/plain; charset=UTF-8", bytes.length);
+                }), AttachmentType.DOWNLOAD, "Download centroids");
+        centroidsDownload.setId("gla-centroids-download");
+
+        downloadControls = new HorizontalLayout(partitionDownload,
+                centroidsDownload);
+        downloadControls.setVisible(false);
+    }
+
+    /**
+     * Refreshes the download controls' visibility and enabled state after a
+     * result arrives. The controls appear only when a best partition exists;
+     * the centroids control additionally requires carried centroids.
+     */
+    private void refreshDownloadState() {
+        if (downloadControls == null) {
+            buildDownloadControls();
+        }
+        boolean available = viewModel.resultAvailable().peek();
+        downloadControls.setVisible(available);
+        if (partitionDownload != null) {
+            partitionDownload.setEnabled(available);
+        }
+        if (centroidsDownload != null) {
+            centroidsDownload.setEnabled(available
+                    && viewModel.bestCentroids() != null);
+        }
+    }
+
+    /**
+     * Derives a download file base name from the loaded vectors, falling back
+     * to "binclass" when none are loaded yet.
+     */
+    private String downloadFileName() {
+        String header = memoryBuffer.getHeader();
+        if (!header.isBlank()) {
+            String firstLine = header.lines().findFirst().orElse("");
+            String base = firstLine.trim().replaceAll("\\s+", "_");
+            if (!base.isBlank()) {
+                return base;
+            }
+        }
+        return "binclass";
     }
 
     /**

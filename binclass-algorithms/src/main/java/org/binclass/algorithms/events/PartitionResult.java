@@ -4,8 +4,10 @@
  */
 package org.binclass.algorithms.events;
 
+import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Minimal immutable payload the UI binds to when a GLA-style search reports a
@@ -40,5 +42,36 @@ public record PartitionResult(
          * snapshot (e.g. {@code SearchBestPartition}); may be {@code null} for
          * searches that report only scalar results.
          */
-        Partition partition) {
+        Partition partition,
+        /**
+         * Centroids matching the best partition's cluster count. Present when
+         * the search carried them (automatic and range searches); may be
+         * {@code null} for events built from scalars alone, in which case the
+         * UI renders an empty centroid per cluster so the Partition tab still
+         * shows structure.
+         */
+        @Nullable InfiniteCentroids centroids) {
+
+    /**
+     * Backward-compatible constructor that leaves the best-partition centroids
+     * unset as {@code null}. Used by callers that only carry a partition and
+     * its scalar metadata, letting the UI fall back to empty centroids.
+     *
+     * @param kmin
+     *            cluster count of the best partition found
+     * @param scmin
+     *            stochastic complexity of the best partition
+     * @param clusterCount
+     *            number of clusters in the best partition
+     * @param scs
+     *            per-{@code k} SC values, index aligned with {@code ks}
+     * @param ks
+     *            cluster counts paired with each value in {@code scs}
+     * @param partition
+     *            the best partition, or {@code null} for scalar-only events
+     */
+    public PartitionResult(int kmin, double scmin, int clusterCount,
+            double[] scs, int[] ks, Partition partition) {
+        this(kmin, scmin, clusterCount, scs, ks, partition, null);
+    }
 }
