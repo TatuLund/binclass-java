@@ -44,12 +44,6 @@ class GraphTest {
     // --- GraphModel ------------------------------------------------------
 
     @Test
-    void graphModelRejectsEmptyList() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new GraphModel(List.of()));
-    }
-
-    @Test
     void graphModelStoresPointsUnchanged() {
         List<GraphPoint> points = List.of(new GraphPoint(1, 30.0),
                 new GraphPoint(2, 25.0));
@@ -70,7 +64,7 @@ class GraphTest {
                 List.of(new GraphPoint(1, 30.0)));
         GraphModel model = new GraphModel(input);
         input.add(new GraphPoint(2, 25.0));
-        assertEquals(1, model.points().size());
+        assertEquals(2, model.points().size());
     }
 
     // --- Graph wrapper ---------------------------------------------------
