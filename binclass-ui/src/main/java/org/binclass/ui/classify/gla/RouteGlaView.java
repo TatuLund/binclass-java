@@ -22,14 +22,12 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.formlayout.FormLayout;
-import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.shared.Tooltip;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.server.HttpStatusCode;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadin.flow.server.streams.UploadHandler;
@@ -43,6 +41,7 @@ import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.shared.Registration;
 import org.jspecify.annotations.NullMarked;
+import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.SearchType;
 import org.binclass.algorithms.io.CentroidWriter;
@@ -287,11 +286,11 @@ public class RouteGlaView extends VerticalLayout
 
         // Re-validate the range switches and publish form validity whenever a
         // field that affects it changes.
-        kStopField.addValueChangeListener(_e -> refreshFormValidity());
-        kStopWhenField.addValueChangeListener(_e -> refreshFormValidity());
-        epsilonField.addValueChangeListener(_e -> refreshFormValidity());
+        kStopField.addValueChangeListener(_ -> refreshFormValidity());
+        kStopWhenField.addValueChangeListener(_ -> refreshFormValidity());
+        epsilonField.addValueChangeListener(_ -> refreshFormValidity());
         decreasingEpsCheckbox
-                .addValueChangeListener(_e -> refreshFormValidity());
+                .addValueChangeListener(_ -> refreshFormValidity());
 
         refreshFormValidity();
     }
@@ -505,8 +504,7 @@ public class RouteGlaView extends VerticalLayout
 
         centroidsDownload = new Anchor(
                 DownloadHandler.fromInputStream(event -> {
-                    org.binclass.algorithms.core.InfiniteCentroids c = viewModel
-                            .bestCentroids();
+                    InfiniteCentroids c = viewModel.bestCentroids();
                     byte[] bytes = c == null ? new byte[0]
                             : CentroidWriter.toBytes(c);
                     event.setFileName(base + ".centroids");

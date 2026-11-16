@@ -68,8 +68,6 @@ public final class GlaViewModel implements EventBus.EventBusListener {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             Thread.ofVirtual().factory());
-    @Nullable
-    private CompletableFuture<Object> future;
 
     /** Lowest cluster count of the current range search, for progress. */
     private int kstart = 1;
@@ -95,6 +93,9 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      */
     private boolean finished;
 
+    @Nullable
+    CompletableFuture<Object> task;
+
     /**
      * Creates a view model with empty data, not running, and no results yet.
      */
@@ -103,7 +104,11 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         this.running = new ValueSignal<>(false);
         this.uploadValid = new ValueSignal<>(
                 new MultiFileMemoryBuffer.UploadValidation(false, ""));
-        this.partitionModel = new ValueSignal<>(null);
+        // Start with a non-empty model so the Partition component's initial
+        // effect run (model.get().clusters()) does not NPE before any result
+        // arrives, mirroring how graphPoints starts as an empty-but-valid
+        // model.
+        this.partitionModel = new ValueSignal<>(emptyPartition());
         this.graphPoints = new ValueSignal<>(emptyGraph());
         this.statusText = new ValueSignal<>("");
         // The default form is valid (epsilon in range, kstop/kstopwhen not both
@@ -118,9 +123,33 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      * has been loaded, so the bound chart never sees {@code null}.
      *
      * @return an empty-but-valid {@link GraphModel}
+     * 
+     * 
+     *         /** Returns a valid non-empty placeholder partition model used
+     *         before any result arrives, so the bound Partition component's
+     *         initial effect run does not dereference a {@code null} value.
+     *
+     * @return an empty-but-valid {@link PartitionModel}
+     */
+    /**
+     * Returns a valid non-empty placeholder graph model used before any data
+     * has been loaded, so the bound chart never sees {@code null}.
+     *
+     * @return an empty-but-valid {@link GraphModel}
      */
     private static GraphModel emptyGraph() {
         return GraphModel.empty();
+    }
+
+    /**
+     * Returns a valid non-empty placeholder partition model used before any
+     * result arrives, so the bound Partition component's initial effect run
+     * does not dereference a {@code null} value.
+     *
+     * @return an empty-but-valid {@link PartitionModel}
+     */
+    private static PartitionModel emptyPartition() {
+        return new PartitionModel(Double.NaN, 0, 0, Double.NaN, List.of());
     }
 
     /**
@@ -255,8 +284,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      *            the parsed vectors (must not be {@code null})
      */
     public void setData(VectorSet vectorSet) {
-        data.update(_d -> new LoadedData(vectorSet));
-        statusText.update(_s -> "Loaded " + vectorSet.size() + " vectors.");
+        data.update(_ -> new LoadedData(vectorSet));
+        statusText.update(_ -> "Loaded " + vectorSet.size() + " vectors.");
     }
 
     /**
@@ -302,10 +331,12 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         this.kstop = (type == SearchType.NAUTO && form.kStop() > 0)
                 ? form.kStop()
                 : vectorSet.size();
-        progress.set(0.0);
-        progressIndeterminate.set(type != SearchType.NAUTO);
+        boolean indeterminate = type != SearchType.NAUTO;
+        if (!indeterminate) {
+            progress.set(0.0);
+        }
+        progressIndeterminate.set(indeterminate);
 
-        CompletableFuture<Object> task;
         if (type == SearchType.NAUTO) {
             RangeSearch search = new RangeSearch(vectorSet, config);
             task = CompletableFuture
@@ -315,7 +346,7 @@ public final class GlaViewModel implements EventBus.EventBusListener {
             task = CompletableFuture.supplyAsync(search::run, executor);
         }
 
-        future = task.whenComplete((result, error) -> {
+        task.whenComplete((result, error) -> {
             running.set(false);
             // A finished search always reports a full bar, never a still-
             // animating indeterminate one. The view's ProgressBar spans
@@ -337,9 +368,9 @@ public final class GlaViewModel implements EventBus.EventBusListener {
     public void cancel() {
         finished = true;
         bestCentroids = null;
-        if (future != null) {
-            future.cancel(true);
-            future = null;
+        if (task != null) {
+            task.cancel(true);
+            task = null;
         }
         running.set(false);
     }

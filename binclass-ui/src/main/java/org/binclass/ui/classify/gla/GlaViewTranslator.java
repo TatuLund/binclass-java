@@ -110,28 +110,31 @@ public final class GlaViewTranslator {
      * whose SC is non-finite so the chart never renders
      * {@code NaN}/{@code Inf}.
      * <p>
-     * The {@code scs} array is indexed by cluster count; index 0 is unused, so
-     * scanning starts at {@code k = 1}. When {@code ks} is supplied it
-     * overrides the implicit index for each point.
-     * </p>
+     * Iterates by array position so compact arrays produced by the searches
+     * (finite values only, no index-0 placeholder) render their first point.
+     * When {@code ks} is supplied it provides each point's x coordinate; when
+     * {@code ks} is absent or shorter than {@code scs}, the array position is
+     * used as the x coordinate. Callers that pass an index-aligned array with a
+     * placeholder at index 0 still work because that slot holds the unused
+     * {@code k = 0} value (typically {@code NaN}).
      *
      * @param scs
      *            the per-{@code k} SC values (must not be {@code null})
      * @param ks
      *            optional cluster counts paired with each SC value; when
-     *            {@code null} or shorter than {@code scs}, the array index is
-     *            used as the x coordinate
+     *            {@code null} or shorter than {@code scs}, the array position
+     *            is used as the x coordinate
      * @return a non-empty {@link GraphModel}, or an empty model list wrapped so
      *         callers can always bind it
      */
     public static GraphModel toGraphModel(double[] scs, int[] ks) {
         java.util.List<GraphPoint> points = new ArrayList<>();
-        for (int k = 1; k < scs.length; k++) {
-            double sc = scs[k];
+        for (int i = 0; i < scs.length; i++) {
+            double sc = scs[i];
             if (!Double.isFinite(sc)) {
                 continue;
             }
-            int x = ks != null && k < ks.length ? ks[k] : k;
+            int x = ks != null && i < ks.length ? ks[i] : i;
             points.add(new GraphPoint(x, sc));
         }
         return new GraphModel(points);

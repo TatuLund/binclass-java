@@ -23,6 +23,7 @@ import org.binclass.algorithms.events.SearchCompleted;
 import org.binclass.algorithms.events.SearchProgress;
 import org.binclass.algorithms.eventbus.EventBus;
 import org.binclass.algorithms.gla.AutomaticSearch;
+import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.RangeSearch;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
@@ -144,7 +145,7 @@ class GlaViewModelTest {
         assertNotNull(model);
         assertEquals(2, model.clusterCount());
     }
-    
+
     @Test
     void eventFiredCompletedUpdatesGraphAndPartition() {
         viewModel.setData(vectors(4, 3));
@@ -190,5 +191,47 @@ class GlaViewModelTest {
         AutomaticSearch.Result result = GlaViewModel.runAutomatic(set,
                 GlaParametersForm.defaults().toConfig());
         assertNotNull(result.partition());
+    }
+
+    @Test
+    void partitionModelStartsNonEmpty() {
+        // The Partition component's initial effect run dereferences the model,
+        // so it must start non-null (empty) to avoid a swallowed NPE before any
+        // result arrives.
+        PartitionModel model = viewModel.partitionModel().peek();
+        assertNotNull(model);
+        assertEquals(0, model.clusterCount());
+    }
+
+    @Test
+    void automaticSearchSetsIndeterminateProgress() {
+        viewModel.setData(vectors(4, 3));
+        viewModel.setForm(GlaParametersForm.defaults());
+        viewModel.uploadValid().update(
+                _ -> new MultiFileMemoryBuffer.UploadValidation(true, ""));
+        viewModel.run();
+        // kstopwhen-only (default) resolves to AUTO, so the bar animates.
+        assertTrue(viewModel.progressIndeterminate().peek());
+    }
+
+    @Test
+    void rangeSearchSetsDeterminateProgress() {
+        GlaParametersForm form = new GlaParametersForm(
+                "test", 1, 5, 0, 0, 0.1, false,
+                GLAConfig.DEFAULT.heuristic(),
+                GLAConfig.DEFAULT.alternateMode(),
+                false, GLAConfig.DEFAULT.centroidType(), false, false, false,
+                false, false, 0.0, false, false,
+                GLAConfig.DEFAULT.distanceType(),
+                0, GLAConfig.DEFAULT.heuristicCount(),
+                GLAConfig.DEFAULT.safetyLimit(), GLAConfig.DEFAULT.iterBase(),
+                "");
+        viewModel.setData(vectors(6, 3));
+        viewModel.setForm(form);
+        viewModel.uploadValid().update(
+                _ -> new MultiFileMemoryBuffer.UploadValidation(true, ""));
+        viewModel.run();
+        // A fixed kstop resolves to NAUTO, so the bar reports a fraction.
+        assertFalse(viewModel.progressIndeterminate().peek());
     }
 }
