@@ -321,10 +321,14 @@ public final class RangeSearch {
     private void postProgress(int k, double[] scs, boolean improved) {
         EventBus.get().post(new SearchProgress(display, k, scs[k], false));
         if (improved && bestPartition != null) {
-            assert bestCentroids != null : "Best centroids must not be null when best partition is available";
-            assert scs != null : "SC array must not be null when best partition is available";
-            assert actualK == k : "kmin must equal the current k when best partition is available";
-            assert scs.length > k : "SC array must have an entry for the current k when best partition is available";
+            assert bestCentroids != null
+                    : "Best centroids must not be null when best partition is available";
+            assert scs != null
+                    : "SC array must not be null when best partition is available";
+            assert actualK == k
+                    : "kmin must equal the current k when best partition is available";
+            assert scs.length > k
+                    : "SC array must have an entry for the current k when best partition is available";
             EventBus.get().post(new SearchBestPartition(
                     display, buildResult(actualK, scmin, bestPartition, scs,
                             bestCentroids)));
