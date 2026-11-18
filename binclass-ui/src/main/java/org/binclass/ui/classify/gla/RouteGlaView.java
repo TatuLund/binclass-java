@@ -41,6 +41,7 @@ import com.vaadin.flow.router.Menu;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.shared.Registration;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.SearchType;
@@ -78,25 +79,29 @@ public class RouteGlaView extends VerticalLayout
     private final FormLayout paramsForm = new FormLayout();
     private final MultiFileMemoryBuffer memoryBuffer = new MultiFileMemoryBuffer();
     private final Upload uploader = new Upload(createUploadHandler());
-    private final IntegerField kStartField = new IntegerField("kstart (-b)");
+    private final IntegerField kStartField = new IntegerField(
+            "kstart (-b)");
     private final IntegerField kStopField = new IntegerField("kstop (-s)");
     private final IntegerField kStopWhenField = new IntegerField(
             "kstopwhen (-S)");
     private final IntegerField kcStopWhenField = new IntegerField(
             "kcStopWhen (-W)");
-    private final NumberField epsilonField = new NumberField("epsilon (-E)");
+    private final NumberField epsilonField = new NumberField(
+            "epsilon (-E)");
     private final Checkbox decreasingEpsCheckbox = new Checkbox(
             "decreasing-epsilon");
     private final Select<DistanceType> distanceTypeSelect = new Select<>();
     private final Select<CentroidType> centroidTypeSelect = new Select<>();
     private final Select<EmptyCellFix> emptyCellFixSelect = new Select<>();
-    private final IntegerField maxIterField = new IntegerField("maxIter (-n)");
+    private final IntegerField maxIterField = new IntegerField(
+            "maxIter (-n)");
     private final Button runButton = new Button("Run");
     private final Button newSearchButton = new Button("New search");
 
     private final TabSheet glaTabs = new TabSheet();
     private final Card searchCard = new Card();
-    // Range [0, 1] so the view model's fractional progress maps directly to a
+    // Range [0, 1] so the view model's fractional progress maps directly to
+    // a
     // percentage; setValue(1.0) shows a full bar on completion.
     private final ProgressBar progress = new ProgressBar(0, 1);
     private final Div statusText = new Div();
@@ -105,15 +110,22 @@ public class RouteGlaView extends VerticalLayout
     private final Partition partitionView = new Partition();
     private final ReportComponent reportComponent = new ReportComponent();
 
-    // Download controls for the best partition and its logged centroids, shown
-    // once a search completes. Built lazily so they only exist after a result.
+    // Download controls for the best partition and its logged centroids,
+    // shown
+    // once a search completes. Built lazily so they only exist after a
+    // result.
     private Anchor partitionDownload;
+
     private Anchor centroidsDownload;
     private HorizontalLayout downloadControls;
 
+    @Nullable
     private Registration unregisterRegistration;
+
+    @Nullable
     private Registration reportBinding;
 
+    @SuppressWarnings("null")
     public RouteGlaView() {
         setId("gla-view");
         setSpacing(true);
@@ -133,17 +145,22 @@ public class RouteGlaView extends VerticalLayout
         reportBinding = ReportTab.bind(reportComponent,
                 viewModel.partitionModel());
 
-        // Progress bar: indeterminate for automatic searches, a fraction of the
-        // evaluated k-range otherwise. The status text Div is driven by its own
+        // Progress bar: indeterminate for automatic searches, a
+        // fraction of the
+        // evaluated k-range otherwise. The status text Div is driven by
+        // its own
         // signal so search progress and completion stay in sync.
         progress.bindValue(viewModel.progress());
         Signal.effect(progress,
                 () -> progress.setIndeterminate(
-                        viewModel.progressIndeterminate().get()));
+                        viewModel.progressIndeterminate()
+                                .get()));
         statusText.bindText(viewModel.statusText());
 
-        // Refresh the download controls whenever a best partition appears or is
-        // cleared. The controls are built lazily on first refresh so they only
+        // Refresh the download controls whenever a best partition
+        // appears or is
+        // cleared. The controls are built lazily on first refresh so
+        // they only
         // exist after a result arrives.
         Signal.effect(this, () -> {
             viewModel.resultAvailable().get();
@@ -177,7 +194,8 @@ public class RouteGlaView extends VerticalLayout
             return;
         }
 
-        BeforeLeaveEvent.ContinueNavigationAction action = event.postpone();
+        BeforeLeaveEvent.ContinueNavigationAction action = event
+                .postpone();
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Search in progress");
         dialog.setText(
@@ -197,9 +215,12 @@ public class RouteGlaView extends VerticalLayout
         paramsForm.setId("gla-params");
         uploader.setId("uploader-gla");
         uploader.setMaxFiles(2);
-        // A Receiver is set (MultiFileMemoryBuffer), so server-side extension
-        // validation would require an UploadHandler. Use client-side-only hints
-        // instead; the view validates the exact file pair on upload finished.
+        // A Receiver is set (MultiFileMemoryBuffer), so server-side
+        // extension
+        // validation would require an UploadHandler. Use
+        // client-side-only hints
+        // instead; the view validates the exact file pair on upload
+        // finished.
         uploader.setAcceptedFileExtensions(".data", ".hdr", ".header");
         Tooltip.forComponent(uploader).setText(
                 "Upload exactly two files: one .data file and one .header file. "
@@ -217,8 +238,6 @@ public class RouteGlaView extends VerticalLayout
         maxIterField.setId("maxiter");
         runButton.setId("run-gla");
         newSearchButton.setId("new-search");
-
-        GlaParametersForm defaults = GlaParametersForm.defaults();
 
         // Labels and tooltips for every control.
         kStartField.setLabel("kstart (-b)");
@@ -256,42 +275,52 @@ public class RouteGlaView extends VerticalLayout
         maxIterField.setTooltipText(
                 "Maximum iterations. Non-zero forces range search.");
 
-        // Seed the form with sensible defaults matching GLAConfig.DEFAULT.
-        kStartField.setValue(1);
-        kStopField.setValue(0);
-        kStopWhenField.setValue(defaults.kStopWhen());
-        kcStopWhenField.setValue(defaults.kcStopWhen());
-        epsilonField.setValue(defaults.epsilon());
-        maxIterField.setValue(0);
-
-        // Enum selects with friendly labels instead of bare numeric codes.
+        // Enum selects with friendly labels instead of bare numeric
+        // codes.
         distanceTypeSelect.setItems(DistanceType.values());
         distanceTypeSelect.setItemLabelGenerator(DistanceType::label);
-        distanceTypeSelect.setValue(DistanceType.HAMMING);
         centroidTypeSelect.setItems(CentroidType.values());
         centroidTypeSelect.setItemLabelGenerator(CentroidType::label);
-        centroidTypeSelect.setValue(CentroidType.CLASSIC);
         emptyCellFixSelect.setItems(EmptyCellFix.values());
         emptyCellFixSelect.setItemLabelGenerator(EmptyCellFix::label);
-        emptyCellFixSelect.setValue(EmptyCellFix.WORST_MATCH);
 
-        paramsForm.add(uploader, kStartField, kStopField, kStopWhenField,
-                kcStopWhenField, epsilonField, decreasingEpsCheckbox,
+        // Bind each field two-way to its view-model signal so edits
+        // update the
+        // source of truth directly. The signals already hold
+        // GLAConfig.DEFAULT
+        // values, and bindValue propagates those initial values onto
+        // the fields
+        // on bind; items are set above before binding so they are not
+        // cleared.
+        bindParameterFields();
+
+        paramsForm.add(uploader, kStartField, kStopField,
+                kStopWhenField,
+                kcStopWhenField, epsilonField,
+                decreasingEpsCheckbox,
                 distanceTypeSelect,
-                centroidTypeSelect, emptyCellFixSelect, maxIterField,
+                centroidTypeSelect, emptyCellFixSelect,
+                maxIterField,
                 runButton);
 
         paramsForm.setColspan(uploader, 3);
 
-        // Re-validate the range switches and publish form validity whenever a
-        // field that affects it changes.
+        // Field-level feedback for the mutually-exclusive range
+        // switches is
+        // derived from the bound signals so it stays in sync
+        // automatically.
         kStopField.addValueChangeListener(_ -> refreshFormValidity());
-        kStopWhenField.addValueChangeListener(_ -> refreshFormValidity());
-        epsilonField.addValueChangeListener(_ -> refreshFormValidity());
-        decreasingEpsCheckbox
-                .addValueChangeListener(_ -> refreshFormValidity());
+        kStopWhenField.addValueChangeListener(
+                _ -> refreshFormValidity());
+    }
 
-        refreshFormValidity();
+    /**
+     * Coerces a nullable integer signal to an int, treating empty as zero.
+     */
+    private static int signalInt(
+            com.vaadin.flow.signals.local.ValueSignal<Integer> signal) {
+        Integer value = signal.peek();
+        return value == null ? 0 : value;
     }
 
     /**
@@ -303,8 +332,10 @@ public class RouteGlaView extends VerticalLayout
      * @return {@code true} when at most one of kstop/kstopwhen is positive
      */
     private boolean validateRangeFields() {
-        int kstop = kStopField.getOptionalValue().orElse(0);
-        int kstopwhen = kStopWhenField.getOptionalValue().orElse(0);
+        // Read the bound signals so feedback tracks two-way field
+        // binding.
+        int kstop = signalInt(viewModel.kStop());
+        int kstopwhen = signalInt(viewModel.kStopWhen());
         boolean bothSet = kstop > 0 && kstopwhen > 0;
         String message = "kstop (-s) and kstopwhen (-S) are mutually exclusive.";
         if (bothSet) {
@@ -327,8 +358,11 @@ public class RouteGlaView extends VerticalLayout
      * exclusion check with the full {@link GlaParametersForm#isValid()} test.
      */
     private void refreshFormValidity() {
-        boolean rangeOk = validateRangeFields();
-        viewModel.formValid().update(_v -> rangeOk && buildForm().isValid());
+        // The combined validity is a reactive signal (see
+        // GlaViewModel); this
+        // only refreshes the field-level error state for the range
+        // switches.
+        validateRangeFields();
     }
 
     private void buildTabs() {
@@ -342,17 +376,22 @@ public class RouteGlaView extends VerticalLayout
         partitionView.setId("partition-view");
         reportComponent.setId("report-component-gla");
 
-        // Build the download controls up front so they are non-null when the
-        // search panel is assembled; refreshDownloadState() later toggles their
+        // Build the download controls up front so they are non-null
+        // when the
+        // search panel is assembled; refreshDownloadState() later
+        // toggles their
         // visibility once a result arrives.
         buildDownloadControls();
 
         HorizontalLayout searchPanel = new HorizontalLayout(
-                new VerticalLayout(progress, statusText), downloadControls);
+                new VerticalLayout(progress, statusText),
+                downloadControls);
         searchCard.add(searchPanel);
         glaTabs.add("Search", searchCard);
-        // A taller chart makes the SC curve easier to read and lets the global
-        // minimum stand out; the web component clamps its own height lower.
+        // A taller chart makes the SC curve easier to read and lets the
+        // global
+        // minimum stand out; the web component clamps its own height
+        // lower.
         graphSC.setWidthFull();
         graphSC.setHeight("500px");
         glaTabs.add("SC Graph", graphSC);
@@ -370,51 +409,50 @@ public class RouteGlaView extends VerticalLayout
      *
      * @return the resolved parameter form used to build the run configuration
      */
+    @SuppressWarnings("null")
     private GlaParametersForm buildForm() {
-        GlaParametersForm defaults = GlaParametersForm.defaults();
-        DistanceType distanceType = firstNonEmpty(
-                distanceTypeSelect.getValue());
-        CentroidType centroidType = firstNonEmpty(
-                centroidTypeSelect.getValue());
-        EmptyCellFix emptyCellFix = firstNonEmpty(
-                emptyCellFixSelect.getValue());
-        Double epsilon = epsilonField.getOptionalValue()
-                .orElse(defaults.epsilon());
-
-        return new GlaParametersForm(
-                "",
-                kStartField.getOptionalValue().orElse(defaults.kStart()),
-                kStopField.getOptionalValue().orElse(defaults.kStop()),
-                kStopWhenField.getOptionalValue().orElse(defaults.kStopWhen()),
-                kcStopWhenField.getOptionalValue()
-                        .orElse(defaults.kcStopWhen()),
-                epsilon,
-                decreasingEpsCheckbox.getValue(),
-                GLAConfig.DEFAULT.heuristic(),
-                emptyCellFix.code(),
-                false,
-                centroidType.code(),
-                false,
-                false,
-                false,
-                false,
-                false,
-                0.0,
-                false,
-                false,
-                distanceType.code(),
-                maxIterField.getOptionalValue().orElse(defaults.maxIter()),
-                defaults.heuristicCount(),
-                defaults.safetyLimit(),
-                defaults.iterBase(),
-                "");
+        // Build from the bound parameter signals so a search always
+        // reflects
+        // the latest field values rather than reading fields directly.
+        // Read
+        // outside a reactive context (called from the constructor and
+        // click
+        // handlers), so wrap the computed read in Signal.untracked.
+        return Signal.untracked(() -> viewModel.parameters().get());
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T extends Enum<T>> T firstNonEmpty(T value) {
-        return value != null ? value
-                : (T) ((Class<? extends Enum>) value.getClass())
-                        .getEnumConstants()[0];
+    /**
+     * Binds every exposed form field two-way to its view-model signal. The
+     * write callback ({@code signal::set}) keeps the field and signal in sync,
+     * so editing a field updates the source of truth and updating a signal
+     * repaints the field.
+     */
+    private void bindParameterFields() {
+        kStartField.bindValue(viewModel.kStart(),
+                viewModel.kStart()::set);
+        kStopField.bindValue(viewModel.kStop(), viewModel.kStop()::set);
+        kStopWhenField
+                .bindValue(viewModel.kStopWhen(),
+                        viewModel.kStopWhen()::set);
+        kcStopWhenField
+                .bindValue(viewModel.kcStopWhen(),
+                        viewModel.kcStopWhen()::set);
+        epsilonField.bindValue(viewModel.epsilon(),
+                viewModel.epsilon()::set);
+        decreasingEpsCheckbox
+                .bindValue(viewModel.decreasingEpsilon(),
+                        viewModel.decreasingEpsilon()::set);
+        distanceTypeSelect
+                .bindValue(viewModel.distanceType(),
+                        viewModel.distanceType()::set);
+        centroidTypeSelect
+                .bindValue(viewModel.centroidType(),
+                        viewModel.centroidType()::set);
+        emptyCellFixSelect
+                .bindValue(viewModel.emptyCellFix(),
+                        viewModel.emptyCellFix()::set);
+        maxIterField.bindValue(viewModel.maxIter(),
+                viewModel.maxIter()::set);
     }
 
     /**
@@ -426,10 +464,14 @@ public class RouteGlaView extends VerticalLayout
         summaryContent.removeAll();
         summaryContent.add(new H3("Run summary"));
 
-        // The constructor already attaches the single "New search" handler,
-        // which cancels the in-flight future and returns to the parameter form.
-        // Adding another listener here would accumulate across runs and leave
-        // a copy that does not cancel the future, so reuse the existing button.
+        // The constructor already attaches the single "New search"
+        // handler,
+        // which cancels the in-flight future and returns to the
+        // parameter form.
+        // Adding another listener here would accumulate across runs and
+        // leave
+        // a copy that does not cancel the future, so reuse the existing
+        // button.
         summaryContent.add(newSearchButton);
 
         GlaParametersForm form = buildForm();
@@ -439,17 +481,22 @@ public class RouteGlaView extends VerticalLayout
         addSummaryRow("Search type", String.valueOf(type));
         addSummaryRow("kstart (-b)", Integer.toString(form.kStart()));
         addSummaryRow("kstop (-s)", Integer.toString(form.kStop()));
-        addSummaryRow("kstopwhen (-S)", Integer.toString(form.kStopWhen()));
-        addSummaryRow("kcStopWhen (-W)", Integer.toString(form.kcStopWhen()));
+        addSummaryRow("kstopwhen (-S)",
+                Integer.toString(form.kStopWhen()));
+        addSummaryRow("kcStopWhen (-W)",
+                Integer.toString(form.kcStopWhen()));
         addSummaryRow("epsilon (-E)", formatDouble(config.epsilon()));
         addSummaryRow("decreasing-epsilon",
                 Boolean.toString(form.decreasingEpsilon()));
         addSummaryRow("empty cell fix (-eX)",
-                EmptyCellFix.fromCode(form.alternateMode()).label());
+                EmptyCellFix.fromCode(form.alternateMode())
+                        .label());
         addSummaryRow("centroid type (-c)",
-                CentroidType.fromCode(form.centroidType()).label());
+                CentroidType.fromCode(form.centroidType())
+                        .label());
         addSummaryRow("distance type (-f)",
-                DistanceType.fromCode(form.distanceType()).label());
+                DistanceType.fromCode(form.distanceType())
+                        .label());
         addSummaryRow("maxIter (-n)",
                 Integer.toString(config.effectiveMaxIter()));
     }
@@ -461,6 +508,7 @@ public class RouteGlaView extends VerticalLayout
                 : 0;
     }
 
+    @SuppressWarnings("null")
     private static String formatDouble(double value) {
         return String.format(Locale.ROOT, "%.4f", value);
     }
@@ -469,7 +517,8 @@ public class RouteGlaView extends VerticalLayout
         Div row = new Div();
         Span labelSpan = new Span(label + ": ");
         labelSpan.getElement().setAttribute(
-                "style", "font-weight:bold;margin-right:0.5em;");
+                "style",
+                "font-weight:bold;margin-right:0.5em;");
         row.add(labelSpan, new Span(value));
         summaryContent.add(row);
     }
@@ -486,32 +535,49 @@ public class RouteGlaView extends VerticalLayout
             return;
         }
 
+        @SuppressWarnings("unused")
         String base = downloadFileName();
         partitionDownload = new Anchor(
                 DownloadHandler.fromInputStream(event -> {
-                    PartitionModel model = viewModel.partitionModel().peek();
-                    byte[] bytes = model == null ? new byte[0]
+                    PartitionModel model = viewModel
+                            .partitionModel()
+                            .peek();
+                    byte[] bytes = model == null
+                            ? new byte[0]
                             : PartitionWriter
-                                    .toBytes(ReportTab.toPartition(model));
+                                    .toBytes(ReportTab
+                                            .toPartition(model));
                     event.setFileName(base + ".partition");
-                    event.setContentType("text/plain; charset=UTF-8");
-                    return new DownloadResponse(new ByteArrayInputStream(bytes),
+                    event.setContentType(
+                            "text/plain; charset=UTF-8");
+                    return new DownloadResponse(
+                            new ByteArrayInputStream(
+                                    bytes),
                             base + ".partition",
-                            "text/plain; charset=UTF-8", bytes.length);
-                }), AttachmentType.DOWNLOAD, "Download partition");
+                            "text/plain; charset=UTF-8",
+                            bytes.length);
+                }), AttachmentType.DOWNLOAD,
+                "Download partition");
         partitionDownload.setId("gla-partition-download");
 
         centroidsDownload = new Anchor(
                 DownloadHandler.fromInputStream(event -> {
-                    InfiniteCentroids c = viewModel.bestCentroids();
+                    InfiniteCentroids c = viewModel
+                            .bestCentroids();
                     byte[] bytes = c == null ? new byte[0]
-                            : CentroidWriter.toBytes(c);
+                            : CentroidWriter.toBytes(
+                                    c);
                     event.setFileName(base + ".centroids");
-                    event.setContentType("text/plain; charset=UTF-8");
-                    return new DownloadResponse(new ByteArrayInputStream(bytes),
+                    event.setContentType(
+                            "text/plain; charset=UTF-8");
+                    return new DownloadResponse(
+                            new ByteArrayInputStream(
+                                    bytes),
                             base + ".centroids",
-                            "text/plain; charset=UTF-8", bytes.length);
-                }), AttachmentType.DOWNLOAD, "Download centroids");
+                            "text/plain; charset=UTF-8",
+                            bytes.length);
+                }), AttachmentType.DOWNLOAD,
+                "Download centroids");
         centroidsDownload.setId("gla-centroids-download");
 
         downloadControls = new HorizontalLayout(partitionDownload,
@@ -546,7 +612,8 @@ public class RouteGlaView extends VerticalLayout
     private String downloadFileName() {
         String header = memoryBuffer.getHeader();
         if (!header.isBlank()) {
-            String firstLine = header.lines().findFirst().orElse("");
+            String firstLine = header.lines().findFirst()
+                    .orElse("");
             String base = firstLine.trim().replaceAll("\\s+", "_");
             if (!base.isBlank()) {
                 return base;
@@ -562,6 +629,7 @@ public class RouteGlaView extends VerticalLayout
      *
      * @return an upload handler storing each uploaded file under its name
      */
+    @SuppressWarnings("null")
     private UploadHandler createUploadHandler() {
         return event -> {
             try (InputStream in = event.getInputStream()) {
@@ -585,8 +653,8 @@ public class RouteGlaView extends VerticalLayout
     }
 
     @Override
-    protected void onDetach(DetachEvent event) {
-        super.onDetach(event);
+    protected void onDetach(DetachEvent detachEvent) {
+        super.onDetach(detachEvent);
         if (unregisterRegistration != null) {
             unregisterRegistration.remove();
             unregisterRegistration = null;

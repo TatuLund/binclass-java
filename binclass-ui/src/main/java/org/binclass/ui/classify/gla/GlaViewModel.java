@@ -32,6 +32,9 @@ import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
 import org.binclass.components.partition.PartitionModel;
 import org.binclass.ui.MultiFileMemoryBuffer;
+import org.binclass.ui.classify.CentroidType;
+import org.binclass.ui.classify.DistanceType;
+import org.binclass.ui.classify.EmptyCellFix;
 
 /**
  * UI-free view model for the GLA Search display. Hosts all state as
@@ -59,7 +62,36 @@ public final class GlaViewModel implements EventBus.EventBusListener {
     private final ValueSignal<PartitionModel> partitionModel;
     private final ValueSignal<GraphModel> graphPoints;
     private final ValueSignal<String> statusText;
-    private final ValueSignal<Boolean> formValid;
+
+    /**
+     * Exposed parameter signals, bound two-way to the form fields by the view.
+     */
+    private final ValueSignal<Integer> kStart = new ValueSignal<>(1);
+    private final ValueSignal<Integer> kStop = new ValueSignal<>(0);
+    private final ValueSignal<Integer> kStopWhen = new ValueSignal<>(
+            GLAConfig.DEFAULT.kstopwhen());
+    private final ValueSignal<Integer> kcStopWhen = new ValueSignal<>(
+            GLAConfig.DEFAULT.kcStopWhen());
+    private final ValueSignal<Double> epsilon = new ValueSignal<>(
+            GLAConfig.DEFAULT.epsilon());
+    private final ValueSignal<Boolean> decreasingEpsilon = new ValueSignal<>(
+            false);
+    private final ValueSignal<DistanceType> distanceType = new ValueSignal<>(
+            DistanceType.HAMMING);
+    private final ValueSignal<CentroidType> centroidType = new ValueSignal<>(
+            CentroidType.CLASSIC);
+    private final ValueSignal<EmptyCellFix> emptyCellFix = new ValueSignal<>(
+            EmptyCellFix.WORST_MATCH);
+    private final ValueSignal<Integer> maxIter = new ValueSignal<>(0);
+
+    /** Reactive form validity derived from the parameter signals above. */
+    private final Signal<Boolean> formValid = Signal.computed(() -> {
+        boolean rangeOk = !(kStop.get() > 0 && kStopWhen.get() > 0);
+        double eps = epsilon.get();
+        boolean epsOk = decreasingEpsilon.get() || (eps > 0.0 && eps < 0.5);
+        return rangeOk && epsOk;
+    });
+
     private final ValueSignal<Double> progress = new ValueSignal<>(0.0);
     private final ValueSignal<Boolean> progressIndeterminate = new ValueSignal<>(
             false);
@@ -111,11 +143,6 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         this.partitionModel = new ValueSignal<>(emptyPartition());
         this.graphPoints = new ValueSignal<>(emptyGraph());
         this.statusText = new ValueSignal<>("");
-        // The default form is valid (epsilon in range, kstop/kstopwhen not both
-        // set), so the Run button starts enabled until the user changes a
-        // field.
-        this.formValid = new ValueSignal<>(
-                GlaParametersForm.defaults().isValid());
     }
 
     /**
@@ -226,8 +253,113 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      *
      * @return the form-validity signal (initially invalid)
      */
-    public ValueSignal<Boolean> formValid() {
+    public Signal<Boolean> formValid() {
         return formValid;
+    }
+
+    /**
+     * Returns the signal bound to the {@code kstart (-b)} field.
+     */
+    public ValueSignal<Integer> kStart() {
+        return kStart;
+    }
+
+    /**
+     * Returns the signal bound to the {@code kstop (-s)} field.
+     */
+    public ValueSignal<Integer> kStop() {
+        return kStop;
+    }
+
+    /**
+     * Returns the signal bound to the {@code kstopwhen (-S)} field.
+     */
+    public ValueSignal<Integer> kStopWhen() {
+        return kStopWhen;
+    }
+
+    /**
+     * Returns the signal bound to the {@code kcStopWhen (-W)} field.
+     */
+    public ValueSignal<Integer> kcStopWhen() {
+        return kcStopWhen;
+    }
+
+    /**
+     * Returns the signal bound to the {@code epsilon (-E)} field.
+     */
+    public ValueSignal<Double> epsilon() {
+        return epsilon;
+    }
+
+    /**
+     * Returns the signal bound to the {@code decreasing-epsilon} checkbox.
+     */
+    public ValueSignal<Boolean> decreasingEpsilon() {
+        return decreasingEpsilon;
+    }
+
+    /**
+     * Returns the signal bound to the distance-type select.
+     */
+    public ValueSignal<DistanceType> distanceType() {
+        return distanceType;
+    }
+
+    /**
+     * Returns the signal bound to the centroid-type select.
+     */
+    public ValueSignal<CentroidType> centroidType() {
+        return centroidType;
+    }
+
+    /**
+     * Returns the signal bound to the empty-cell-fix select.
+     */
+    public ValueSignal<EmptyCellFix> emptyCellFix() {
+        return emptyCellFix;
+    }
+
+    /**
+     * Returns the signal bound to the {@code maxIter (-n)} field.
+     */
+    public ValueSignal<Integer> maxIter() {
+        return maxIter;
+    }
+
+    /**
+     * Builds the current {@link GlaParametersForm} snapshot from the bound
+     * parameter signals, falling back to {@link GLAConfig#DEFAULT} for values
+     * not exposed on the form. Reactive: reads every signal so effects that
+     * depend on it recompute when any field changes.
+     */
+    public Signal<GlaParametersForm> parameters() {
+        return Signal.computed(() -> new GlaParametersForm(
+                "",
+                kStart.get(),
+                kStop.get(),
+                kStopWhen.get(),
+                kcStopWhen.get(),
+                epsilon.get(),
+                decreasingEpsilon.get(),
+                GLAConfig.DEFAULT.heuristic(),
+                emptyCellFix.get().code(),
+                false,
+                centroidType.get().code(),
+                false,
+                false,
+                false,
+                false,
+                false,
+                0.0,
+                false,
+                false,
+                distanceType.get().code(),
+                maxIter.get(),
+                GLAConfig.DEFAULT.heuristicCount(),
+                GLAConfig.DEFAULT.safetyLimit(),
+                GLAConfig.DEFAULT.iterBase(),
+                ""));
     }
 
     /**
@@ -262,7 +394,18 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      */
     public void setForm(@Nullable GlaParametersForm newForm) {
         this.form = newForm;
-        this.formValid.update(_v -> newForm != null && newForm.isValid());
+        if (newForm != null) {
+            kStart.set(newForm.kStart());
+            kStop.set(newForm.kStop());
+            kStopWhen.set(newForm.kStopWhen());
+            kcStopWhen.set(newForm.kcStopWhen());
+            epsilon.set(newForm.epsilon());
+            decreasingEpsilon.set(newForm.decreasingEpsilon());
+            distanceType.set(DistanceType.fromCode(newForm.distanceType()));
+            centroidType.set(CentroidType.fromCode(newForm.centroidType()));
+            emptyCellFix.set(EmptyCellFix.fromCode(newForm.alternateMode()));
+            maxIter.set(newForm.maxIter());
+        }
     }
 
     /**
@@ -309,7 +452,7 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      * signal.
      */
     public void run() {
-        if (form == null || data.peek() == null) {
+        if (data.peek() == null) {
             return;
         }
         running.set(true);
@@ -318,9 +461,12 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         statusText.set("Search started…");
 
         VectorSet vectorSet = data.peek().vectorSet();
-        // Capture the form in a local so its non-null state is preserved for
-        // every access below, even though run() may outlive field narrowing.
-        GlaParametersForm boundForm = form;
+        // Build from the bound parameter signals so a search always reflects
+        // the latest field values rather than a stale snapshot. Read outside a
+        // reactive context (run() is called from a click handler), so wrap the
+        // computed read in Signal.untracked to allow inner signal.get() calls.
+        GlaParametersForm boundForm = Signal
+                .untracked(() -> parameters().get());
         GLAConfig config = boundForm.toConfig(vectorSet.size());
         SearchType type = boundForm.determineSearchType();
 

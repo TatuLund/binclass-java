@@ -80,6 +80,7 @@ public final class GlaViewTranslator {
         List<ClusterData> clusters = new ArrayList<>(k);
         for (int i = 0; i < k; i++) {
             var clusterSet = partition.getCluster(i);
+            @SuppressWarnings("null")
             List<BinaryVector> vectors = toList(clusterSet);
             Centroid centroid = centroids != null && i < centroids.size()
                     ? centroids.get(i)
@@ -87,12 +88,15 @@ public final class GlaViewTranslator {
 
             String name = mostFrequentStrain(vectors, i + 1);
             double weight = clusterSet.size() / (double) totalVectors;
+            @SuppressWarnings("null")
             double distortion = averageDistortion(vectors, centroid);
 
+            @SuppressWarnings("null")
             CentroidData centroidData = new CentroidData(
                     centroid != null ? centroid.getEl() : emptyArray(vectors),
                     name, distortion, weight, clusterSet.size());
 
+            @SuppressWarnings("null")
             List<VectorData> vectorData = vectors.stream()
                     .map(bv -> toVectorData(bv, centroid))
                     .toList();
@@ -231,6 +235,7 @@ public final class GlaViewTranslator {
      *            absent)
      * @return a rounded centroid array matching {@code length}
      */
+    @SuppressWarnings("unused")
     private static int[] roundedCentroid(Centroid centroid, int length) {
         if (centroid == null) {
             return new int[length];
