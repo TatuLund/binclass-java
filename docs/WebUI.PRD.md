@@ -545,6 +545,62 @@ postpones navigation while a search is in flight (see §3.2.2) also applies here
 
 ---
 
+### 3.7 Test coverage
+
+The use cases below are exercised by tests that currently exist. Each maps to a concrete behaviour in §3; keep these green when refactoring.
+
+**Flag → config translation — `GlaParametersFormTest` (`binclass-ui`).**
+- `defaultsMatchGlaConfigDefaults`: form defaults seed from `GlaParametersForm.defaults()` (`kstart=1`, `kstop=0`, `epsilon = GLAConfig.DEFAULT.epsilon()`, `distanceType = DEFAULT`).
+- `automaticSearchWhenNoRangeOrIterations`: no range bounds / maxIter → `SearchType.AUTO`.
+- `rangeSearchWhenKStartExceedsOne`: `kstart > 1` → `SearchType.NAUTO` (fixed lower bound selects range search).
+- `rangeSearchWhenKStopSet` / `rangeSearchWhenMaxIterPositive`: a positive `kstop` or `maxIter` also forces `NAUTO`.
+- `lcentSearchWhenCentroidFilePresent`: a `-L` centroid file present → `SearchType.LCENT` (load centroids).
+- `toConfigCarriesScalarValuesThrough`: every scalar field (`epsilon`, `heuristic`, `alternateMode`, `centroidType`, `distanceType`, `maxIter`, …) and the decreasing-epsilon flag round-trip through `toConfig()`.
+- `toConfigSetsVectorCount`: `n` is stored as the vector count on the resolved config.
+- `toConfigValidatesEpsilon`: an `epsilon` outside `(0, 0.5)` throws from `toConfig()` (bare mode).
+- `decreasingEpsilonSkipsValidation`: with decreasing-epsilon on, a bare out-of-range `epsilon` passes validation unchanged.
+
+**Signal state + search-type resolution + event updates — `GlaViewModelTest` (`binclass-ui`).**
+- `initialSignalsHaveExpectedValues`: `running=false`, empty status text, `canRun=false`, non-null graph points / partition model signals.
+- `setDataPopulatesDataSignalAndStatus`: uploading data sets the vector set and a `"Loaded …"` status text.
+- `canRunTrueAfterDataLoaded` / `canRunFalseWhenUploadInvalid` / `canRunFalseWhileRunning`: `canRun()` requires loaded data **and** a validated upload **and** not running.
+- `eventFiredProgressAppendsGraphPoint`: a `SearchProgress("gla", k, sc, false)` appends one `GraphPoint(k, sc)` to the SC model.
+- `eventFiredProgressDropsNonFiniteSc`: non-finite (`NaN`) SC values are dropped from the graph.
+- `eventFiredBestPartitionUpdatesModel`: a `SearchBestPartition` snapshot rebuilds the partition model (cluster count preserved).
+- `eventFiredCompletedUpdatesGraphAndPartition`: a `SearchCompleted` snapshot sets the stochastic complexity on the partition model and finalises the graph.
+- `setFormStoresAndReturnsForm`: `setForm`/`getForm` round-trip the form record.
+- `runWithoutDataIsNoOp`: running with no data is a no-op (button stays inert).
+- `rangeSearchResultBuildsPartitionModel` / `automaticSearchResultBuildsPartitionModel`: both engine entry points produce a non-null partition via the VM's static run helpers.
+- `partitionModelStartsNonEmpty`: the model signal starts non-null/empty so the Partition component's initial effect does not NPE.
+- `automaticSearchSetsIndeterminateProgress` / `rangeSearchSetsDeterminateProgress`: automatic search animates an indeterminate bar; a fixed-k range search reports a determinate fraction. This is the §3.4 progress-bar distinction.
+
+**Algorithm → presentation mapping — `GlaViewTranslatorTest` (`binclass-ui`).**
+- `toPartitionModelBuildsOneClusterPerCluster`: one `ClusterData` per partition cluster; vector count and stochastic complexity carried through.
+- `toPartitionModelUsesMostFrequentStrainAsName` / `toPartitionModelFallsBackToIndexWhenNoStrain`: cluster name is the most-frequent strain, falling back to the 1-based index when no strain is set.
+- `toPartitionModelRoundsCentroidForHover`: per-cluster rounded centroid for hover (bit rounding of probabilities).
+- `toPartitionModelHandlesMissingCentroids`: translation tolerates a null centroid array.
+- `toGraphModelMapsIndexToXWhenKsAbsent` / `toGraphModelDropsNonFinitePoints` / `toGraphModelUsesKsWhenProvided`: the SC curve maps index→x when no explicit `ks[]` is given, drops non-finite points, and uses explicit `ks[]` x-values when provided.
+
+**Real component driving — `RouteGlaViewBrowserlessTest` (`binclass-ui`).**
+- `uploadEnablesRunAndClickStartsSearch`: uploading `/test.header` + `/test.data` parses 100 vectors, sets the status text to `"Loaded…"`, enables Run, and clicking it flips `running()` to `true` synchronously while hiding the form.
+- `runDisabledBeforeUpload`: with no data loaded / upload unvalidated, Run stays disabled even though the form is valid.
+- `kstopAndKstopwhenMutuallyExclusiveDisablesRun`: setting both `-s` and `-S` positive marks both fields invalid (message *"kstop (-s) and kstopwhen (-S) are mutually exclusive."*) and disables Run; clearing one restores validity.
+- `epsilonOutOfRangeDisablesRunButDecreasingReenables`: out-of-range epsilon disables Run; toggling decreasing-epsilon re-enables it; returning to normal mode with an in-range value keeps it enabled.
+- `kStartGreaterThanOneStillRunsSearch`: a fixed lower bound still enables and starts the search (range search).
+- `confirmDialogAppearsWhenNavigatingAwayWhileRunning` / `confirmResumesNavigationAndCancelsSearch` / `cancelKeepsSearchRunningAndStaysInView`: the `beforeLeave` guard opens a confirm dialog when navigating away mid-search; *confirm* cancels and proceeds, *cancel* keeps running and stays on the view.
+
+**End-to-end rendering — `GlaViewIT` (`binclass-ui`, Playwright).**
+- `glaViewRendersParamsFormAndTabs`: every control renders (range fields, strategy selects incl. `#empty-cell-fix`, Run button, tabs) plus the embedded Report tab (`#report-component-gla`) and each result tab's component once its header is selected.
+- `glaViewRendersDefaultParameters`: the default form seeds range/epsilon values; uploading the bundled pair enables Run.
+- `glaViewGraphAccumulatesPointsOnCompletion` (marked `@Ignore flaky`): progress events draw a polyline on the SC graph.
+- `glaViewPartitionTabReceivesModelOnCompletion`: a fabricated `SearchCompleted` populates the partition tab.
+
+### 3.8 Embedded Report tab (§17)
+
+The GLA display embeds one `ReportComponent` instance (`id="report-component-gla"`) in its own *Report* tab — report output depends on whichever partition is currently displayed, so it recomputes centroids from the bound partition and regenerates on flag change. This is the only classifier display with a dedicated Report component wired today; §4 … §7 embed their own instances once built.
+
+---
+
 ## 4. Display B — Local Search (`ClassifyCommand` `-r7`/`-r8`)
 
 > **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Local Search")` title and a placeholder body
@@ -555,15 +611,19 @@ A focused view on heuristic local search (cycler `-r7`, adaptive `-r8`) which ro
 heuristic-related flags and shows per-operator progress.
 
 ### 4.1 Algorithm entry point
-- `GLAConfig` with `heuristic ∈ {2..6}` (split/join variants, replace-worst/smallest, random-swap) plus `lsCycler`/`lsAdaptive`. Reuse the GLA engine via `RangeSearch`/`AutomaticSearch` with those flags set.
+- `GLAConfig` with `heuristic ∈ {1..8}` (all eight: SPLITJOIN1 … RANDOMSWAP2, plus Cycler/Adaptive) plus `lsCycler`/`lsAdaptive`. Reuse the GLA engine via `RangeSearch`/`AutomaticSearch` with those flags set. The select shows **all 8** codes — code 1 (SPLITJOIN1) is a valid single-operator local-search choice, not excluded.
+- The two meta-heuristics are **booleans** on `GLAConfig`, not extra heuristic codes: `-r7` sets `heuristic=7, lsCycler=true` and `-r8` sets `heuristic=8, lsAdaptive=true`. Both keep a base operator (SPLITJOIN1) but call `LocalSearch.localSearch(partition, centroids, count, l, n, jeffreysPrior, random)` after each GLA step instead of a single-shot `GLAEngine.gla*` variant.
+- **Activation gate:** local search only refines when the cluster count exceeds three (`k > 3`), matching the CLI's `-j` behaviour — for small fixed-k ranges it still runs but with few operator applications. The driver applies a rotating sequence of operators (`SPLITJOIN1, REPLACEWORST, REPLACESMALLEST, RANDOMSWAP, RANDOMSWAP2, SPLITJOIN2`), tracks per-operator successes with adaptive weights (ALFA/BETA cooling), keeps the best partition found, and performs a final refinement pass.
+- `count` = operator applications (`heuristicCount - 1`); `-j` adds one internally. The driver logs each iteration's applied operator and resulting SC; on an improvement it publishes a per-operator success event (see §4.3) so the *Search* tab can surface which operator improved SC.
+- **New event type — `OperatorSuccess`.** EventBus already exposes per-k `SearchProgress(k, sc)`; local search additionally posts an `OperatorSuccess("localsearch", k, heuristicCode, scDelta)` whenever a single operator application lowers SC. The view renders these as human-readable lines in the status element inside the progress tab (e.g. *"k=5: replace-worst improved SC by 1.2 → 40.3"*). It does **not** feed the SC graph — that stays driven by per-k `SearchProgress`.
+- The two meta-heuristics are **booleans** on `GLAConfig`, not extra heuristic codes: `-r7` sets `heuristic=7, lsCycler=true` and `-r8` sets `heuristic=8, lsAdaptive=true`. Both keep a base operator (SPLITJOIN1) but call `LocalSearch.localSearch(partition, centroids, count, l, n, jeffreysPrior, random)` after each GLA step instead of a single-shot `GLAEngine.gla*` variant.
+- **Activation gate:** local search only refines when the cluster count exceeds three (`k > 3`), matching the CLI's `-j` behaviour — for small fixed-k ranges it still runs but with few operator applications. The driver applies a rotating sequence of operators (`SPLITJOIN1, REPLACEWORST, REPLACESMALLEST, RANDOMSWAP, RANDOMSWAP2, SPLITJOIN2`), tracks per-operator successes with adaptive weights (ALFA/BETA cooling), keeps the best partition found, and performs a final refinement pass.
+- `count` = operator applications (`heuristicCount - 1`); `-j` adds one internally. The driver logs each iteration's applied operator and resulting SC, so the *Search* tab can surface per-operator progress.
 
 ### 4.2 Parameters → control
-Reuse `GlaParametersForm`; add a `Select` for heuristic (2–6, or "cycler"/"adaptive") and a `IntegerField`
-for `heuristicCount`. Drop the search-type controls (always range/automatic). The shared form carries the same
-edge cases as §3.2.2: uploading a header/data pair enables *Run* only after the vectors parse (status text loads),
-*Run* stays disabled before any data is loaded, and `epsilon` outside `(0, 0.5)` disables *Run* but re-enables via
-the decreasing-epsilon toggle and an in-range value. Because search-type controls are dropped, both fixed-k and
-automatic runs start from the same button — there is no `kstop`/`kstopwhen` mutual-exclusion branch here.
+Reuse `GlaParametersForm`; add a `Select<Heuristic>` for heuristic (codes **1–8**, i.e. 2–6 plus "Cycler"/"Adaptive") and a `IntegerField` for `heuristicCount`. Drop the search-type controls (`kstart`/`kstop`/`kstopwhen`/`kcStopWhen`) — local search is always range or automatic, so there is no `kstop`/`kstopwhen` mutual-exclusion branch here. The shared form carries the same edge cases as §3.2.2: uploading a header/data pair enables *Run* only after the vectors parse (status text loads), *Run* stays disabled before any data is loaded, and `epsilon` outside `(0, 0.5)` disables *Run* but re-enables via the decreasing-epsilon toggle and an in-range value. Because search-type controls are dropped, both fixed-k and automatic runs start from the same button.
+
+> **Reuse the existing `Heuristic` presentation enum** (`binclass-ui/src/main/java/org/binclass/ui/classify/Heuristic.java`) rather than building a separate one — it already carries codes 1–8 with labels (Split-Join 1 … Random-Swap 2, Cycler, Adaptive), `.code()`, and `fromCode(int)`. The view builds the config by calling `.code()`, so §3's translation layer stays untouched. This means local search reuses the exact same enum select as GLA Search; it simply always resolves to a heuristic (never a search-type).
 
 ### 4.3 UI skeleton
 
@@ -571,22 +631,63 @@ automatic runs start from the same button — there is no `kstop`/`kstopwhen` mu
 RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 ├─ FormLayout paramsForm            id="local-params"
 │   ├─ (filebase + uploader)         id="filebase"
-│   ├─ Select       heuristic        id="heuristic"          2..6, cycler, adaptive
-│   ├─ IntegerField heuristicCount   id="heuristic-count"
+│   ├─ Select<Heuristic> heuristic   id="heuristic"          all 8 codes, cycler, adaptive
+│   ├─ IntegerField heuristicCount   id="heuristic-count"    (-j; +1 internally)
 │   ├─ NumberField  epsilon          id="epsilon"
 │   ├─ Checkbox     jeffreysPrior    id="jeffreys-prior"
 │   └─ Button       run              id="run-local"
-├─ TabSheet             localTabs        id="local-tabs"      (Search | SC Graph | Partition)
+├─ TabSheet             localTabs        id="local-tabs"      (Search | SC Graph | Partition | Summary | Report)
 │   ├─ "Search"  → Card searchCard          id="local-search-panel"
-│   │   └─ ProgressIndicator progress         id="local-progress"
+│   │   ├─ ProgressIndicator progress         id="local-progress"
+│   │   └─ Div          statusText           id="local-status"    (strategy + per-operator success lines)
 │   ├─ "SC Graph" → graphSC                        id="sc-graph"
-│   └─ "Partition" → partitionView              id="partition-view"
+│   ├─ "Partition" → partitionView              id="partition-view"
+│   │   └─ download controls (§18.5)             id="local-downloads"  (partition + centroids)
+│   ├─ "Summary" → summaryContent             echoes resolved GLAConfig + New search button
+│   └─ "Report"  → ReportComponent            id="report-component-localsearch"
 ```
 
+**Flow (MVVM):** mirrors §3.4 — `#run-local` click → view calls `viewModel.setForm(buildForm())` then `viewModel.run(runButton)`. The VM builds `GLAConfig` from the form record with the chosen heuristic code and `lsCycler`/`lsAdaptive` set, submits to the single-threaded executor, disables the button with `setDisableOnClick(true)`, and hides the form revealing the results tab sheet. Per-`k` `SearchProgress("localsearch", k, sc, false)` updates the SC curve; best-partition snapshots (`SearchBestPartition`) refresh the Partition tab live; completion sets the bound result signal so graph/partition rebuild automatically. The *Search* tab's status text echoes the chosen strategy (e.g. *"Cycling all strategies for Local Search"* / *"Adaptive …"*) and per-operator success lines from `OperatorSuccess` events emitted by `LocalSearch.localSearch`. On completion/cancellation the button is re-enabled and the future cancelled in `onDetach(...)`.
+
+**SC graph (fixed-k):** reuse §3.5 logic — for an automatic run populate the curve from `AutomaticSearch.Result.scs[]`; for a pure range search there is no `scs[]`, so either re-run at successive fixed `k`s to build a curve or show the single best point and disable the graph until data arrives (same approach GLA uses).
+
+**Report tab:** embed one `ReportComponent` instance (`id="report-component-localsearch"`) bound to the currently displayed partition, mirroring §3.8 — it recomputes centroids from that partition and regenerates on flag change.
+
+**Summary tab:** own Summary tab echoing the resolved `GLAConfig` (search type, every flag, effective maxIter, chosen heuristic + cycler/adaptive) with a *New search* button that restores the form and hides the tabs — same contract as §3.4.
+
+**Downloads (§18.5):** beside the Partition tab, expose two download controls — partition → `.partition` via `PartitionWriter.writePartition(partition, name)` and centroids → `.centroids` via `CentroidWriter.save(centroids, name)`. Build content in memory (no temp files), disable while a search is running (bind to the same `running` signal), re-enable once a result exists.
+
 ### 4.6 Testing
-- **Unit:** heuristic→config mapping; cycler/adaptive flags propagate.
-- **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` carries the chosen heuristic plus `lsCycler`/`lsAdaptive`; verify *Run* disables while a search is in flight and re-enables on completion. (SC graph / partition rendering already covered in `binclass-components`.)
-- **Playwright:** run a local search, assert status text mentions the chosen strategy and graph renders.
+- **Unit:** heuristic→config mapping; cycler/adaptive flags propagate (`lsCycler`/`lsAdaptive` set when code is 7/8, single operator otherwise). Also unit-test the translation layer exactly as §3.6: `PartitionModel` populated from the algorithm `Partition`/`InfiniteCentroids` (cluster names via most-frequent strain → index fallback, per-cluster `ClusterData`, rounded centroid for hover) and the SC curve graph model (`scs[]` → `GraphPoint(k, sc)`, dropping non-finite points).
+- **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` carries all 8 heuristic codes plus `lsCycler`/`lsAdaptive`; verify *Run* disables while a search is in flight and re-enables on completion; fabricate an `OperatorSuccess` event and assert `#local-status` appends a line; fabricate a `SearchCompleted` event and assert `#sc-graph` accumulates points, the partition tab receives a model, downloads enable, and the Summary tab renders. (SC graph / partition rendering already covered in `binclass-components`.)
+- **Playwright:** run a local search, assert status text mentions the chosen strategy (cycler/adaptive) plus per-operator success lines, the graph renders, and each download control produces its file.
+
+### 4.7 Test coverage (reference from §3 + engine)
+
+The Local Search view should follow the **same test structure as §3.7** — BrowserlessTests driving the real Vaadin components are the primary pattern, with algorithm-level engine tests kept only as a reference for driver behaviour. The Mockito `mockStatic` approach used in `ClassifyCommandTest` (CLI dispatch) is *not* the right fit here; the view asserts config emission and Run behaviour through its own BrowserlessTests instead.
+
+**Flag → config translation — `LocalSearchParametersFormTest` (`binclass-ui`).**
+- heuristic→config mapping with cycler/adaptive propagation: code 7 sets `lsCycler=true`, code 8 sets `lsAdaptive=true`, codes 1–6 keep a single operator; all eight codes round-trip through `toConfig()`.
+- Reuses the shared form's validation edge cases from §3.2.2 (upload enables Run, epsilon range with decreasing-epsilon) and confirms there is **no** `kstop`/`kstopwhen` mutual-exclusion branch in local search.
+
+**Signal state + event updates — `LocalSearchViewModelTest` (`binclass-ui`).**
+- Mirrors `GlaViewModelTest`: `canRun()` after upload, progress → graph points (dropping non-finite), best-partition/completed snapshots → partition model, indeterminate vs determinate progress bars.
+- New: listens for the `OperatorSuccess` event and appends to a status-text signal; exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads.
+
+**Algorithm → presentation mapping — reuse `GlaViewTranslatorTest` patterns.**
+- The translation layer is shared with GLA, so assert `PartitionModel` populated from `Partition`/`InfiniteCentroids` (cluster names via most-frequent strain → index fallback, per-cluster `ClusterData`, rounded centroid for hover) and the SC curve graph model (`scs[]` → `GraphPoint(k, sc)`, dropping non-finite points).
+
+**Real component driving — `RouteLocalSearchViewBrowserlessTest` (`binclass-ui`).**
+- Mirrors `RouteGlaViewBrowserlessTest`: uploading `/test.header` + `/test.data` parses vectors and enables Run; clicking *Run* flips `running()` to `true` synchronously while hiding the form; *Run* stays disabled before upload; the all-8-code heuristic select emits the right config (cycler/adaptive); a fabricated `OperatorSuccess` event appends a line to `#local-status`; a fabricated `SearchCompleted` event makes `#sc-graph` accumulate points, gives the partition tab a model, enables downloads, and renders the Summary tab.
+
+**End-to-end rendering — `LocalSearchViewIT` (`binclass-ui`, Playwright).**
+- Mirrors `GlaViewIT`: every control renders (heuristic select showing all 8 codes, heuristic-count, epsilon, jeffreysPrior) plus each result tab incl. Report and Summary; a real run shows the chosen strategy text and per-operator success lines in the status element, draws the SC graph, and each download control produces its file.
+
+**Engine reference (algorithm-level, not view tests).**
+- `AutomaticSearchTest` (`binclass-algorithms`): `configWithHeuristic(...)` helper + `testHeuristic7RunsLocalSearch` / `testHeuristic8RunsLocalSearch` verify the driver runs after GLA for every k > 3 and that every input vector is covered — the behaviour §4's view drives.
+- `LocalSearchTest` (`binclass-algorithms`): operators/helpers, `successIndex`, and the driver itself — the per-operator success tracking that `OperatorSuccess` events are derived from.
+
+**UI module (to be added alongside §3's four files).** Add a dedicated `LocalSearchViewModel` (not a reuse of `GlaViewModel`) mirroring `GlaViewModelTest`'s signal/event patterns for local search: `canRun()` after upload, progress → graph points (dropping non-finite), best-partition/completed snapshots → partition model, indeterminate vs determinate progress bars. The VM listens for the new `OperatorSuccess` event and appends to a status-text signal; it also exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads. Add a dedicated `RouteLocalSearchViewBrowserlessTest` mirroring `RouteGlaViewBrowserlessTest` (upload enables Run, Run disabled before upload, all-8-code strategy select emits the right config).
 
 ---
 
