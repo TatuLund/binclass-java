@@ -37,8 +37,13 @@ export class Partition extends ThemableMixin(LitElement) {
   @property()
   theme: string | null = null;
 
-  private _format(value: number): string {
-    return Number.isNaN(value) ? "n/a" : value.toFixed(3);
+  private _format(value: number | string): string {
+    // Java serializes Double.NaN as the JSON string "NaN" (JSON has no NaN
+    // literal), so a bound model may pass either a number or that string.
+    // Coerce first: Number("NaN") yields an actual number NaN, which
+    // Number.isNaN() then recognizes instead of calling .toFixed on a string.
+    const n = typeof value === "number" ? value : Number(value);
+    return Number.isNaN(n) ? "n/a" : n.toFixed(3);
   }
 
   static get is() {

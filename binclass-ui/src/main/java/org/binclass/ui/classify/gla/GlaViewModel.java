@@ -79,8 +79,8 @@ public final class GlaViewModel implements EventBus.EventBusListener {
 
     /**
      * Centroids matching the best partition found so far, carried by the search
-     * events. Set whenever a result carries them and consumed by
-     * {@link #bestCentroidsFor} so the Partition tab can render real centroids
+     * events. Set whenever a result carries them and consumed when applying a
+     * best-partition snapshot so the Partition tab can render real centroids
      * instead of empty ones.
      */
     @Nullable
@@ -327,9 +327,9 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         // Track the evaluated range so the progress bar can report a fraction
         // for range searches; automatic (kstopwhen) searches stay
         // indeterminate.
-        this.kstart = Math.max(1, form.kStart());
-        this.kstop = (type == SearchType.NAUTO && form.kStop() > 0)
-                ? form.kStop()
+        this.kstart = Math.max(1, boundForm.kStart());
+        this.kstop = (type == SearchType.NAUTO && boundForm.kStop() > 0)
+                ? boundForm.kStop()
                 : vectorSet.size();
         boolean indeterminate = type != SearchType.NAUTO;
         if (!indeterminate) {
@@ -398,8 +398,6 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         if (event instanceof SearchBestPartition(_, var result)) {
             applyResult(result);
         } else if (event instanceof SearchCompleted(_, var result)) {
-            // graphPoints.update(_ -> GlaViewTranslator.toGraphModel(result.scs(),
-            //         result.ks()));
             applyResult(result);
         } else if (event instanceof SearchProgress(_, var k, var sc, _)) {
             appendPoint(k, sc);
@@ -428,9 +426,10 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         boolean available = partition != null;
         resultAvailable.update(_ -> available);
         if (available) {
-            InfiniteCentroids centroids = bestCentroidsFor(partition);
+            assert bestCentroids != null
+                    : "Best centroids must not be null when partition is available";
             partitionModel.update(_ -> GlaViewTranslator.toPartitionModel(
-                    partition, centroids, result.scmin()));
+                    partition, bestCentroids, result.scmin()));
         }
     }
 
@@ -492,23 +491,6 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         double fraction = Math.min(1.0,
                 Math.max(0.0, (k - kstart) / (double) span));
         progress.set(fraction);
-    }
-
-    /**
-     * Returns the centroids matching a partition's cluster count, falling back
-     * to an empty array per centroid when none are available.
-     *
-     * @param partition
-     *            the best partition (must not be {@code null})
-     * @return the matching centroid array, or {@code null} if unavailable
-     */
-    @Nullable
-    private InfiniteCentroids bestCentroidsFor(Partition partition) {
-        // The search events now carry the best-partition centroids alongside
-        // the partition, so return them directly. When absent (scalar-only
-        // events), fall back to empty centroids per cluster so the Partition
-        // tab still shows structure.
-        return bestCentroids;
     }
 
     /**

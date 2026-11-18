@@ -112,4 +112,31 @@ class PartitionIT extends ComponentIT {
                 "vec-c should now be rendered in the second cluster");
     }
 
+    /**
+     * Verifies that a partition whose bound model carries {@link Double#NaN}
+     * metrics renders its header without throwing. Java serializes NaN as the
+     * JSON string {@code "NaN"}, so this locks in the client-side
+     * {@code _format} coercion: if it called {@code .toFixed} on that string
+     * the whole render would fail and no metric value would appear.
+     */
+    @Test
+    void nanMetricsRenderAsNA() {
+        openDemo(TEST_ROUTE);
+        // Re-push NaN metrics reactively through the bound signal, mirroring
+        // how
+        // a live search updates the partition during and after a run.
+        page.locator("#set-nan-btn").click();
+
+        // Each metric is a span wrapping a <label> immediately followed by a
+        // sibling <value>. The adjacent-sibling selector reads the value that
+        // comes right after the labelled label.
+        Locator stochasticComplexity = page.locator(
+                "#partition-nan .header label:has-text(\"Stochastic Complexity\") + value");
+        assertThat(stochasticComplexity).hasText("n/a");
+
+        Locator overallDistortion = page.locator(
+                "#partition-nan .header label:has-text(\"Overall Distortion\") + value");
+        assertThat(overallDistortion).hasText("n/a");
+    }
+
 }

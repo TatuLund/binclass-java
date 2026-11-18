@@ -79,8 +79,6 @@ public final class RangeSearch {
      */
     @Nullable
     private InfiniteCentroids bestCentroids = null;
-    /** Per-{@code k} best-SC array from the most recent run. */
-    private double[] scs = new double[0];
 
     /**
      * Creates a range search over the given vectors and configuration.
@@ -299,7 +297,9 @@ public final class RangeSearch {
 
         log.info("Best classification: k={}, SC={}", actualK, scmin);
         Result result = new Result(bestPartition, bestCentroids);
-        postCompletion(result);
+        // Pass the local scs array explicitly so the completion event carries
+        // the per-k SC curve built during the run, not an empty placeholder.
+        postCompletion(result, scs);
         return result;
     }
 
@@ -320,6 +320,10 @@ public final class RangeSearch {
     private void postProgress(int k, double[] scs, boolean improved) {
         EventBus.get().post(new SearchProgress(display, k, scs[k], false));
         if (improved && bestPartition != null) {
+            assert bestCentroids != null : "Best centroids must not be null when best partition is available";
+            assert scs != null : "SC array must not be null when best partition is available";
+            assert actualK == k : "kmin must equal the current k when best partition is available";
+            assert scs.length > k : "SC array must have an entry for the current k when best partition is available";
             EventBus.get().post(new SearchBestPartition(
                     display, buildResult(actualK, scmin, bestPartition, scs,
                             bestCentroids)));
@@ -332,8 +336,11 @@ public final class RangeSearch {
      *
      * @param result
      *            the finished range-search result
+     * @param scs
+     *            the per-k best-SC array built during the run; used to build
+     *            the completion SC curve carried by the event
      */
-    private void postCompletion(Result result) {
+    private void postCompletion(Result result, double[] scs) {
         if (result.partition() != null) {
             EventBus.get().post(new SearchCompleted(display, buildResult(
                     actualK, scmin, result.partition(), scs,

@@ -74,6 +74,7 @@ public class PartitionView extends VerticalLayout {
         add(createCentroidSection());
         add(createClusterSection());
         add(createPartitionSection());
+        add(createNanMetricsSection());
     }
 
     private VerticalLayout createVectorSection() {
@@ -236,6 +237,62 @@ public class PartitionView extends VerticalLayout {
         // opened. Uniform-length vectors keep every grid sized identically so
         // the centroid and all vector cells align vertically across clusters.
         section.add("Vectors render when a caret is opened");
+
+        return section;
+    }
+
+    private VerticalLayout createNanMetricsSection() {
+        // A second partition whose header metrics are Double.NaN. Java
+        // serializes
+        // Double.NaN as the JSON string "NaN", so this exercises _format's
+        // string
+        // branch (the regression path where render() used to throw on
+        // "NaN".toFixed(3)). The button re-pushes NaN metrics reactively
+        // through
+        // the bound signal, mirroring how a live search updates the partition.
+        VerticalLayout section = new VerticalLayout();
+        section.add("Partition — NaN metrics render as n/a (regression test)");
+
+        List<VectorData> aVectors = List.of(vector("vec-a"), vector("vec-b"));
+        List<VectorData> bVectors = List.of(vector("vec-d"), vector("vec-e"));
+        CentroidData centroidA = new CentroidData(alternatingProbabilities(16),
+                "centroid-a", 1.0, 0.5, aVectors.size());
+        CentroidData centroidB = new CentroidData(alternatingProbabilities(16),
+                "centroid-b", 2.0, 0.2, bVectors.size());
+
+        PartitionModel model = new PartitionModel(
+                Double.NaN,
+                2,
+                4,
+                Double.NaN,
+                List.of(
+                        new ClusterData("cluster-a", 1.0, 0.5, aVectors.size(),
+                                centroidA, aVectors),
+                        new ClusterData("cluster-b", 2.0, 0.2, bVectors.size(),
+                                centroidB, bVectors)));
+
+        Partition partition = new Partition();
+        partition.setId("partition-nan");
+        ValueSignal<PartitionModel> nanSignal = new ValueSignal<>(model);
+        partition.bindPartitionModel(nanSignal);
+        section.add(partition);
+
+        Button setNanButton = new Button("Set NaN metrics again");
+        setNanButton.setId("set-nan-btn");
+        setNanButton.addClickListener(event -> {
+            PartitionModel nanModel = new PartitionModel(
+                    Double.NaN,
+                    2,
+                    4,
+                    Double.NaN,
+                    List.of(
+                            new ClusterData("cluster-a", 1.0, 0.5,
+                                    aVectors.size(), centroidA, aVectors),
+                            new ClusterData("cluster-b", 2.0, 0.2,
+                                    bVectors.size(), centroidB, bVectors)));
+            nanSignal.set(nanModel);
+        });
+        section.add(setNanButton);
 
         return section;
     }

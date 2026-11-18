@@ -64,6 +64,18 @@ public class Partition extends Component {
     private Registration effectRegistration;
 
     /**
+     * Registration of the attach listener that rebuilds the body clusters from
+     * the current model whenever this component attaches. TabSheet keeps each
+     * tab's content detached until its tab is selected, and a signal effect
+     * only re-runs while attached, so an explicit rebuild on attach guarantees
+     * the Partition reflects the latest model after switching to its tab.
+     * Removed when the partition is unbound through
+     * {@link #bindPartitionModel(ValueSignal)} with a null value.
+     */
+    @Nullable
+    private Registration attachRegistration;
+
+    /**
      * Sets all presentation data from a {@link PartitionModel} record, pushing
      * header metrics to the client and replacing the clusters in the body slot
      * with freshly built {@link Cluster} wrappers.
@@ -150,6 +162,10 @@ public class Partition extends Component {
                 effectRegistration.remove();
                 effectRegistration = null;
             }
+            if (attachRegistration != null) {
+                attachRegistration.remove();
+                attachRegistration = null;
+            }
             this.modelSignal = null;
             return;
         }
@@ -157,6 +173,8 @@ public class Partition extends Component {
         getElement().bindProperty(PROPERTY_MODEL, model, null);
         effectRegistration = Signal.effect(this,
                 () -> rebuildClusters(model.get().clusters()));
+        attachRegistration = addAttachListener(
+                event -> rebuildClusters(model.peek().clusters()));
     }
 
     /**

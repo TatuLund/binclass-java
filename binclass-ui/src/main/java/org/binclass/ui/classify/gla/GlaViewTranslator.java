@@ -128,10 +128,16 @@ public final class GlaViewTranslator {
      *         callers can always bind it
      */
     public static GraphModel toGraphModel(double[] scs, int[] ks) {
-        java.util.List<GraphPoint> points = new ArrayList<>();
+        List<GraphPoint> points = new ArrayList<>();
         for (int i = 0; i < scs.length; i++) {
             double sc = scs[i];
-            if (!Double.isFinite(sc)) {
+            // Drop non-finite values and the uncomputed sentinels the searches
+            // leave in place: AutomaticSearch uses Double.MAX_VALUE and
+            // RangeSearch
+            // uses 1000.0 for cluster counts it never scored, so they would
+            // otherwise stretch the adaptive y-axis and squash the real curve.
+            if (!Double.isFinite(sc) || sc == 1000.0
+                    || sc == Double.MAX_VALUE) {
                 continue;
             }
             int x = ks != null && i < ks.length ? ks[i] : i;
