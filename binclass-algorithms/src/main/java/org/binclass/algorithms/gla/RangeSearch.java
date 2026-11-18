@@ -174,7 +174,8 @@ public final class RangeSearch {
         // maximum_class_number, so when kstop reaches that cap the loop must
         // stop at mk - 1 rather than kstop; an inclusive `k <= kstop` would
         // index scs[kstop] out of bounds (e.g. scs[200] for length 200).
-        for (int k = kstart; k < mk; k++) {
+        for (int k = kstart; k < mk
+                && !Thread.currentThread().isInterrupted(); k++) {
             // Run GLA up to `attempts` times per cluster count with different
             // starting centroids, keeping the best SC so bad local minima are
             // not counted. Mirrors C use_gla() where -a sets the number of

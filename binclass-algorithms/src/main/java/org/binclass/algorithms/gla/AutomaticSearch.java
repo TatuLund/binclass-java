@@ -151,6 +151,11 @@ public final class AutomaticSearch {
         int kc = 0;
 
         for (int k = kstart; k <= Math.min(s, MAXIMUM_CLASS_NUMBER); k++) {
+            // Stop the forward scan promptly when a search is cancelled.
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
+
             StepResult step = runAttempts(k);
             if (step == null) {
                 kc++;
@@ -194,7 +199,8 @@ public final class AutomaticSearch {
         int maxPongPasses = config.safetyLimit() > 0
                 ? config.safetyLimit()
                 : MAXIMUM_CLASS_NUMBER;
-        for (int pass = 0; pass < maxPongPasses && improved; pass++) {
+        for (int pass = 0; pass < maxPongPasses && improved
+                && !Thread.currentThread().isInterrupted(); pass++) {
             improved = false;
 
             // Ping: rescan the window below kmin.

@@ -351,4 +351,34 @@ class AutomaticSearchTest {
         assertTrue(totalPartitionSize(result.partition()) >= set.size(),
                 "partition covers all input vectors");
     }
+
+    /**
+     * Verifies that interrupting the running search thread stops the forward
+     * scan promptly, mirroring how {@link GlaViewModel#cancel} calls
+     * {@code CompletableFuture#cancel(true)} to interrupt the GLA thread.
+     */
+    @Test
+    void testForwardScanStopsOnInterrupt() throws Exception {
+        VectorSet set = buildClusteredVectors(20); // 80 vectors of length 16
+        GLAConfig cfg = config(50, 1000); // large kstopwhen keeps the scan long
+
+        AutomaticSearch.Result[] holder = new AutomaticSearch.Result[1];
+        Thread searchThread = new Thread(() -> {
+            try {
+                holder[0] = new AutomaticSearch(set, cfg).run();
+            } catch (Throwable _) {
+                // Any error mid-scan is fine; the test only checks that the
+                // scan exits after interruption.
+            }
+        });
+        searchThread.start();
+        Thread.sleep(200); // let it enter the forward scan
+        searchThread.interrupt();
+
+        searchThread.join(20_000);
+        assertFalse(searchThread.isAlive(),
+                "forward scan must exit promptly after interrupt");
+        assertNotNull(holder[0],
+                "search should return a result before exiting");
+    }
 }

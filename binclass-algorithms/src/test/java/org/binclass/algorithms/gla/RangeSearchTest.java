@@ -5,6 +5,7 @@
 package org.binclass.algorithms.gla;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -321,6 +322,34 @@ class RangeSearchTest {
         RangeSearch.Result result = runWithRetry(set, cfg, 1, 1);
         assertNotNull(result.partition());
         assertAllVectorsAssigned(result.partition(), set.size());
+    }
+
+    /**
+     * Verifies that interrupting the running search thread stops the outer
+     * cluster-count loop promptly, mirroring how {@link GlaViewModel#cancel}
+     * calls {@code CompletableFuture#cancel(true)} to interrupt the GLA thread.
+     */
+    @Test
+    void testRangeSearchStopsOnInterrupt() throws Exception {
+        VectorSet set = buildClusteredVectors(20); // 80 vectors of length 16
+        GLAConfig cfg = config(3, 1000, 1, set.size());
+
+        RangeSearch.Result[] holder = new RangeSearch.Result[1];
+        Thread searchThread = new Thread(() -> {
+            try {
+                holder[0] = new RangeSearch(set, cfg).run(1, 20);
+            } catch (ArithmeticException | IllegalStateException _) {
+                // Transient empty-cluster scoring errors are fine; the test
+                // only checks that the scan exits after interruption.
+            }
+        });
+        searchThread.start();
+        Thread.sleep(200); // let it enter the range loop
+        searchThread.interrupt();
+
+        searchThread.join(20_000);
+        assertFalse(searchThread.isAlive(),
+                "range search must exit promptly after interrupt");
     }
 
 }

@@ -477,7 +477,13 @@ public final class GlaViewModel implements EventBus.EventBusListener {
         this.kstop = (type == SearchType.NAUTO && boundForm.kStop() > 0)
                 ? boundForm.kStop()
                 : vectorSet.size();
-        boolean indeterminate = type != SearchType.NAUTO;
+        // A bounded k-range (-b/-s) lets the bar report a fraction of the
+        // work left; everything else (automatic scan, centroids, or an
+        // iteration cap without an explicit range) stays indeterminate so a
+        // maxIter value alone does not change how progress is shown.
+        boolean hasExplicitRange = boundForm.kStart() > 1
+                || boundForm.kStop() > 0;
+        boolean indeterminate = !hasExplicitRange;
         if (!indeterminate) {
             progress.set(0.0);
         }
@@ -630,7 +636,10 @@ public final class GlaViewModel implements EventBus.EventBusListener {
      *            the cluster count just evaluated
      */
     private void updateProgress(int k) {
-        if (progressIndeterminate.peek()) {
+        // Ignore progress events that arrive late (after the search finished),
+        // so a completed bar stays at 100% instead of being reset to a stale
+        // fraction by an event still draining from the event bus.
+        if (!running.peek() || progressIndeterminate.peek()) {
             return;
         }
         int span = Math.max(1, kstop - kstart);

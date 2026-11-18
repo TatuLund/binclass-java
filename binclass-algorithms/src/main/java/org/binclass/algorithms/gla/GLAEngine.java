@@ -339,7 +339,8 @@ public final class GLAEngine {
         double baseEpsilon = config.epsilon() > 0 ? config.epsilon() : 0.1;
         double epsilon = config.decreasingEpsilon() ? 0.1 : baseEpsilon;
 
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
 
             // Don't remove empty clusters during Phase 2 - keep them for
@@ -546,7 +547,8 @@ public final class GLAEngine {
         boolean improvement = true;
         int iter = 0;
         int maxIter = calculateMaxIter(config);
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
@@ -643,7 +645,8 @@ public final class GLAEngine {
         boolean improvement = true;
         int iter = 0;
         int maxIter = calculateMaxIter(config);
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
@@ -728,7 +731,8 @@ public final class GLAEngine {
         boolean improvement = true;
         int iter = 0;
         int maxIter = calculateMaxIter(config);
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
@@ -813,7 +817,8 @@ public final class GLAEngine {
         boolean improvement = true;
         int iter = 0;
         int maxIter = calculateMaxIter(config);
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
@@ -901,7 +906,8 @@ public final class GLAEngine {
         boolean improvement = true;
         int iter = 0;
         int maxIter = calculateMaxIter(config);
-        while (improvement && iter < maxIter) {
+        while (improvement && iter < maxIter
+                && !Thread.currentThread().isInterrupted()) {
             iter++;
             removeEmpty(partition, centroids);
             k = centroids.size();
