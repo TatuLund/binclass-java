@@ -148,14 +148,15 @@ public final class RangeSearch {
 
         // --- G5: allocate scs[] capped at maximum_class_number ------------
         // scs[k] holds the best SC seen for k clusters; uncomputed entries
-        // keep the 1000.0 sentinel used by C's search_classes_nonautomatic().
+        // keep the UNASSIGNED_SC sentinel used by C's
+        // search_classes_nonautomatic().
         int mk = kstop + 1;
         if (mk > AutomaticSearch.MAXIMUM_CLASS_NUMBER) {
             mk = AutomaticSearch.MAXIMUM_CLASS_NUMBER;
         }
         double[] scs = new double[mk];
         for (int i = 0; i < mk; i++) {
-            scs[i] = 1000.0;
+            scs[i] = AutomaticSearch.UNASSIGNED_SC;
         }
 
         // --- G8: elapsed-time tracking ------------------------------------
@@ -275,12 +276,12 @@ public final class RangeSearch {
         }
 
         // --- G5: print the "SC as function of k" table -------------------
-        // Mirrors C's final report: every entry below the 1000.0 sentinel is
-        // printed with the same format used by the original tool.
+        // Mirrors C's final report: every entry below the UNASSIGNED_SC
+        // sentinel is printed with the same format used by the original tool.
         log.info("\nSC as function of k\n--");
         if (log.isInfoEnabled()) {
             for (int i = 0; i < mk; i++) {
-                if (scs[i] < 1000.0) {
+                if (scs[i] < AutomaticSearch.UNASSIGNED_SC) {
                     log.info(String.format("%3d: %2.4f", i, scs[i]));
                 }
             }

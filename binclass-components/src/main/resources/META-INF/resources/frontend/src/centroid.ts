@@ -130,7 +130,10 @@ export class Centroid extends ThemableMixin(LitElement) {
 
   private _shade(prob: number): string {
     const value = Math.max(0, Math.min(1, prob));
-    return `hsl(0, 0%, ${Math.round(value * 100)}%)`;
+    // HSL lightness of 0% is black and 100% is white, so invert the probability:
+    // a centroid value of 1 (bit set in every vector) renders black to match the
+    // binary vectors, while 0 renders white.
+    return `hsl(0, 0%, ${Math.round((1 - value) * 100)}%)`;
   }
 
   private _tooltipText(): string {

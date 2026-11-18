@@ -53,7 +53,7 @@ public final class AutomaticSearch {
     /**
      * Sentinel for an uncomputed SC value, matching {@code unassigned_sc()}.
      */
-    private static final double UNASSIGNED_SC = Double.MAX_VALUE;
+    public static final double UNASSIGNED_SC = Double.MAX_VALUE;
 
     private static final Logger log = LoggerFactory
             .getLogger(AutomaticSearch.class);

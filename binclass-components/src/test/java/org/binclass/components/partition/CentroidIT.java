@@ -4,6 +4,9 @@
  */
 package org.binclass.components.partition;
 
+import java.util.List;
+import java.util.regex.Pattern;
+
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import org.binclass.components.ComponentIT;
@@ -48,6 +51,23 @@ class CentroidIT extends ComponentIT {
      */
     private Locator cellsContainer(Locator centroid) {
         return centroid.locator(".cells");
+    }
+
+    /**
+     * Extracts the HSL lightness percentage from an inline background-color
+     * style such as {@code "background-color: hsl(0, 0%, 75%)"}. The value is
+     * the number immediately preceding the final {@code %}, which for these
+     * cells is always the lightness component.
+     */
+    private static int lightnessFromStyle(String style) {
+        String[] parts = style.split(",");
+        String last = parts[parts.length - 1]; // e.g. " 75%)"
+        var matcher = Pattern.compile("(\\d+(?:\\.\\d+)?)")
+                .matcher(last);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        throw new AssertionError("no lightness in style: " + style);
     }
 
     @Test
@@ -161,6 +181,40 @@ class CentroidIT extends ComponentIT {
         assertThat(shortCentroid.locator("vaadin-tooltip"))
                 .hasAttribute("opened", "");
         assertThat(page.locator("text=Name: centroid-5")).isVisible();
+    }
+
+    @Test
+    void shortCentroidCellsShadeFromWhiteAtZeroToBlackAtOne() {
+        openDemo(TEST_ROUTE);
+
+        // The short centroid carries probabilities 0.0, 0.25, 0.5, 0.75 and
+        // 1.0. Each cell's lightness must be (1 - prob) * 100 so a probability
+        // of 1 renders black and 0 renders white, matching the binary vectors
+        // whose bit 1 is black and bit 0 is white. This guards against the
+        // centroid looking inverted relative to its partition.
+        Locator shortCentroid = centroids(page).nth(0);
+        double[] probabilities = { 0.0, 0.25, 0.5, 0.75, 1.0 };
+
+        List<Locator> cells = cells(shortCentroid).all();
+        assertEquals(probabilities.length, cells.size(),
+                "expected one cell per probability");
+
+        for (int i = 0; i < probabilities.length; i++) {
+            int expectedLightness = (int) Math
+                    .round((1 - probabilities[i]) * 100);
+            int actualLightness = lightnessFromStyle(cells.get(i)
+                    .getAttribute("style"));
+            assertEquals(expectedLightness, actualLightness,
+                    "cell %d (prob %.2f) should render lightness %d%%"
+                            .formatted(i, probabilities[i], expectedLightness));
+        }
+
+        // The extremes must be pure white and pure black.
+        assertEquals(100,
+                lightnessFromStyle(cells.get(0).getAttribute("style")),
+                "probability 0 must render white");
+        assertEquals(0, lightnessFromStyle(cells.get(4).getAttribute("style")),
+                "probability 1 must render black");
     }
 
 }
