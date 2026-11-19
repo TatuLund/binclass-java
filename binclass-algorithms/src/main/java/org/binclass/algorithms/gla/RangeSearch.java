@@ -527,7 +527,8 @@ public final class RangeSearch {
                     config);
             LocalSearch.localSearch(partition, centroids,
                     config.heuristicCount(), vectorSet.getVectorLength(),
-                    config.n(), config.jeffreysPrior(), new java.util.Random());
+                    config.n(), config.jeffreysPrior(), new java.util.Random(),
+                    display, config.heuristic());
             break;
         case 8:
             // Local search adaptive mode (-r8): run the multi-operator local
@@ -538,7 +539,8 @@ public final class RangeSearch {
                     config);
             LocalSearch.localSearch(partition, centroids,
                     config.heuristicCount(), vectorSet.getVectorLength(),
-                    config.n(), config.jeffreysPrior(), new java.util.Random());
+                    config.n(), config.jeffreysPrior(), new java.util.Random(),
+                    display, config.heuristic());
             break;
         default:
             log.info("Defaulting to standard GLA");

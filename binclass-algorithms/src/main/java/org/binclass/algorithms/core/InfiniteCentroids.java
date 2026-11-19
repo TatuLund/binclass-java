@@ -4,6 +4,7 @@
  */
 package org.binclass.algorithms.core;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 import org.jspecify.annotations.NullMarked;
@@ -173,6 +174,35 @@ public final class InfiniteCentroids {
         // Clear the last slot to avoid memory leak
         centroids[k - 1] = null;
         k--;
+    }
+
+    /**
+     * Appends a new centroid at the end of the logical array and grows the
+     * count by one.
+     * <p>
+     * Equivalent to C function {@code infinite_centroids_add()} from
+     * {@code binset.h}. Used when restoring a target cluster count after local
+     * search merged some clusters: new centroids are appended until exactly
+     * {@code targetK} exist, then GLA converges them. The backing array keeps
+     * its original capacity across {@link #remove(int)} calls, so appending at
+     * index {@code k} is always in bounds as long as the physical length never
+     * shrank below the requested count.
+     * </p>
+     *
+     * @param c
+     *            the Centroid to append
+     */
+    public void add(Centroid c) {
+        if (c == null) {
+            throw new IllegalArgumentException("Centroid must not be null");
+        }
+        // Grow the backing array only when a prior remove() left spare tail
+        // slots exhausted (physical length equals logical count).
+        if (k >= centroids.length) {
+            centroids = Arrays.copyOf(centroids, k + 1);
+        }
+        centroids[k] = c;
+        k++;
     }
 
     /**

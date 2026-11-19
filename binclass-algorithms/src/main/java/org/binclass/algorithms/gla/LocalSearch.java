@@ -18,6 +18,8 @@ import org.binclass.algorithms.centroid.CentroidManager;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.dist.NearestNeighbor;
+import org.binclass.algorithms.events.OperatorSuccess;
+import org.binclass.algorithms.eventbus.EventBus;
 
 /**
  * Local search operators (Multi-Operator MOLS) used by the GLA heuristic
@@ -671,9 +673,74 @@ public final class LocalSearch {
      *            the random number generator
      * @return the total GLA cost accumulated across all passes
      */
+    /**
+     * Runs the local-search driver with a default display identifier
+     * ({@code "localsearch"}) and heuristic code {@code 0}. Kept for callers
+     * that only need the operator refinement without per-operator event tags.
+     *
+     * @param partition
+     *            the partition to refine (updated in place)
+     * @param centroids
+     *            the centroid array updated in place
+     * @param count
+     *            number of operator applications ({@code ls_heuristic_count} -
+     *            1)
+     * @param l
+     *            length of binary vectors
+     * @param n
+     *            total number of vectors
+     * @param jeffreysPrior
+     *            whether to use the Jeffreys prior for stochastic complexity
+     * @param random
+     *            the random number generator
+     * @return the total GLA cost accumulated across all passes
+     */
     public static int localSearch(Partition partition,
             InfiniteCentroids centroids,
             int count, int l, int n, boolean jeffreysPrior, Random random) {
+        return localSearch(partition, centroids, count, l, n, jeffreysPrior,
+                random, "localsearch", 0);
+    }
+
+    /**
+     * Runs the local-search driver. Equivalent to C {@code local_search()} from
+     * {@code glainf.c}. Applies a sequence of operators, tracks successes and
+     * adaptive selection probabilities, keeps the best partition found, then
+     * performs a final refinement pass.
+     * <p>
+     * Whenever a single operator application lowers the stochastic complexity,
+     * an {@link OperatorSuccess} event is posted so the UI can surface which
+     * strategy improved SC. The {@code display} identifier tags those events
+     * ({@code "localsearch"}) and {@code heuristicCode} records whether the
+     * driver was selected by the cycler ({@code -r7}) or adaptive ({@code -r8})
+     * flag.
+     *
+     * @param partition
+     *            the partition to refine (updated in place)
+     * @param centroids
+     *            the centroid array updated in place
+     * @param count
+     *            number of operator applications ({@code ls_heuristic_count} -
+     *            1)
+     * @param l
+     *            length of binary vectors
+     * @param n
+     *            total number of vectors
+     * @param jeffreysPrior
+     *            whether to use the Jeffreys prior for stochastic complexity
+     * @param random
+     *            the random number generator
+     * @param display
+     *            identifier attached to every posted {@link OperatorSuccess}
+     * @param heuristicCode
+     *            the {@code -r} code that selected this driver (7 cycler, 8
+     *            adaptive)
+     * @return the total GLA cost accumulated across all passes
+     */
+    public static int localSearch(Partition partition,
+            InfiniteCentroids centroids,
+            int count, int l, int n, boolean jeffreysPrior, Random random,
+            String display, int heuristicCode) {
         Objects.requireNonNull(partition, "Partition must not be null");
         Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
 
@@ -697,8 +764,7 @@ public final class LocalSearch {
                 LocalSearchOperator.SPLITJOIN2,
         };
 
-        double sc = DistanceCalculator.stochasticComplexity(partition,
-                countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
+        double sc = scorePartition(partition, l, jeffreysPrior);
         int gt = 0;
 
         log.debug(
@@ -714,10 +780,9 @@ public final class LocalSearch {
             VectorSet v = GLAEngine.partitionToSet(partition);
             gt += mseGla2(v, partition, centroids, n);
 
-            double scn = DistanceCalculator.stochasticComplexity(partition,
-                    countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
+            double scn = scorePartition(partition, l, jeffreysPrior);
 
-            log.debug(
+            log.trace(
                     "Local search iteration {}: applied {} -> SC = {} (best so far = {}, improved = {})",
                     i, op, scn, sc, scn < sc);
 
@@ -738,6 +803,9 @@ public final class LocalSearch {
                 if (idx >= 0) {
                     suc[idx]++;
                     w[idx] += 1.0;
+                    EventBus.get().post(new OperatorSuccess(display,
+                            partition.size(), heuristicCode, sc - scn,
+                            op.name()));
                     double sumW = 0.0;
                     for (int j = 0; j < 5; j++) {
                         sumW += w[j];
@@ -755,8 +823,7 @@ public final class LocalSearch {
         CentroidManager.copyCentroids(cmin, centroids);
         VectorSet v = GLAEngine.partitionToSet(partition);
         gt += mseGla2(v, partition, centroids, n);
-        double scn = DistanceCalculator.stochasticComplexity(partition,
-                countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
+        double scn = scorePartition(partition, l, jeffreysPrior);
         if (scn > sc) {
             CentroidManager.copyCentroids(cmin, centroids);
         }
@@ -786,6 +853,31 @@ public final class LocalSearch {
             }
         }
         return count;
+    }
+
+    /**
+     * Scores a partition's stochastic complexity, returning the
+     * {@link AutomaticSearch#UNASSIGNED_SC} sentinel when every cluster is
+     * empty (so {@code k == 1} and the uniform path would divide by zero).
+     * Mirrors the {@code actualClusters == 0} guard in
+     * {@link AutomaticSearch#score}.
+     *
+     * @param partition
+     *            the partition to score
+     * @param l
+     *            length of binary vectors
+     * @param jeffreysPrior
+     *            whether to use the Jeffreys prior for stochastic complexity
+     * @return the stochastic complexity, or {@code UNASSIGNED_SC} when all
+     *         clusters are empty
+     */
+    private static double scorePartition(Partition partition, int l,
+            boolean jeffreysPrior) {
+        if (countNonEmptyClusters(partition) == 0) {
+            return AutomaticSearch.UNASSIGNED_SC;
+        }
+        return DistanceCalculator.stochasticComplexity(partition,
+                countNonEmptyClusters(partition) + 1, l, jeffreysPrior);
     }
 
     /**

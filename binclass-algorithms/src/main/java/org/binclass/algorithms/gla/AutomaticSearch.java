@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
@@ -467,28 +468,40 @@ public final class AutomaticSearch {
         }
 
         double[] dmin = new double[1];
-        switch (config.heuristic()) {
-        case 2 -> GLAEngine.glaSr(vectorSet, partition, centroids, dmin,
+        // The GLA algorithm variant is selected by the distance type (-f),
+        // not by the local-search operator code (config.heuristic(), -r).
+        // Mirrors C's use_gla() which branches on distance_type to pick
+        // hybrid_l1 / hybrid_l2 / gla_sa / gla_sr / gla / MAE_gla / MSE_gla /
+        // fast_gla.
+        switch (config.distanceType()) {
+        case 5 -> GLAEngine.hybridGlaL1(vectorSet, partition, centroids, dmin,
                 config);
-        case 3 -> GLAEngine.glaSa(vectorSet, partition, centroids, dmin,
+        case 6 -> GLAEngine.hybridGlaL2(vectorSet, partition, centroids, dmin,
                 config);
-        case 4 -> GLAEngine.hybridGlaL1(vectorSet, partition, centroids, dmin,
+        case 8 -> GLAEngine.glaSa(vectorSet, partition, centroids, dmin,
                 config);
-        case 5 -> GLAEngine.hybridGlaL2(vectorSet, partition, centroids, dmin,
+        case 7 -> GLAEngine.glaSr(vectorSet, partition, centroids, dmin,
                 config);
-        case 6 -> GLAEngine.maeGla(vectorSet, partition, centroids, dmin,
+        case 4 -> GLAEngine.gla(vectorSet, partition, centroids, dmin,
                 config);
-        default -> GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+        case 2 -> GLAEngine.maeGla(vectorSet, partition, centroids, dmin,
+                config);
+        case 3 -> GLAEngine.mseGla(vectorSet, partition, centroids, dmin,
+                config);
+        default -> GLAEngine.fastGla(vectorSet, partition, centroids, dmin,
+                config);
         }
 
-        // Local search cycler (-r7) and adaptive (-r8) modes run the
-        // multi-operator local_search() driver after GLA, mirroring C's
-        // use_gla() which calls local_search() only when the cluster count
-        // exceeds 3. An MSE nearest-neighbor repartition seeds the partition
+        // Local search runs whenever -r is set (heuristic 1..8), mirroring
+        // C's use_gla() which calls local_search() whenever ls_heuristic !=
+        // HEUR_NONE and the cluster count exceeds 3. The single-operator modes
+        // (-r1..6) and the cycler/adaptive modes (-r7/-r8) all route through
+        // the same multi-operator driver; heuristicCode records which one was
+        // requested. An MSE nearest-neighbor repartition seeds the partition
         // first (as range search does), then the driver keeps the best
         // partition/centroids it finds, so we score that instead of the plain
         // GLA result.
-        if ((config.heuristic() == 7 || config.heuristic() == 8)
+        if ((config.heuristic() >= 1 && config.heuristic() <= 8)
                 && centroids.size() > 3) {
             NearestNeighbor.mseNearestNeighbor(vectorSet, partition,
                     centroids);
@@ -497,7 +510,14 @@ public final class AutomaticSearch {
                     config.n());
             LocalSearch.localSearch(partition, centroids,
                     config.heuristicCount(), vectorLength(), config.n(),
-                    config.jeffreysPrior(), new java.util.Random());
+                    config.jeffreysPrior(), new Random(), display,
+                    config.heuristic());
+            // local_search() applies SPLITJOIN operators that merge clusters,
+            // leaving fewer than kk non-empty clusters. Restore exactly kk
+            // clusters before scoring so the SC is computed for the requested
+            // cluster count and plotted at the correct index; otherwise several
+            // requested k's collapse to identical SC values (flat plateaus).
+            // restoreKClusters(partition, centroids, kk);
         }
 
         double sc = score(partition, centroids);
@@ -519,6 +539,73 @@ public final class AutomaticSearch {
             idx++;
         }
         return partition;
+    }
+
+    /**
+     * Restores exactly {@code targetK} non-empty clusters after local search
+     * merges some. Local search applies SPLITJOIN operators that can reduce the
+     * cluster count below the requested k, which would cause SC computed for
+     * fewer clusters to be stored at index k (wrong x-axis value in the graph).
+     * Adds random centroids from the vector set until there are exactly targetK
+     * non-empty clusters, then runs GLA to converge.
+     *
+     * @param partition
+     *            the partition to repair (updated in place)
+     * @param centroids
+     *            the centroid array to expand (updated in place)
+     * @param targetK
+     *            the number of clusters to restore
+     */
+    private void restoreKClusters(Partition partition,
+            InfiniteCentroids centroids, int targetK) {
+        if (countNonEmpty(partition) >= targetK) {
+            return;
+        }
+
+        // Snapshot the input vectors once: GLA() empties vectorSet on return,
+        // so we cannot draw random vectors from it after the first pass.
+        BinaryVector[] pool = vectorSet.toArray(new BinaryVector[0]);
+        if (pool.length == 0) {
+            return;
+        }
+
+        while (countNonEmpty(partition) < targetK) {
+            BinaryVector source = pool[(int) (Math.random() * pool.length)];
+            Centroid newCentroid = new Centroid(vectorLength());
+            newCentroid.setEl(source.getEl());
+            newCentroid.setWeight(1.0);
+            centroids.add(newCentroid);
+
+            // Local search's SPLITJOIN operators can leave the partition and
+            // centroid arrays at different sizes; grow the partition so its
+            // 1-based index matches the freshly appended centroid before adding
+            // the element to it.
+            if (partition.size() < centroids.size()) {
+                partition.setSize(centroids.size());
+            }
+            partition.addElement(centroids.size(), source.copy());
+        }
+
+        // Run GLA to converge the expanded cluster set onto exactly targetK.
+        double[] dmin = new double[1];
+        GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+    }
+
+    /**
+     * Counts the number of non-empty clusters in a partition.
+     *
+     * @param partition
+     *            the partition to inspect
+     * @return the number of clusters with at least one element
+     */
+    private int countNonEmpty(Partition partition) {
+        int count = 0;
+        for (int i = 1; i <= partition.size(); i++) {
+            if (partition.getClusterSize(i) > 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** Scores a clustering using SC or best-code-length, per the config. */
