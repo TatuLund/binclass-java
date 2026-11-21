@@ -1246,16 +1246,48 @@ id="report-component"
 ├─ Checkbox     affinityMatrix id="affinity-matrix"
 ├─ Checkbox     useHellinger   id="use-hellinger"
 ├─ IntegerField reportParams  id="report-params"
-├─ Table        matrixTable     id="report-affinity"    (nearness/affinity table, HTML <table>)
-└─ Div          reportText     id="report-text"    (JSoup-sanitized frequency tables / text)
+└─ VerticalLayout reportBody   id="report-body"
+    ├─ H3         header        id="report-header"
+    ├─ Details    TOTAL FREQUENCIES (id="report-section")
+    │   └─ FrequencyTable (one column per bit, metric rows)
+    ├─ Details    LIST OF CLASSES (id="report-section")
+    │   └─ VerticalLayout of ClassInfoComponent per cluster
+    └─ Details    CLASS NEARNESS MATRIX (id="report-section")
+        └─ AffinityMatrix  id="report-affinity"
 ```
 
 Report text is rendered as sanitized content (`SoupParser`/JSoup content mode, per Agents.md) so the raw
 report string cannot inject markup. When nearness or affinity output is requested, render it as a real HTML
-`<table>` via `Table` (styled in CSS, see §18.7) instead of only sanitized text — a square class-nearness or
-affinity matrix reads far better as aligned cells than as a monospace string block. The component recomputes
-centroids from the partition it is bound to and regenerates on flag change; each display binds it to its own
-currently displayed partition.
+`<table>` (styled in CSS, see §18.7) instead of only sanitized text — a square class-nearness or affinity
+matrix reads far better as aligned cells than as a monospace string block. The component recomputes centroids
+from the partition it is bound to and regenerates on flag change; each display binds it to its own currently
+displayed partition.
+
+#### 17.4.1 Report UX layout (reorganized)
+
+The report was reorganized so dense tables stay compact instead of forcing extensive scrolling:
+
+- **Frequency tables are transposed.** `FrequencyTable` renders one column per bit position and one row per
+  metric (`Count`, `Percentage`, and optionally `Digit`). The old tall layout (one row per bit, few columns)
+  became a short wide table — far better when the vector length is large. It is used both for the total
+  frequencies section and inside each `ClassInfoComponent`. A leading empty corner cell keeps the bit-position
+  headers aligned with their data columns; each metric row carries a style hook (`frequency-count-row`,
+  `frequency-percentage-row`, and `frequency-digit-row` when shown) so CSS can border it like the affinity
+  matrix and right-align the numeric cells.
+- **Affinity matrix extracted into its own component.** `AffinityMatrix` replaces the inline `renderMatrix`
+  logic in `ReportComponent`. Instead of per-cell `getStyle()` calls, every logical cell carries a CSS class
+  hook (`matrix-header-cell`, `matrix-corner`, `matrix-label`, `matrix-cell`, `matrix-diagonal`) and all
+  styling lives in `binclass-components/src/main/resources/META-INF/resources/affinitymatrix.css`, imported via
+  `@StyleSheet("/affinitymatrix.css")` on `ReportComponent`. The table also sets `white-space: nowrap` on its
+  cells so values never wrap — otherwise a wide matrix becomes too sparse. Diagonal cells render as `-`; the
+  default Hamming distance is an integer, but Hellinger (`-h`) and affinity-transform (`-a`, `(k-d)/k`)
+  distances are fractional.
+- **Adaptive number formatting.** Matrix values no longer always print `.00`. Integer values (the default
+  Hamming distance) render without a decimal point; fractional values keep two decimals with trailing zeros
+  stripped, so `1.50` reads as `1.5` and `2.00` reads as `2`. This removes wasted space in the common case.
+- **Sections wrapped in `Details`.** Each report section (total frequencies, list of classes, class nearness
+  matrix) is placed inside a Vaadin `Details` element so it collapses by default; the always-listed classes
+  stay expanded. This keeps the report compact and reduces scrolling until a user expands a section.
 
 ---
 
@@ -1371,7 +1403,8 @@ Decisions below are grouped by how they map to Aura tokens (see the `aura-theme`
 - **Cards:** the tabbed classifier views use `Card`; give them subtle elevation with `--aura-surface-level: 0.5` and rounded corners via `--aura-base-radius` (default `3`). Avoid heavy shadows — this is a data tool, not marketing.
 - **Spacing scale:** use a single gap unit across every view so layouts feel uniform. Prefer `gap` on `VerticalLayout`/`FormLayout` in multiples of `8px` (`8 / 12 / 16`) rather than ad-hoc padding. Keep the params form and its results separated by at least `16px`.
 - **Density:** keep the default base size (`--aura-base-size: 16`). BinClass forms are long (GLA has ~20 flags); comfortable spacing beats cramming them in.
-- **Tables (§12, §17):** `Table` renders a plain HTML `<table>` and inherits nothing from Aura, so give it an explicit look via a class hook (`matrix-table`) in `styles.css`: `border-collapse: collapse`, 1px borders on `th/td` using `var(--vaadin-border-color)`, padding from `--vaadin-padding-xs/s`, and right-aligned numeric cells. Sticky the first header cell (`position: sticky; left: 0`) so wide contingency/affinity matrices stay readable while scrolling.
+- **Tables (§12, §17):** `Table` renders a plain HTML `<table>` and inherits nothing from Aura, so give it an explicit look via class hooks in CSS: `border-collapse: collapse`, 1px borders on `th/td` using `var(--vaadin-border-color)`, padding from `--vaadin-padding-xs/s`, and right-aligned numeric cells. Sticky the first header cell (`position: sticky; left: 0`) so wide contingency/affinity matrices stay readable while scrolling.
+  - **Report tables:** the report's frequency tables and affinity matrix live in their own files rather than `styles.css`. The affinity matrix uses class hooks (`matrix-header-cell`, `matrix-corner`, `matrix-label`, `matrix-cell`, `matrix-diagonal`) defined in `binclass-components/src/main/resources/META-INF/resources/affinitymatrix.css` (imported via `@StyleSheet` on `ReportComponent`); the frequency table uses the `frequency-table` hook. Both set `white-space: nowrap` so cells never wrap and stay dense.
 
 #### Typography (firm)
 - **Font family:** set a single modern sans-serif globally, e.g. `--vaadin-font-family: "Inter", system-ui, sans-serif` (or another from the skill's list). Do not vary fonts per view.

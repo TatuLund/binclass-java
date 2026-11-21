@@ -4,15 +4,11 @@
  */
 package org.binclass.components.report;
 
-import java.util.List;
-import java.util.Locale;
-
 import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.dependency.StyleSheet;
+import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
-import com.vaadin.flow.component.html.Table;
-import com.vaadin.flow.component.html.TableCell;
-import com.vaadin.flow.component.html.TableRow;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import org.jspecify.annotations.Nullable;
@@ -42,10 +38,8 @@ import org.binclass.algorithms.report.ReportOptions;
  * </p>
  */
 @NullMarked
+@StyleSheet("/affinitymatrix.css")
 public class ReportComponent extends VerticalLayout {
-
-    /** Text for a diagonal matrix cell (self-distance), right-aligned. */
-    private static final String DIAGONAL_CELL = "-";
 
     @Nullable
     private Partition partition;
@@ -56,7 +50,9 @@ public class ReportComponent extends VerticalLayout {
     private IntegerField reportParams = new IntegerField(
             "Report params (-p, 0=all)");
 
-    private Table matrixTable = new Table();
+    /** The nearness/affinity matrix, rendered inside a {@link Details}. */
+    private final AffinityMatrix affinityMatrixTable = new AffinityMatrix();
+
     private VerticalLayout controls;
     private VerticalLayout reportBody;
 
@@ -70,17 +66,16 @@ public class ReportComponent extends VerticalLayout {
         useHellinger.setId("use-hellinger");
         reportParams.setId("report-params");
 
-        matrixTable.setId("report-affinity");
-        matrixTable.addClassName("matrix-table");
+        // Keep the matrix table in the tree from construction so callers can
+        // locate it by id even before a partition is bound. It starts empty and
+        // is populated whenever nearness output is rendered.
+        affinityMatrixTable.setId("report-affinity");
 
         this.controls = createControls();
         this.reportBody = new VerticalLayout();
         reportBody.setId("report-body");
 
-        // Keep the matrix table in the tree from construction so callers can
-        // locate it by id even before a partition is bound. It starts empty and
-        // is populated whenever nearness output is rendered.
-        reportBody.add(matrixTable);
+        reportBody.add(affinityMatrixTable);
 
         add(controls);
         add(reportBody);
@@ -114,12 +109,11 @@ public class ReportComponent extends VerticalLayout {
     }
 
     private void regenerate() {
-        matrixTable.removeAllRows();
         reportBody.removeAll();
         // Keep the matrix table attached so it stays locatable by id even when
         // no partition is bound or nearness output is disabled. It starts empty
         // and is populated whenever a nearness section renders.
-        reportBody.add(matrixTable);
+        reportBody.add(affinityMatrixTable);
 
         if (partition == null || partition.size() <= 0) {
             return;
@@ -155,67 +149,44 @@ public class ReportComponent extends VerticalLayout {
         reportBody.add(header);
 
         if (model.showTotalFrequencies()) {
-            reportBody.add(sectionTitle("TOTAL FREQUENCIES:"));
-            reportBody.add(new FrequencyTable(model.totalFrequencies(),
+            VerticalLayout frequenciesContent = new VerticalLayout();
+            frequenciesContent.add(new FrequencyTable(model.totalFrequencies(),
                     model.printDigitsEnabled()));
+            reportBody.add(details("TOTAL FREQUENCIES:", frequenciesContent));
         }
 
-        reportBody.add(sectionTitle("LIST OF CLASSES:"));
+        VerticalLayout classesContent = new VerticalLayout();
         for (ReportModel.ClassReport classReport : model.classReports()) {
-            reportBody.add(new ClassInfoComponent(classReport));
+            classesContent.add(new ClassInfoComponent(classReport));
         }
+        reportBody.add(details("LIST OF CLASSES:", classesContent));
 
         if (model.showNearness() && model.matrixValues() != null) {
-            reportBody.add(sectionTitle("CLASS NEARNESS MATRIX:"));
-            renderMatrix(model.matrixValues(), k);
-            reportBody.add(matrixTable);
+            affinityMatrixTable.render(model.matrixValues(), k);
+            VerticalLayout matrixContent = new VerticalLayout();
+            matrixContent.add(affinityMatrixTable);
+            reportBody.add(details("CLASS NEARNESS MATRIX:", matrixContent));
+        } else {
+            // Clear any rows left from a previous render so disabling nearness
+            // empties the table instead of showing stale values.
+            affinityMatrixTable.removeAllRows();
         }
     }
 
-    private H4 sectionTitle(String text) {
-        H4 title = new H4(text);
-        title.addClassName("report-section-title");
-        return title;
-    }
-
-    private void renderMatrix(double[][] matrix, int k) {
-        // Header row: empty corner + column numbers 1..k
-        String[] header = new String[k + 1];
-        for (int j = 0; j <= k; j++) {
-            header[j] = j == 0 ? "" : Integer.toString(j);
-        }
-        TableRow headerRow = matrixTable.addHeaderRow(header);
-        // Bottom border under the header line, plus a right border on the
-        // corner cell so the first column reads as a continuous vertical rule.
-        for (TableCell cell : headerRow.getCells()) {
-            cell.getStyle()
-                    .set("border-bottom", "1px solid currentColor")
-                    .set("padding", "0 8px");
-        }
-        headerRow.getCells().get(0).getStyle()
-                .set("border-right", "1px solid currentColor");
-
-        // Data rows: "Class i" label + formatted values
-        for (int i = 1; i <= k; i++) {
-            String[] row = new String[k + 1];
-            row[0] = "Class " + i;
-            for (int j = 1; j <= k; j++) {
-                if (i == j) {
-                    row[j] = DIAGONAL_CELL;
-                } else {
-                    double value = matrix[i][j];
-                    row[j] = String.format(Locale.ROOT, "%6.2f", value);
-                }
-            }
-            TableRow dataRow = matrixTable.addRow(row);
-            List<TableCell> cells = dataRow.getCells();
-            // Right border on the first (label) column.
-            cells.get(0).getStyle()
-                    .set("border-right", "1px solid currentColor");
-            // Right-align the diagonal dash so it lines up with the numeric
-            // columns instead of sitting flush left.
-            cells.get(i).getStyle().set("text-align", "right");
-        }
+    /**
+     * Wraps a section body in an expandable {@link Details} so the report can
+     * stay compact instead of forcing extensive scrolling (see PRD §17.4).
+     *
+     * @param summary
+     *            the collapsible label shown when closed
+     * @param content
+     *            the section body to hide/show
+     * @return a {@link Details} holding the content under the given summary
+     */
+    private static Details details(String summary, VerticalLayout content) {
+        Details details = new Details(new H4(summary), content);
+        details.addClassName("report-section");
+        return details;
     }
 
     /**

@@ -1,0 +1,139 @@
+/*
+ * Copyright (c) 2024 BinClass Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Styling for the report class-nearness / affinity matrix (see PRD §17.4).
+ * Applied to every {@link AffinityMatrix} instance via @StyleSheet so the
+ * ReportComponent stays free of inline cell styles. */
+
+.affinity-matrix {
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+/* Every logical cell shares borders, compact padding and no text wrapping so
+ * wide matrices stay dense and aligned instead of sprawling across lines. */
+.affinity-matrix .matrix-header-cell,
+.affinity-matrix .matrix-corner,
+.affinity-matrix .matrix-label,
+.affinity-matrix .matrix-cell,
+.affinity-matrix .matrix-diagonal {
+    border: 1px solid var(--vaadin-border-color, currentColor);
+    padding: 0 8px;
+    white-space: nowrap;
+}
+
+/* Vertical rule separating the row-label column from the value columns. */
+.affinity-matrix .matrix-corner,
+.affinity-matrix .matrix-label {
+    border-right: 1px solid var(--vaadin-border-color, currentColor);
+}
+
+/* Right-align numeric and diagonal cells so fixed-width columns line up. */
+.affinity-matrix .matrix-diagonal {
+    text-align: right;
+}
+
+.affinity-matrix th.matrix-header-cell {
+    font-weight: 600;
+    /* Accent-colored headers so section titles read as emphasis on the
+       surface, per the Aura theme (see aura-theme skill). */
+    color: var(--aura-accent-text-color);
+}
+
+/* Sticky first column keeps the corner cell and row labels visible while
+   scrolling wide matrices horizontally. */
+.affinity-matrix .matrix-corner,
+.affinity-matrix .matrix-label {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+/* Subtle hover highlight on data rows for readability across dense matrices. */
+.affinity-matrix tbody tr:hover .matrix-cell,
+.affinity-matrix tbody tr:hover .matrix-diagonal {
+    background: var(--vaadin-container-secondary-color);
+}
+
+/* --------------------------------------------------------------------------
+ * Frequency tables (see PRD §17.4).
+ *
+ * The frequency table shares the affinity matrix's look so both read as a
+ * single, consistent report surface. It is styled via its own class hook so
+ * ReportComponent stays free of inline cell styles.
+ * ------------------------------------------------------------------------ */
+
+.frequency-table {
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+/* Header row: the bit-position numbers are column headers, so they get a
+ * distinct tinted surface, borders and accent-blue text to set them apart
+ * from the metric rows below. The leading corner cell shares the same look.
+ * --aura-accent-surface tints with the active accent in both light and dark. */
+.frequency-table .frequency-header-cell {
+    border: 1px solid var(--vaadin-border-color, currentColor);
+    padding: 0 8px;
+    background: var(--aura-accent-surface, var(--vaadin-background-overlay-color));
+    font-weight: 600;
+    color: var(--aura-accent-text-color);
+}
+
+/* Every logical cell shares borders and compact padding with the affinity
+ * matrix, but frequency cells wrap so long bit ranges stay readable. */
+.frequency-table .frequency-count-row,
+.frequency-table .frequency-percentage-row,
+.frequency-table .frequency-digit-row {
+    border: 1px solid var(--vaadin-border-color, currentColor);
+    padding: 0 8px;
+}
+
+/* Leading metric label (Count / Percentage / Digit) gets a vertical rule to
+ * separate it from the numeric bit columns. */
+.frequency-table .frequency-count-row,
+.frequency-table .frequency-percentage-row,
+.frequency-table .frequency-digit-row {
+    border-right: 1px solid var(--vaadin-border-color, currentColor);
+}
+
+/* Metric labels act as row headers — keep them bold but neutral so the accent
+ * stays on the header text only, matching the user's request. */
+.frequency-table .frequency-count-row,
+.frequency-table .frequency-percentage-row,
+.frequency-table .frequency-digit-row {
+    font-weight: 600;
+    color: var(--vaadin-body-text-color, currentColor);
+}
+
+/* Right-align numeric cells so fixed-width values line up under their headers. */
+.frequency-table .frequency-number {
+    text-align: right;
+    width: 45px;
+}
+
+/* Subtle hover highlight on data cells for readability across wide tables. */
+.frequency-table tbody tr:hover .frequency-number,
+.frequency-table tbody tr:hover .frequency-header-cell {
+    background: var(--vaadin-container-secondary-color);
+}
+
+/* --------------------------------------------------------------------------
+ * Class info blocks (see PRD §17.4).
+ *
+ * The per-class heading and its Size / Nearest paragraphs stack inside a
+ * VerticalLayout, so each block element's own margin adds up with the layout
+ * gap. Tighten them so the labels sit close together before the frequency
+ * table.
+ * ------------------------------------------------------------------------ */
+.class-info-block h4 {
+    margin-top: 0;
+    margin-bottom: 0.25rem;
+}
+
+.class-info-block p {
+    margin-top: 0;
+    margin-bottom: 0.375rem;
+}

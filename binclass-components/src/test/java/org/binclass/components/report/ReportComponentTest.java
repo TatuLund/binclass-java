@@ -9,16 +9,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Table;
 import com.vaadin.flow.component.html.TableCell;
 import com.vaadin.flow.component.html.TableRow;
-import com.vaadin.flow.dom.Style;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.report.ReportModel;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -207,33 +209,31 @@ class ReportComponentTest {
     }
 
     @Test
-    void matrixHeaderHasBottomBorder() {
+    void matrixHeaderHasBottomBorderClass() {
         ReportComponent report = new ReportComponent();
         report.bindPartition(mockPartition());
 
         Table matrixTable = (Table) findById(report, "report-affinity");
         TableRow headerRow = matrixTable.getHeaderRows().get(0);
         for (TableCell cell : headerRow.getCells()) {
-            Style style = cell.getStyle();
-            assertEquals("1px solid currentColor",
-                    style.get("border-bottom"));
+            assertTrue(cell.hasClassName("matrix-header-cell"));
         }
     }
 
     @Test
-    void matrixFirstColumnHasRightBorder() {
+    void matrixFirstColumnHasRightBorderClass() {
         ReportComponent report = new ReportComponent();
         report.bindPartition(mockPartition());
 
         Table matrixTable = (Table) findById(report, "report-affinity");
         // First data row's leading label cell carries the vertical rule.
         TableRow firstData = matrixTable.getBodyRows().get(0);
-        assertEquals("1px solid currentColor",
-                firstData.getCells().get(0).getStyle().get("border-right"));
+        assertTrue(firstData.getCells().get(0)
+                .hasClassName("matrix-label"));
     }
 
     @Test
-    void diagonalCellIsSingleDashAndRightAligned() {
+    void diagonalCellIsSingleDashAndStyledClass() {
         ReportComponent report = new ReportComponent();
         report.bindPartition(mockPartition());
 
@@ -242,7 +242,7 @@ class ReportComponentTest {
         TableRow rowOne = matrixTable.getBodyRows().get(0);
         TableCell diagonal = rowOne.getCells().get(1);
         assertEquals("-", diagonal.getText());
-        assertEquals("right", diagonal.getStyle().get("text-align"));
+        assertTrue(diagonal.hasClassName("matrix-diagonal"));
     }
 
     @Test
@@ -270,5 +270,38 @@ class ReportComponentTest {
     void sanitizeHandlesNullAndEmpty() {
         assertEquals("", ReportComponent.sanitize(null));
         assertEquals("", ReportComponent.sanitize(""));
+    }
+
+    @Test
+    void frequencyTableHeaderHasEmptyCornerCell() {
+        List<ReportModel.BitFrequency> frequencies = List.of(
+                new ReportModel.BitFrequency(1, 5, 40.0),
+                new ReportModel.BitFrequency(2, 3, 24.0),
+                new ReportModel.BitFrequency(3, 1, 8.0));
+
+        FrequencyTable table = new FrequencyTable(frequencies);
+
+        // Header row: an empty corner cell at index 0 keeps the bit-position
+        // headers aligned with their data columns below.
+        TableRow headerRow = table.getHeaderRows().get(0);
+        assertEquals(frequencies.size() + 1, headerRow.getCells().size());
+
+        TableCell corner = headerRow.getCells().get(0);
+        assertTrue(corner.hasClassName("frequency-header-cell"));
+        assertEquals("", corner.getText());
+
+        // Bit-position headers fill the remaining cells.
+        for (int b = 0; b < frequencies.size(); b++) {
+            TableCell cell = headerRow.getCells().get(b + 1);
+            assertTrue(cell.hasClassName("frequency-header-cell"));
+            assertEquals(Integer.toString(frequencies.get(b).bit()),
+                    cell.getText());
+        }
+
+        // Body rows must share the header's width so their numeric cells line
+        // up under the bit-position headers instead of shifting by one.
+        for (TableRow bodyRow : table.getBodyRows()) {
+            assertEquals(frequencies.size() + 1, bodyRow.getCells().size());
+        }
     }
 }
