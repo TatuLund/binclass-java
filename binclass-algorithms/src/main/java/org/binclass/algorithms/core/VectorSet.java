@@ -6,6 +6,8 @@ package org.binclass.algorithms.core;
 
 import java.util.*;
 
+import org.jspecify.annotations.NullMarked;
+
 /**
  * A set of {@link BinaryVector} instances, mirroring the C {@code ST} struct
  * from {@code binset.h}.
@@ -17,6 +19,7 @@ import java.util.*;
  * instances may have identical content but represent distinct vectors.
  * </p>
  */
+@NullMarked
 public final class VectorSet implements Iterable<BinaryVector> {
 
     private final IdentityHashMap<BinaryVector, Boolean> elements;
@@ -147,6 +150,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *
      * @return an iterator over the BinaryVector instances
      */
+    @SuppressWarnings("null")
     public Iterator<BinaryVector> iterator() {
         return new ArrayList<>(insertionOrder).iterator();
     }
@@ -162,6 +166,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *            compatibility)
      * @return a new array containing all BinaryVector instances in this set
      */
+    @SuppressWarnings("null")
     public <T> T[] toArray(T[] type) {
         return (T[]) insertionOrder.toArray(type);
     }
@@ -171,6 +176,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      *
      * @return an unmodifiable view of the elements
      */
+    @SuppressWarnings("null")
     public Collection<BinaryVector> getElements() {
         return Collections.unmodifiableCollection(elements.keySet());
     }
@@ -204,6 +210,7 @@ public final class VectorSet implements Iterable<BinaryVector> {
      * @param target
      *            the destination VectorSet to copy elements into
      */
+    @SuppressWarnings("null")
     public void copyTo(VectorSet target) {
         for (BinaryVector bv : this) {
             target.addElement(bv);

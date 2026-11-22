@@ -615,7 +615,7 @@ heuristic-related flags and shows per-operator progress.
 - The two meta-heuristics are **booleans** on `GLAConfig`, not extra heuristic codes: `-r7` sets `heuristic=7, lsCycler=true` and `-r8` sets `heuristic=8, lsAdaptive=true`. Both keep a base operator (SPLITJOIN1) but call `LocalSearch.localSearch(partition, centroids, count, l, n, jeffreysPrior, random)` after each GLA step instead of a single-shot `GLAEngine.gla*` variant.
 - **Activation gate:** local search only refines when the cluster count exceeds three (`k > 3`), matching the CLI's `-j` behaviour — for small fixed-k ranges it still runs but with few operator applications. The driver applies a rotating sequence of operators (`SPLITJOIN1, REPLACEWORST, REPLACESMALLEST, RANDOMSWAP, RANDOMSWAP2, SPLITJOIN2`), tracks per-operator successes with adaptive weights (ALFA/BETA cooling), keeps the best partition found, and performs a final refinement pass.
 - `count` = operator applications (`heuristicCount - 1`); `-j` adds one internally. The driver logs each iteration's applied operator and resulting SC; on an improvement it publishes a per-operator success event (see §4.3) so the *Search* tab can surface which operator improved SC.
-- **New event type — `OperatorSuccess`.** EventBus already exposes per-k `SearchProgress(k, sc)`; local search additionally posts an `OperatorSuccess("localsearch", k, heuristicCode, scDelta)` whenever a single operator application lowers SC. The view renders these as human-readable lines in the status element inside the progress tab (e.g. *"k=5: replace-worst improved SC by 1.2 → 40.3"*). It does **not** feed the SC graph — that stays driven by per-k `SearchProgress`.
+- **New event type — `OperatorSuccess`.** EventBus already exposes per-k `SearchProgress(k, sc)`; local search additionally posts an `OperatorSuccess("localsearch", k, heuristicCode, scDelta)` whenever a single operator application lowers SC. The view renders these as human-readable lines in a dedicated `operatorLog` list element (id `local-operator-log`) below the running status text — each entry is its own row rather than being flattened into the monolithic status Div. The `scDelta` field carries the reduction in SC (`sc - scn`, computed before `sc` is reassigned, so it is never zero for a real improvement). It does **not** feed the SC graph — that stays driven by per-k `SearchProgress`.
 - The two meta-heuristics are **booleans** on `GLAConfig`, not extra heuristic codes: `-r7` sets `heuristic=7, lsCycler=true` and `-r8` sets `heuristic=8, lsAdaptive=true`. Both keep a base operator (SPLITJOIN1) but call `LocalSearch.localSearch(partition, centroids, count, l, n, jeffreysPrior, random)` after each GLA step instead of a single-shot `GLAEngine.gla*` variant.
 - **Activation gate:** local search only refines when the cluster count exceeds three (`k > 3`), matching the CLI's `-j` behaviour — for small fixed-k ranges it still runs but with few operator applications. The driver applies a rotating sequence of operators (`SPLITJOIN1, REPLACEWORST, REPLACESMALLEST, RANDOMSWAP, RANDOMSWAP2, SPLITJOIN2`), tracks per-operator successes with adaptive weights (ALFA/BETA cooling), keeps the best partition found, and performs a final refinement pass.
 - `count` = operator applications (`heuristicCount - 1`); `-j` adds one internally. The driver logs each iteration's applied operator and resulting SC, so the *Search* tab can surface per-operator progress.
@@ -639,7 +639,8 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 ├─ TabSheet             localTabs        id="local-tabs"      (Search | SC Graph | Partition | Summary | Report)
 │   ├─ "Search"  → Card searchCard          id="local-search-panel"
 │   │   ├─ ProgressIndicator progress         id="local-progress"
-│   │   └─ Div          statusText           id="local-status"    (strategy + per-operator success lines)
+│   │   ├─ Div          statusText           id="local-status"    (running strategy/progress text)
+│   │   └─ VerticalLayout operatorLog       id="local-operator-log"  (per-operator success lines)
 │   ├─ "SC Graph" → graphSC                        id="sc-graph"
 │   ├─ "Partition" → partitionView              id="partition-view"
 │   │   └─ download controls (§18.5)             id="local-downloads"  (partition + centroids)
@@ -647,7 +648,7 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 │   └─ "Report"  → ReportComponent            id="report-component-localsearch"
 ```
 
-**Flow (MVVM):** mirrors §3.4 — `#run-local` click → view calls `viewModel.setForm(buildForm())` then `viewModel.run(runButton)`. The VM builds `GLAConfig` from the form record with the chosen heuristic code and `lsCycler`/`lsAdaptive` set, submits to the single-threaded executor, disables the button with `setDisableOnClick(true)`, and hides the form revealing the results tab sheet. Per-`k` `SearchProgress("localsearch", k, sc, false)` updates the SC curve; best-partition snapshots (`SearchBestPartition`) refresh the Partition tab live; completion sets the bound result signal so graph/partition rebuild automatically. The *Search* tab's status text echoes the chosen strategy (e.g. *"Cycling all strategies for Local Search"* / *"Adaptive …"*) and per-operator success lines from `OperatorSuccess` events emitted by `LocalSearch.localSearch`. On completion/cancellation the button is re-enabled and the future cancelled in `onDetach(...)`.
+**Flow (MVVM):** mirrors §3.4 — `#run-local` click → view calls `viewModel.setForm(buildForm())` then `viewModel.run(runButton)`. The VM builds `GLAConfig` from the form record with the chosen heuristic code and `lsCycler`/`lsAdaptive` set, submits to the single-threaded executor, disables the button with `setDisableOnClick(true)`, and hides the form revealing the results tab sheet. Per-`k` `SearchProgress("localsearch", k, sc, false)` updates the SC curve; best-partition snapshots (`SearchBestPartition`) refresh the Partition tab live; completion sets the bound result signal so graph/partition rebuild automatically. The *Search* tab's status text echoes the chosen strategy (e.g. *"Cycling all strategies for Local Search"* / *"Adaptive …"*) and per-operator success lines from `OperatorSuccess` events emitted by `LocalSearch.localSearch`, each appended as its own row in the `operatorLog` element below it. On completion/cancellation the button is re-enabled and the future cancelled in `onDetach(...)`.
 
 **SC graph (fixed-k):** reuse §3.5 logic — for an automatic run populate the curve from `AutomaticSearch.Result.scs[]`; for a pure range search there is no `scs[]`, so either re-run at successive fixed `k`s to build a curve or show the single best point and disable the graph until data arrives (same approach GLA uses).
 
@@ -672,22 +673,22 @@ The Local Search view should follow the **same test structure as §3.7** — Bro
 
 **Signal state + event updates — `LocalSearchViewModelTest` (`binclass-ui`).**
 - Mirrors `GlaViewModelTest`: `canRun()` after upload, progress → graph points (dropping non-finite), best-partition/completed snapshots → partition model, indeterminate vs determinate progress bars.
-- New: listens for the `OperatorSuccess` event and appends to a status-text signal; exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads.
+- New: listens for the `OperatorSuccess` event and appends each success to a dedicated `operatorLog` list signal (one entry per improved operator, rendered as its own row in `#local-operator-log`, separate from the running status-text signal); clears the log when a new search starts; exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads.
 
 **Algorithm → presentation mapping — reuse `GlaViewTranslatorTest` patterns.**
 - The translation layer is shared with GLA, so assert `PartitionModel` populated from `Partition`/`InfiniteCentroids` (cluster names via most-frequent strain → index fallback, per-cluster `ClusterData`, rounded centroid for hover) and the SC curve graph model (`scs[]` → `GraphPoint(k, sc)`, dropping non-finite points).
 
 **Real component driving — `RouteLocalSearchViewBrowserlessTest` (`binclass-ui`).**
-- Mirrors `RouteGlaViewBrowserlessTest`: uploading `/test.header` + `/test.data` parses vectors and enables Run; clicking *Run* flips `running()` to `true` synchronously while hiding the form; *Run* stays disabled before upload; the all-8-code heuristic select emits the right config (cycler/adaptive); a fabricated `OperatorSuccess` event appends a line to `#local-status`; a fabricated `SearchCompleted` event makes `#sc-graph` accumulate points, gives the partition tab a model, enables downloads, and renders the Summary tab.
+- Mirrors `RouteGlaViewBrowserlessTest`: uploading `/test.header` + `/test.data` parses vectors and enables Run; clicking *Run* flips `running()` to `true` synchronously while hiding the form; *Run* stays disabled before upload; the all-8-code heuristic select emits the right config (cycler/adaptive); a fabricated `OperatorSuccess` event appends a line to `#local-operator-log`; a fabricated `SearchCompleted` event makes `#sc-graph` accumulate points, gives the partition tab a model, enables downloads, and renders the Summary tab.
 
 **End-to-end rendering — `LocalSearchViewIT` (`binclass-ui`, Playwright).**
-- Mirrors `GlaViewIT`: every control renders (heuristic select showing all 8 codes, heuristic-count, epsilon, jeffreysPrior) plus each result tab incl. Report and Summary; a real run shows the chosen strategy text and per-operator success lines in the status element, draws the SC graph, and each download control produces its file.
+- Mirrors `GlaViewIT`: every control renders (heuristic select showing all 8 codes, heuristic-count, epsilon, jeffreysPrior) plus each result tab incl. Report and Summary; a real run shows the chosen strategy text in the status element, appends per-operator success lines to `#local-operator-log`, draws the SC graph, and each download control produces its file.
 
 **Engine reference (algorithm-level, not view tests).**
 - `AutomaticSearchTest` (`binclass-algorithms`): `configWithHeuristic(...)` helper + `testHeuristic7RunsLocalSearch` / `testHeuristic8RunsLocalSearch` verify the driver runs after GLA for every k > 3 and that every input vector is covered — the behaviour §4's view drives.
 - `LocalSearchTest` (`binclass-algorithms`): operators/helpers, `successIndex`, and the driver itself — the per-operator success tracking that `OperatorSuccess` events are derived from.
 
-**UI module (to be added alongside §3's four files).** Add a dedicated `LocalSearchViewModel` (not a reuse of `GlaViewModel`) mirroring `GlaViewModelTest`'s signal/event patterns for local search: `canRun()` after upload, progress → graph points (dropping non-finite), best-partition/completed snapshots → partition model, indeterminate vs determinate progress bars. The VM listens for the new `OperatorSuccess` event and appends to a status-text signal; it also exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads. Add a dedicated `RouteLocalSearchViewBrowserlessTest` mirroring `RouteGlaViewBrowserlessTest` (upload enables Run, Run disabled before upload, all-8-code strategy select emits the right config).
+**UI module (to be added alongside §3's four files).** Add a dedicated `LocalSearchViewModel` (not a reuse of `GlaViewModel`) mirroring `GlaViewModelTest`'s signal/event patterns for local search: `canRun()` after upload, progress → graph points (dropping non-finite), best-partition/completed snapshots → partition model, indeterminate vs determinate progress bars. The VM listens for the new `OperatorSuccess` event and appends each success to a dedicated `operatorLog` list signal (one entry per improved operator); it also exposes `canDownload()` bound to the `running`/result signals for §4.3 downloads. Add a dedicated `RouteLocalSearchViewBrowserlessTest` mirroring `RouteGlaViewBrowserlessTest` (upload enables Run, Run disabled before upload, all-8-code strategy select emits the right config).
 
 ---
 
@@ -1327,28 +1328,32 @@ machine. The control generates its content **in memory** (no temp files on disk 
 `binclass-algorithms/io` writers directly.
 
 - **What each display exposes:**
-  - Classification displays (§3, §4, §6, §7): partition → `.partition` via `PartitionWriter.writePartition(partition, name)`;
-    centroids → `.centroids` via `CentroidWriter.save(centroids, name)`. Expose **two** downloads (a small dropdown or
-    two buttons), since the user may want either.
+  - Classification displays (§3, §4, §6, §7): partition → `.partition`; centroids → `.centroids`. Expose **two**
+    downloads (a small dropdown or two buttons), since the user may want either.
   - Cumulative (§5): dynamic partition → `.partition` via `DynamicPartitionWriter`.
   - Cut / Interval (§16): the resulting intersection partition → `.partition`.
   - Report tab (§17): sanitized report text → `.txt` (or `.csv` for frequency tables).
-- **Vaadin 25.3 API.** Attach a `DownloadHandler` to an `Anchor`, or call `button.setDownloadHandler(...)` on a button.
-  Inside the handler set metadata and stream bytes from memory:
+- **Shared component — `DownloadAnchor`.** Rather than wiring a raw `Anchor` + `DownloadHandler` in every view, reuse
+  the reusable styled download link in `binclass-components`:
+  `org.binclass.components.download.DownloadAnchor` (extends `Anchor`, annotated `@StyleSheet("/downloadanchor.css")`).
+  It binds a `DownloadHandler` that streams bytes produced by a caller-supplied `ByteProducer`, fixes the
+  `"text/plain; charset=UTF-8"` content type, and carries the `download-anchor` CSS hook so all styling lives in one file.
+  Callers only supply a label, a byte supplier and a file name:
 
 ```java
-// one per result type; build content in-memory, never write a temp file
-Anchor partitionDownload = new Anchor();
-partitionDownload.setDownloadHandler(event -> {
-    event.setFileName(filebase + ".partition");
-    event.setContentType("text/plain; charset=UTF-8");   // binclass partitions are text
-    byte[] bytes = PartitionWriter.toBytes(partition);     // reuse the io writer, in-memory
-    return new DownloadResponse(new ByteArrayInputStream(bytes), filebase + ".partition",
-            "text/plain; charset=UTF-8", bytes.length);
-});
+// build content in-memory, never write a temp file; producer runs server-side at click time
+DownloadAnchor partitionDownload = new DownloadAnchor("Download partition", () -> PartitionWriter.toBytes(partition));
+partitionDownload.setDownloadFileName(filebase + ".partition");
 ```
 
-  Centroids use `"text/plain; charset=UTF-8"` and `.centroids`; the report uses the sanitized string as its byte array.
+  The `ByteProducer` functional interface exposes `byte[] produce()`, which runs on the server at click time and may read
+  live view-model state. `setDownloadFileName(...)` sets both the response file name and the content type; centroids use
+  `.centroids` and the report uses the sanitized string as its byte array. The component is already used by the GLA and
+  local-search views (best partition + logged centroids), which is exactly the DRY extraction §18.5 was designed for.
+- **Styling.** `DownloadAnchor` renders button-like via the Aura theme tokens in
+  `binclass-components/src/main/resources/META-INF/resources/downloadanchor.css` (`display: inline-flex`, accent border,
+  subtle shadow, hover elevation). The look follows how plain buttons render in this app; no per-view CSS is required. A
+  `.download-anchor-label` hook keeps the label from wrapping on narrow links.
 - **Placement.** Put the download control(s) next to the result area — e.g. beside the Partition tab in §3, under the cut
   partition in §16, inside each Report tab in §17. Disable it while a search is running (bind to the same `running` signal)
   and re-enable once a result exists.

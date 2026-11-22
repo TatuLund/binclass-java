@@ -7,6 +7,8 @@ package org.binclass.algorithms.gla;
 import java.util.Objects;
 import java.util.Random;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +38,7 @@ import org.binclass.algorithms.eventbus.EventBus;
  * helpers mirror {@code random_index()} from {@code bottom.c}.
  * </p>
  */
+@NullMarked
 @SuppressWarnings({ "java:S117", "java:S3457" })
 public final class LocalSearch {
 
@@ -45,6 +48,7 @@ public final class LocalSearch {
     /** Initial weight forgetting rate (Eq. 16). */
     public static final double BETA_INIT = 0.2;
 
+    @SuppressWarnings("null")
     private static final Logger log = LoggerFactory
             .getLogger(LocalSearch.class);
 
@@ -90,7 +94,7 @@ public final class LocalSearch {
      *            the 1-based index
      * @return the vector at that position, or {@code null} if out of bounds
      */
-    static BinaryVector getVectorAt(VectorSet set, int ind) {
+    static @Nullable BinaryVector getVectorAt(VectorSet set, int ind) {
         Objects.requireNonNull(set, VECTOR_SET_MUST_NOT_NULL);
         BinaryVector[] all = set.toArray(new BinaryVector[0]);
         if (ind < 1 || ind > all.length) {
@@ -242,6 +246,7 @@ public final class LocalSearch {
      * @param random
      *            unused, kept for API symmetry with C helpers
      */
+    @SuppressWarnings("null")
     private static void localRepartitionMse(int c, Partition partition,
             InfiniteCentroids centroids) {
         Objects.requireNonNull(partition, "Partition must not be null");
@@ -291,6 +296,7 @@ public final class LocalSearch {
      * @param k
      *            current number of clusters (1-based)
      */
+    @SuppressWarnings("null")
     private static void joinClusters(Partition partition, int imin, int jmin,
             int k) {
         Objects.requireNonNull(partition, "Partition must not be null");
@@ -737,6 +743,7 @@ public final class LocalSearch {
      *            adaptive)
      * @return the total GLA cost accumulated across all passes
      */
+    @SuppressWarnings("null")
     public static int localSearch(Partition partition,
             InfiniteCentroids centroids,
             int count, int l, int n, boolean jeffreysPrior, Random random,
@@ -798,13 +805,14 @@ public final class LocalSearch {
             if (scn < sc) {
                 // copy_centroids(cmin, C): keep best centroids in cmin
                 CentroidManager.copyCentroids(centroids, cmin);
+                double improved = sc - scn;
                 sc = scn;
                 int idx = successIndex(op);
                 if (idx >= 0) {
                     suc[idx]++;
                     w[idx] += 1.0;
                     EventBus.get().post(new OperatorSuccess(display,
-                            partition.size(), heuristicCode, sc - scn,
+                            partition.size(), heuristicCode, improved,
                             op.name()));
                     double sumW = 0.0;
                     for (int j = 0; j < 5; j++) {

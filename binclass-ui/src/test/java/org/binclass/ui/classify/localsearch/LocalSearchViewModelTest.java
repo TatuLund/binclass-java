@@ -156,14 +156,42 @@ class LocalSearchViewModelTest {
     }
 
     @Test
-    void operatorSuccessAppendsLineToStatus() {
+    void operatorSuccessAppendsLineToLog() {
         viewModel.setData(vectors(4, 3));
         viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
                 "add"));
 
-        String status = viewModel.statusText().peek();
-        assertTrue(status.contains("k=2:"), status);
-        assertTrue(status.contains("improved SC by 1.50"), status);
+        List<String> log = viewModel.operatorLog().peekValues().toList();
+        assertEquals(1, log.size(), log.toString());
+        assertEquals("k=2: add improved SC by 1.50", log.get(0),
+                log.toString());
+    }
+
+    @Test
+    void operatorSuccessAppendsMultipleLinesToLog() {
+        viewModel.setData(vectors(4, 3));
+        viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
+                "add"));
+        viewModel.eventFired(new OperatorSuccess("localsearch", 3, 8, 0.25,
+                "splitjoin"));
+
+        List<String> log = viewModel.operatorLog().peekValues().toList();
+        assertEquals(2, log.size(), log.toString());
+        assertEquals("k=2: add improved SC by 1.50", log.get(0),
+                log.toString());
+        assertEquals("k=3: splitjoin improved SC by 0.25", log.get(1),
+                log.toString());
+    }
+
+    @Test
+    void runClearsOperatorLog() {
+        viewModel.setData(vectors(4, 3));
+        viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
+                "add"));
+        assertEquals(1, viewModel.operatorLog().peekValues().count());
+
+        viewModel.run();
+        assertEquals(0, viewModel.operatorLog().peekValues().count());
     }
 
     @Test

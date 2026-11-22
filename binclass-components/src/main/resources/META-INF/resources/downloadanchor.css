@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) 2024 BinClass Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Styling for styled download links (see PRD §18.5).
+ * Applied to every {@link DownloadAnchor} instance via @StyleSheet so the GLA
+ * and local-search views stay free of inline styles. The look follows the Aura
+ * theme's button tokens: a filled surface with an accent border, subtle shadow
+ * and hover elevation, mirroring how plain buttons render in this app. */
+
+.download-anchor {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--vaadin-gap-s, 8px);
+    padding: var(--vaadin-space-xs, 6px) var(--vaadin-space-s, 12px);
+    border-radius: var(--vaadin-radius-m, 9px);
+    background: var(--vaadin-button-background, var(--vaadin-background-container));
+    color: var(--vaadin-button-text-color, var(--vaadin-text-color));
+    border: 1px solid var(--vaadin-button-border-color, var(--vaadin-accent-color-contrast, var(--vaadin-border-color)));
+    box-shadow: var(--vaadin-button-shadow, 0 1px 2px rgba(0, 0, 0, 0.08));
+    font-size: var(--vaadin-font-size-s, 14px);
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.05s ease;
+    height: fit-content;
+    color: var(--aura-accent-text-color);
+}
+
+.download-anchor:hover {
+    background: var(--vaadin-button-hover-background, light-dark(var(--aura-accent-surface), color-mix(in srgb, var(--aura-accent-color) 14%, transparent)));
+    border-color: var(--vaadin-accent-color-contrast, var(--vaadin-border-color-strong));
+}
+
+.download-anchor:active {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+
+/* Keep the label from wrapping on narrow links. */
+.download-anchor .download-anchor-label {
+    white-space: nowrap;
+}

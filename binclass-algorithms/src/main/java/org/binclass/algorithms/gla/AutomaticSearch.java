@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
@@ -46,6 +48,7 @@ import org.slf4j.LoggerFactory;
  * The class is deliberately free of CLI concerns so that both phases can be
  * unit tested on small synthetic data.
  */
+@NullMarked
 public final class AutomaticSearch {
 
     /** Maximum number of classes allowed by the C tool (const.h / vars.c). */
@@ -56,6 +59,7 @@ public final class AutomaticSearch {
      */
     public static final double UNASSIGNED_SC = Double.MAX_VALUE;
 
+    @SuppressWarnings("null")
     private static final Logger log = LoggerFactory
             .getLogger(AutomaticSearch.class);
 
@@ -71,6 +75,7 @@ public final class AutomaticSearch {
     /**
      * Partition/centroids for the current best, refreshed on every improvement.
      */
+    @Nullable
     private Partition bestPartition = null;
 
     /**
@@ -81,13 +86,15 @@ public final class AutomaticSearch {
      */
     private final Map<Integer, InfiniteCentroids> bestPerK = new HashMap<>();
 
+    @Nullable
     private InfiniteCentroids bestCentroidsHolder;
 
     /**
      * Result of the automatic search: best partition/centroids and metadata.
      */
-    public record Result(Partition partition, InfiniteCentroids centroids,
-            double scmin, int kmin, int lastk, double[] scs,
+    public record Result(@Nullable Partition partition,
+            @Nullable InfiniteCentroids centroids, double scmin, int kmin,
+            int lastk, double[] scs,
             Map<Integer, InfiniteCentroids> bestPerK) {
     }
 
@@ -234,9 +241,10 @@ public final class AutomaticSearch {
      *            the finished automatic-search result
      */
     private void postCompletion(Result result) {
-        if (result.partition() != null) {
+        Partition partition = result.partition();
+        if (partition != null) {
             EventBus.get().post(new SearchCompleted(display, buildResult(
-                    result.kmin(), result.scmin(), result.partition(),
+                    result.kmin(), result.scmin(), partition,
                     result.scs(), result.centroids())));
         }
     }
@@ -256,7 +264,8 @@ public final class AutomaticSearch {
      */
     private void postProgress(int k, double[] scs, boolean improved) {
         EventBus.get().post(new SearchProgress(display, k, scs[k], false));
-        if (improved && bestPartition != null) {
+        Partition partition = bestPartition;
+        if (improved && partition != null) {
             assert bestCentroidsHolder != null
                     : "Best centroids must not be null when best partition is available";
             assert scs != null
@@ -266,7 +275,7 @@ public final class AutomaticSearch {
             assert scs.length > k
                     : "SC array must have an entry for the current k when best partition is available";
             EventBus.get().post(new SearchBestPartition(
-                    display, buildResult(kmin, scmin, bestPartition, scs,
+                    display, buildResult(kmin, scmin, partition, scs,
                             bestCentroidsHolder)));
         }
     }
@@ -287,7 +296,8 @@ public final class AutomaticSearch {
      * @return the immutable payload the UI binds to
      */
     private PartitionResult buildResult(int kmin, double scmin,
-            Partition partition, double[] scs, InfiniteCentroids centroids) {
+            Partition partition, double[] scs,
+            @Nullable InfiniteCentroids centroids) {
         List<Integer> ks = new ArrayList<>();
         List<Double> scList = new ArrayList<>();
         for (int k = 1; k < scs.length; k++) {
@@ -424,7 +434,7 @@ public final class AutomaticSearch {
      * @return the resulting partition, centroids and SC, or {@code null} when
      *         no valid clustering was produced across all attempts
      */
-    private StepResult runAttempts(int kk) {
+    private @Nullable StepResult runAttempts(int kk) {
         int attempts = config.iterBase() > 0 ? config.iterBase() : 1;
         StepResult best = null;
         for (int attempt = 0; attempt < attempts; attempt++) {
@@ -448,7 +458,7 @@ public final class AutomaticSearch {
      * @return the resulting partition, centroids and SC, or {@code null} when
      *         no valid clustering was produced
      */
-    private StepResult runSingleAttempt(int kk, int attempt) {
+    private @Nullable StepResult runSingleAttempt(int kk, int attempt) {
         InfiniteCentroids centroids;
         Partition partition;
         if (attempt == 0) {
@@ -503,6 +513,14 @@ public final class AutomaticSearch {
         // GLA result.
         if ((config.heuristic() >= 1 && config.heuristic() <= 8)
                 && centroids.size() > 3) {
+            // Clear the assignments left by the preceding GLA variant so MSE
+            // nearest-neighbor repartition starts from an empty partition.
+            // mseNearestNeighbor only calls setSize(k), which does not empty
+            // existing clusters, so without this step every vector already
+            // placed by fast GLA is duplicated, doubling the cluster counts.
+            for (int i = 1; i <= partition.size(); i++) {
+                partition.getElements(i).clear();
+            }
             NearestNeighbor.mseNearestNeighbor(vectorSet, partition,
                     centroids);
             GLAEngine.removeEmpty(partition, centroids);
@@ -512,12 +530,6 @@ public final class AutomaticSearch {
                     config.heuristicCount(), vectorLength(), config.n(),
                     config.jeffreysPrior(), new Random(), display,
                     config.heuristic());
-            // local_search() applies SPLITJOIN operators that merge clusters,
-            // leaving fewer than kk non-empty clusters. Restore exactly kk
-            // clusters before scoring so the SC is computed for the requested
-            // cluster count and plotted at the correct index; otherwise several
-            // requested k's collapse to identical SC values (flat plateaus).
-            // restoreKClusters(partition, centroids, kk);
         }
 
         double sc = score(partition, centroids);
@@ -539,73 +551,6 @@ public final class AutomaticSearch {
             idx++;
         }
         return partition;
-    }
-
-    /**
-     * Restores exactly {@code targetK} non-empty clusters after local search
-     * merges some. Local search applies SPLITJOIN operators that can reduce the
-     * cluster count below the requested k, which would cause SC computed for
-     * fewer clusters to be stored at index k (wrong x-axis value in the graph).
-     * Adds random centroids from the vector set until there are exactly targetK
-     * non-empty clusters, then runs GLA to converge.
-     *
-     * @param partition
-     *            the partition to repair (updated in place)
-     * @param centroids
-     *            the centroid array to expand (updated in place)
-     * @param targetK
-     *            the number of clusters to restore
-     */
-    private void restoreKClusters(Partition partition,
-            InfiniteCentroids centroids, int targetK) {
-        if (countNonEmpty(partition) >= targetK) {
-            return;
-        }
-
-        // Snapshot the input vectors once: GLA() empties vectorSet on return,
-        // so we cannot draw random vectors from it after the first pass.
-        BinaryVector[] pool = vectorSet.toArray(new BinaryVector[0]);
-        if (pool.length == 0) {
-            return;
-        }
-
-        while (countNonEmpty(partition) < targetK) {
-            BinaryVector source = pool[(int) (Math.random() * pool.length)];
-            Centroid newCentroid = new Centroid(vectorLength());
-            newCentroid.setEl(source.getEl());
-            newCentroid.setWeight(1.0);
-            centroids.add(newCentroid);
-
-            // Local search's SPLITJOIN operators can leave the partition and
-            // centroid arrays at different sizes; grow the partition so its
-            // 1-based index matches the freshly appended centroid before adding
-            // the element to it.
-            if (partition.size() < centroids.size()) {
-                partition.setSize(centroids.size());
-            }
-            partition.addElement(centroids.size(), source.copy());
-        }
-
-        // Run GLA to converge the expanded cluster set onto exactly targetK.
-        double[] dmin = new double[1];
-        GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
-    }
-
-    /**
-     * Counts the number of non-empty clusters in a partition.
-     *
-     * @param partition
-     *            the partition to inspect
-     * @return the number of clusters with at least one element
-     */
-    private int countNonEmpty(Partition partition) {
-        int count = 0;
-        for (int i = 1; i <= partition.size(); i++) {
-            if (partition.getClusterSize(i) > 0) {
-                count++;
-            }
-        }
-        return count;
     }
 
     /** Scores a clustering using SC or best-code-length, per the config. */

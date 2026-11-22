@@ -153,9 +153,4 @@ public record GLAConfig(
             true, // alternateWorstMatch (TRUE by default per C vars.c)
             false // alternateEmptyCellFix (FALSE by default per C vars.c)
     );
-
-    /** Effective maximum iterations based on config */
-    public int effectiveMaxIter() {
-        return maxIter > 0 ? maxIter : safetyLimit;
-    }
 }

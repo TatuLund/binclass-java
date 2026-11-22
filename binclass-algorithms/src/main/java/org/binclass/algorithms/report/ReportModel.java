@@ -137,7 +137,7 @@ public final class ReportModel {
 
     private static void addBits(int[] counts, BinaryVector bv) {
         int len = Math.min(bv.getLength(), counts.length);
-        for (int p = 1; p < len; p++) {
+        for (int p = 0; p < len; p++) {
             counts[p] += bv.get(p);
         }
     }
@@ -145,7 +145,7 @@ public final class ReportModel {
     private static List<BitFrequency> buildFrequencies(int[] counts, int l,
             int total) {
         List<BitFrequency> result = new ArrayList<>();
-        for (int p = 1; p < l; p++) {
+        for (int p = 0; p < l; p++) {
             double percentage = total > 0
                     ? (double) counts[p] / total * 100.0
                     : 0.0;

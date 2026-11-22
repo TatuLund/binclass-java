@@ -4,6 +4,8 @@
  */
 package org.binclass.algorithms.core;
 
+import org.jspecify.annotations.NullMarked;
+
 /**
  * A partition of binary vectors into clusters, mirroring the C
  * {@code Partition} struct from {@code binset.h}.
@@ -13,6 +15,7 @@ package org.binclass.algorithms.core;
  * {@link VectorSet} of {@link BinaryVector} instances.
  * </p>
  */
+@NullMarked
 public final class Partition {
 
     private final VectorSet[] clusters; // 0-based internal indexing
@@ -155,6 +158,7 @@ public final class Partition {
      *            the 1-based cluster index (1..k)
      * @return a VectorSet containing all elements in that cluster
      */
+    @SuppressWarnings("null")
     public VectorSet getElements(int i) {
         checkClusterIndex(i);
         return clusters[i - 1];
@@ -250,6 +254,7 @@ public final class Partition {
      *            the 0-based cluster index (0..k-1)
      * @return a VectorSet containing all elements in that cluster
      */
+    @SuppressWarnings("null")
     public VectorSet getCluster(int i) {
         if (i < 0 || i >= k) {
             throw new IndexOutOfBoundsException("Cluster index " + i
@@ -268,6 +273,7 @@ public final class Partition {
      * @param target
      *            the destination VectorSet to copy elements into
      */
+    @SuppressWarnings("null")
     public void copyAllTo(VectorSet target) {
         for (int i = 0; i < k; i++) {
             for (BinaryVector bv : clusters[i]) {
@@ -285,6 +291,7 @@ public final class Partition {
      *
      * @return a new Partition with copies of all clusters and elements
      */
+    @SuppressWarnings("null")
     public Partition copy() {
         Partition copy = new Partition(this.k);
         for (int i = 0; i < k; i++) {
@@ -299,6 +306,7 @@ public final class Partition {
     /**
      * Returns a string representation of this partition.
      */
+    @SuppressWarnings("null")
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Partition{");

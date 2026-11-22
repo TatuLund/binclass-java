@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.vaadin.flow.signals.Signal;
+import com.vaadin.flow.signals.local.ListSignal;
 import com.vaadin.flow.signals.local.ValueSignal;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -64,6 +65,13 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     private final ValueSignal<PartitionModel> partitionModel;
     private final ValueSignal<GraphModel> graphPoints;
     private final ValueSignal<String> statusText;
+    /**
+     * Per-operator success entries, one formatted string per successful local
+     * search operator. Kept separate from {@link #statusText} so the Search tab
+     * can render each improvement as its own list entry instead of a single
+     * monolithic block of newline-joined text.
+     */
+    private final ListSignal<String> operatorLog = new ListSignal<>();
 
     /**
      * Exposed parameter signals, bound two-way to the form fields by the view.
@@ -209,6 +217,19 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
      */
     public ValueSignal<String> statusText() {
         return statusText;
+    }
+
+    /**
+     * Returns the list signal holding one formatted per-operator success entry
+     * per successful local search operator. Each entry is appended as an
+     * {@link OperatorSuccess} event arrives and cleared when a new search
+     * starts, so the Search tab can render each improvement separately from the
+     * running status text.
+     *
+     * @return the operator-log list signal (initially empty)
+     */
+    public ListSignal<String> operatorLog() {
+        return operatorLog;
     }
 
     /**
@@ -402,6 +423,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         running.set(true);
         finished = false;
         bestCentroids = null;
+        operatorLog.clear();
         statusText.set("Search started…");
 
         VectorSet vectorSet = data.peek().vectorSet();
@@ -417,7 +439,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         this.kstop = vectorSet.size();
         progressIndeterminate.set(true);
 
-        if (config.effectiveMaxIter() > 0) {
+        if (config.maxIter() > 0) {
             RangeSearch search = new RangeSearch(vectorSet, config,
                     "localsearch");
             task = CompletableFuture
@@ -517,9 +539,10 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     }
 
     /**
-     * Appends a human-readable per-operator success line to the status text so
-     * the Search tab can surface which strategy lowered SC mid-run. The line is
-     * appended after any existing text with a newline separator.
+     * Appends a human-readable per-operator success line to the operator log so
+     * the Search tab can surface which strategy lowered SC mid-run as its own
+     * list entry. The delta is reported here, so it must be non-zero for an
+     * improvement; callers only post {@link OperatorSuccess} when SC dropped.
      *
      * @param k
      *            the cluster count being refined
@@ -533,14 +556,9 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
      */
     private void appendOperatorLine(int k, int code, double delta,
             String operator) {
-        statusText.update(prev -> {
-            String existing = prev == null || prev.isEmpty() ? ""
-                    : prev
-                            + "\n";
-            return existing + String.format(Locale.ROOT,
-                    "k=%d: %s improved SC by %.2f", k, operator.toLowerCase(),
-                    delta);
-        });
+        operatorLog.insertLast(
+                String.format(Locale.ROOT, "k=%d: %s improved SC by %.2f",
+                        k, operator.toLowerCase(), delta));
     }
 
     /**

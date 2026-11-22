@@ -188,6 +188,35 @@ class AutomaticSearchTest {
         }
     }
 
+    /**
+     * Regression test for the vector-doubling bug. Local search seeds the
+     * partition with an MSE nearest-neighbor repartition before the multi-
+     * operator driver runs. {@code mseNearestNeighbor} only calls
+     * {@link Partition#setSize(int)}, which does not empty existing clusters,
+     * so the partition must be cleared first; otherwise every vector already
+     * placed by GLA is added a second time, doubling the cluster counts (the UI
+     * showed 10626 vectors for a 5313-vector input).
+     * <p>
+     * The config uses heuristic {@code 1} so the local-search block runs for
+     * every k &gt; 3, and an operator count of one so
+     * {@link LocalSearch#localSearch} performs no operators that could add or
+     * remove vectors. The result partition therefore holds exactly one copy of
+     * each input vector.
+     */
+    @Test
+    void testLocalSearchDoesNotDoubleVectors() {
+        VectorSet set = buildClusteredVectors(5); // 20 vectors of length 16
+        int n = set.size();
+        GLAConfig cfg = config(3, 1000); // heuristic=1 triggers the block
+
+        AutomaticSearch.Result result = new AutomaticSearch(set, cfg).run();
+
+        assertNotNull(result.partition(), "partition must not be null");
+        assertEquals(n, totalPartitionSize(result.partition()),
+                "MSE repartition must not duplicate vectors; expected one copy "
+                        + "per input vector (" + n + ")");
+    }
+
     @Test
     void testRunWithBestCodeLength() {
         VectorSet set = buildClusteredVectors(5);

@@ -7,6 +7,9 @@ package org.binclass.algorithms.core;
 import java.util.Arrays;
 import java.util.Objects;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
 /**
  * An immutable binary vector, mirroring the C {@code BV} struct from
  * {@code binset.h}.
@@ -28,6 +31,7 @@ import java.util.Objects;
  * </ul>
  * </p>
  */
+@NullMarked
 public final class BinaryVector {
 
     private final int[] el;
@@ -35,7 +39,7 @@ public final class BinaryVector {
     private final int length;
     private int classname;
     private String strain;
-    private String className;
+    private String className = "";
     private boolean trashcan;
 
     /**
@@ -52,6 +56,7 @@ public final class BinaryVector {
      * @param strain
      *            identifier string for this vector
      */
+    @SuppressWarnings("null")
     public BinaryVector(int[] el, int miss, int length, int classname,
             String strain) {
         if (strain == null) {
@@ -350,6 +355,7 @@ public final class BinaryVector {
      * as 'x'.
      * </p>
      */
+    @SuppressWarnings("null")
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -367,7 +373,7 @@ public final class BinaryVector {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o)
             return true;
         if (!(o instanceof BinaryVector other))

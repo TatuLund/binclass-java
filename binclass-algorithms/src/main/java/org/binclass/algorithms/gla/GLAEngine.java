@@ -14,6 +14,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.dist.DistanceCalculator;
 import org.binclass.algorithms.dist.NearestNeighbor;
+import org.jspecify.annotations.NullMarked;
 
 /**
  * Generalized Lloyd Algorithm (GLA) engine implementing all 8+ variants.
@@ -46,6 +47,7 @@ import org.binclass.algorithms.dist.NearestNeighbor;
  * </ul>
  * </p>
  */
+@NullMarked
 public final class GLAEngine {
 
     private static final String INFINITE_CENTROIDS_MUST_NOT_BE_NULL = "InfiniteCentroids must not be null";

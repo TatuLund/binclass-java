@@ -490,38 +490,58 @@ public final class RangeSearch {
                     config.firstD());
         }
 
-        // Run GLA based on heuristic selection
-        switch (config.heuristic()) {
-        case 1:
-            log.info("Using standard GLA");
-            GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
-            break;
-        case 2:
-            log.info("Using stochastic relaxation GLA");
-            GLAEngine.glaSr(vectorSet, partition, centroids, dmin, config);
-            break;
-        case 3:
-            log.info("Using simulated annealing GLA");
-            GLAEngine.glaSa(vectorSet, partition, centroids, dmin, config);
-            break;
-        case 4:
+        // The GLA algorithm variant is selected by the distance type (-f), not
+        // by the local-search operator code (config.heuristic(), -r). Mirrors
+        // C's use_gla() which branches on distance_type to pick the GLA
+        // variant. This keeps the two parameters independent so heuristic codes
+        // 1..6 can drive local search as well as selecting a GLA variant.
+        switch (config.distanceType()) {
+        case 5:
             log.info("Using hybrid L1 GLA");
             GLAEngine.hybridGlaL1(vectorSet, partition, centroids, dmin,
                     config);
             break;
-        case 5:
+        case 6:
             log.info("Using hybrid L2 GLA");
             GLAEngine.hybridGlaL2(vectorSet, partition, centroids, dmin,
                     config);
             break;
-        case 6:
+        case 7:
+            log.info("Using stochastic relaxation GLA");
+            GLAEngine.glaSr(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 8:
+            log.info("Using simulated annealing GLA");
+            GLAEngine.glaSa(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 4:
+            log.info("Using standard GLA");
+            GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
+            break;
+        case 2:
             log.info("Using MAE GLA");
             GLAEngine.maeGla(vectorSet, partition, centroids, dmin, config);
             break;
-        case 7:
-            // Local search cycler mode (-r7): run the multi-operator local
-            // search driver that cycles through every strategy. Mirrors C's
-            // local_search() with ls_heuristic_cycler = TRUE.
+        case 3:
+            log.info("Using MSE GLA");
+            GLAEngine.mseGla(vectorSet, partition, centroids, dmin, config);
+            break;
+        default:
+            log.info("Defaulting to fast GLA");
+            GLAEngine.fastGla(vectorSet, partition, centroids, dmin, config);
+        }
+
+        // Local search runs whenever -r is set (heuristic 1..8), mirroring
+        // C's use_gla() which calls local_search() whenever ls_heuristic !=
+        // HEUR_NONE and the cluster count exceeds 3. The single-operator modes
+        // (-r1..6) and the cycler/adaptive modes (-r7/-r8) all route through
+        // the same multi-operator driver; heuristicCode records which one was
+        // requested. An MSE nearest-neighbor repartition seeds the partition
+        // first (as range search does), then the driver keeps the best
+        // partition/centroids it finds, so we score that instead of the plain
+        // GLA result.
+        if ((config.heuristic() >= 1 && config.heuristic() <= 8)
+                && centroids.size() > 3) {
             log.info("Using local search (cycling all strategies)");
             populatePartitionForLocalSearch(vectorSet, partition, centroids,
                     config);
@@ -529,22 +549,6 @@ public final class RangeSearch {
                     config.heuristicCount(), vectorSet.getVectorLength(),
                     config.n(), config.jeffreysPrior(), new java.util.Random(),
                     display, config.heuristic());
-            break;
-        case 8:
-            // Local search adaptive mode (-r8): run the multi-operator local
-            // driver that adapts operator selection probabilities. Mirrors C's
-            // local_search() with ls_adaptive_heuristic = TRUE.
-            log.info("Using local search (adaptive strategies)");
-            populatePartitionForLocalSearch(vectorSet, partition, centroids,
-                    config);
-            LocalSearch.localSearch(partition, centroids,
-                    config.heuristicCount(), vectorSet.getVectorLength(),
-                    config.n(), config.jeffreysPrior(), new java.util.Random(),
-                    display, config.heuristic());
-            break;
-        default:
-            log.info("Defaulting to standard GLA");
-            GLAEngine.gla(vectorSet, partition, centroids, dmin, config);
         }
 
         // initializePartition() creates a partition with one spare index-0
@@ -629,6 +633,14 @@ public final class RangeSearch {
     private static void populatePartitionForLocalSearch(VectorSet vectorSet,
             Partition partition, InfiniteCentroids centroids,
             GLAConfig config) {
+        // Clear any assignments left by the preceding GLA variant so MSE
+        // nearest-neighbor repartition starts from an empty partition. Mirrors
+        // C's MSE_gla2() which clears P before reassigning (and mirrors
+        // LocalSearch.mseGla2). Without this step the vectors already placed by
+        // fast GLA are duplicated, doubling every cluster count.
+        for (int i = 1; i <= partition.size(); i++) {
+            partition.getElements(i).clear();
+        }
         NearestNeighbor.mseNearestNeighbor(vectorSet, partition, centroids);
         GLAEngine.removeEmpty(partition, centroids);
         GLAEngine.recomputeCentroids(partition, centroids,

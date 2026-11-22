@@ -7,6 +7,8 @@ package org.binclass.algorithms.core;
 import java.util.Arrays;
 
 import org.binclass.algorithms.util.MathUtils;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An immutable centroid representing the mean of a cluster, mirroring the C
@@ -25,6 +27,7 @@ import org.binclass.algorithms.util.MathUtils;
  * </ul>
  * </p>
  */
+@NullMarked
 public final class Centroid {
 
     private final double[] el;
@@ -42,6 +45,7 @@ public final class Centroid {
      *            frequency ratio (class_size / total_vectors) for weighted
      *            codelength
      */
+    @SuppressWarnings("null")
     public Centroid(double[] el, int l, double weight) {
         this.el = Arrays.copyOf(el, el.length);
         this.l = l;
@@ -195,6 +199,7 @@ public final class Centroid {
      *
      * @return copy of the centroid element array
      */
+    @SuppressWarnings("null")
     public double[] getEl() {
         return Arrays.copyOf(el, el.length);
     }
@@ -256,6 +261,7 @@ public final class Centroid {
     /**
      * Returns a string representation of this centroid.
      */
+    @SuppressWarnings("null")
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Centroid{weight=").append(weight)
@@ -269,7 +275,7 @@ public final class Centroid {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o)
             return true;
         if (!(o instanceof Centroid other))

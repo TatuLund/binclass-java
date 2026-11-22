@@ -28,6 +28,7 @@ import com.vaadin.flow.component.progressbar.ProgressBar;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.shared.Tooltip;
 import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.dom.Style.Overflow;
 import com.vaadin.flow.server.streams.DownloadHandler;
 import com.vaadin.flow.server.streams.DownloadResponse;
 import com.vaadin.flow.server.streams.UploadHandler;
@@ -46,6 +47,7 @@ import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.io.CentroidWriter;
 import org.binclass.algorithms.io.PartitionWriter;
+import org.binclass.components.download.DownloadAnchor;
 import org.binclass.components.graph.Graph;
 import org.binclass.components.partition.Partition;
 import org.binclass.components.partition.PartitionModel;
@@ -98,6 +100,8 @@ public class RouteLocalSearchView extends VerticalLayout
     // percentage; setValue(1.0) shows a full bar on completion.
     private final ProgressBar progress = new ProgressBar(0, 1);
     private final Div statusText = new Div();
+    private final Span operatorLabel = new Span("Operator improvements");
+    private final VerticalLayout operatorLog = new VerticalLayout();
     private final VerticalLayout summaryContent = new VerticalLayout();
     private final Graph graphSC = new Graph();
     private final Partition partitionView = new Partition();
@@ -105,9 +109,9 @@ public class RouteLocalSearchView extends VerticalLayout
 
     // Download controls for the best partition and its logged centroids, shown
     // once a search completes. Built lazily so they only exist after a result.
-    private Anchor partitionDownload;
+    private DownloadAnchor partitionDownload;
 
-    private Anchor centroidsDownload;
+    private DownloadAnchor centroidsDownload;
     private HorizontalLayout downloadControls;
 
     @Nullable
@@ -119,6 +123,7 @@ public class RouteLocalSearchView extends VerticalLayout
     @SuppressWarnings("null")
     public RouteLocalSearchView() {
         setId("local-search-view");
+        setSizeFull();
         setSpacing(true);
         setPadding(true);
 
@@ -144,6 +149,18 @@ public class RouteLocalSearchView extends VerticalLayout
                 () -> progress.setIndeterminate(
                         viewModel.progressIndeterminate().get()));
         statusText.bindText(viewModel.statusText());
+
+        // Per-operator success entries render as their own list rows below the
+        // running status text, so each improvement stays a distinct line rather
+        // than being flattened into the monolithic status Div.
+        operatorLog.setId("local-operator-log");
+        operatorLog.bindChildren(viewModel.operatorLog(), itemSignal -> {
+            Span entry = new Span();
+            entry.bindText(itemSignal);
+            return entry;
+        });
+        operatorLog.setHeight("500px");
+        operatorLog.getElement().getStyle().setOverflow(Overflow.AUTO);
 
         // Refresh the download controls whenever a best partition appears or is
         // cleared. The controls are built lazily on first refresh so they only
@@ -292,7 +309,9 @@ public class RouteLocalSearchView extends VerticalLayout
         buildDownloadControls();
 
         HorizontalLayout searchPanel = new HorizontalLayout(
-                new VerticalLayout(progress, statusText), downloadControls);
+                new VerticalLayout(progress, statusText, operatorLabel,
+                        operatorLog),
+                downloadControls);
         searchCard.add(searchPanel);
         localTabs.add("Search", searchCard);
         // A taller chart makes the SC curve easier to read and lets the global
@@ -305,15 +324,6 @@ public class RouteLocalSearchView extends VerticalLayout
         localTabs.add("Summary", summaryContent);
 
         renderSummary();
-    }
-
-    /**
-     * Coerces a nullable integer signal to an int, treating empty as zero.
-     */
-    private static int signalInt(
-            com.vaadin.flow.signals.local.ValueSignal<Integer> signal) {
-        Integer value = signal.peek();
-        return value == null ? 0 : value;
     }
 
     /**
@@ -374,8 +384,8 @@ public class RouteLocalSearchView extends VerticalLayout
                 CentroidType.fromCode(form.centroidType()).label());
         addSummaryRow("empty cell fix (-eX)",
                 EmptyCellFix.fromCode(form.alternateMode()).label());
-        addSummaryRow("effective maxIter",
-                Integer.toString(config.effectiveMaxIter()));
+        addSummaryRow("maxIter (-n)",
+                Integer.toString(config.maxIter()));
     }
 
     private int currentVectorCount() {
@@ -412,33 +422,22 @@ public class RouteLocalSearchView extends VerticalLayout
             return;
         }
 
-        @SuppressWarnings("unused")
         String base = downloadFileName();
-        partitionDownload = new Anchor(
-                DownloadHandler.fromInputStream(event -> {
-                    PartitionModel model = viewModel.partitionModel().peek();
-                    byte[] bytes = model == null ? new byte[0]
-                            : PartitionWriter.toBytes(ReportTab
-                                    .toPartition(model));
-                    event.setFileName(base + ".partition");
-                    event.setContentType("text/plain; charset=UTF-8");
-                    return new DownloadResponse(new ByteArrayInputStream(bytes),
-                            base + ".partition", "text/plain; charset=UTF-8",
-                            bytes.length);
-                }), AttachmentType.DOWNLOAD, "Download partition");
+        partitionDownload = new DownloadAnchor("Download partition", () -> {
+            PartitionModel model = viewModel.partitionModel().peek();
+            byte[] bytes = model == null ? new byte[0]
+                    : PartitionWriter.toBytes(ReportTab.toPartition(model));
+            return bytes;
+        });
+        partitionDownload.setDownloadFileName(base + ".partition");
         partitionDownload.setId("local-partition-download");
 
-        centroidsDownload = new Anchor(
-                DownloadHandler.fromInputStream(event -> {
-                    InfiniteCentroids c = viewModel.bestCentroids();
-                    byte[] bytes = c == null ? new byte[0]
-                            : CentroidWriter.toBytes(c);
-                    event.setFileName(base + ".centroids");
-                    event.setContentType("text/plain; charset=UTF-8");
-                    return new DownloadResponse(new ByteArrayInputStream(bytes),
-                            base + ".centroids", "text/plain; charset=UTF-8",
-                            bytes.length);
-                }), AttachmentType.DOWNLOAD, "Download centroids");
+        centroidsDownload = new DownloadAnchor("Download centroids", () -> {
+            InfiniteCentroids c = viewModel.bestCentroids();
+            byte[] bytes = c == null ? new byte[0] : CentroidWriter.toBytes(c);
+            return bytes;
+        });
+        centroidsDownload.setDownloadFileName(base + ".centroids");
         centroidsDownload.setId("local-centroids-download");
 
         downloadControls = new HorizontalLayout(partitionDownload,

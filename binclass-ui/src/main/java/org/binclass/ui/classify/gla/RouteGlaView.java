@@ -47,6 +47,7 @@ import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.SearchType;
 import org.binclass.algorithms.io.CentroidWriter;
 import org.binclass.algorithms.io.PartitionWriter;
+import org.binclass.components.download.DownloadAnchor;
 import org.binclass.components.graph.Graph;
 import org.binclass.components.partition.Partition;
 import org.binclass.components.partition.PartitionModel;
@@ -114,9 +115,9 @@ public class RouteGlaView extends VerticalLayout
     // shown
     // once a search completes. Built lazily so they only exist after a
     // result.
-    private Anchor partitionDownload;
+    private DownloadAnchor partitionDownload;
 
-    private Anchor centroidsDownload;
+    private DownloadAnchor centroidsDownload;
     private HorizontalLayout downloadControls;
 
     @Nullable
@@ -130,6 +131,7 @@ public class RouteGlaView extends VerticalLayout
         setId("gla-view");
         setSpacing(true);
         setPadding(true);
+        setSizeFull();
 
         buildParamsForm();
         buildTabs();
@@ -498,7 +500,7 @@ public class RouteGlaView extends VerticalLayout
                 DistanceType.fromCode(form.distanceType())
                         .label());
         addSummaryRow("maxIter (-n)",
-                Integer.toString(config.effectiveMaxIter()));
+                Integer.toString(config.maxIter()));
     }
 
     private int currentVectorCount() {
@@ -535,57 +537,28 @@ public class RouteGlaView extends VerticalLayout
             return;
         }
 
-        @SuppressWarnings("unused")
         String base = downloadFileName();
-        partitionDownload = new Anchor(
-                DownloadHandler.fromInputStream(event -> {
-                    PartitionModel model = viewModel
-                            .partitionModel()
-                            .peek();
-                    byte[] bytes = model == null
-                            ? new byte[0]
-                            : PartitionWriter
-                                    .toBytes(ReportTab
-                                            .toPartition(model));
-                    event.setFileName(base + ".partition");
-                    event.setContentType(
-                            "text/plain; charset=UTF-8");
-                    return new DownloadResponse(
-                            new ByteArrayInputStream(
-                                    bytes),
-                            base + ".partition",
-                            "text/plain; charset=UTF-8",
-                            bytes.length);
-                }), AttachmentType.DOWNLOAD,
-                "Download partition");
+        partitionDownload = new DownloadAnchor("Download partition", () -> {
+            PartitionModel model = viewModel.partitionModel().peek();
+            byte[] bytes = model == null ? new byte[0]
+                    : PartitionWriter.toBytes(ReportTab.toPartition(model));
+            return bytes;
+        });
+        partitionDownload.setDownloadFileName(base + ".partition");
         partitionDownload.setId("gla-partition-download");
 
-        centroidsDownload = new Anchor(
-                DownloadHandler.fromInputStream(event -> {
-                    InfiniteCentroids c = viewModel
-                            .bestCentroids();
-                    byte[] bytes = c == null ? new byte[0]
-                            : CentroidWriter.toBytes(
-                                    c);
-                    event.setFileName(base + ".centroids");
-                    event.setContentType(
-                            "text/plain; charset=UTF-8");
-                    return new DownloadResponse(
-                            new ByteArrayInputStream(
-                                    bytes),
-                            base + ".centroids",
-                            "text/plain; charset=UTF-8",
-                            bytes.length);
-                }), AttachmentType.DOWNLOAD,
-                "Download centroids");
+        centroidsDownload = new DownloadAnchor("Download centroids", () -> {
+            InfiniteCentroids c = viewModel.bestCentroids();
+            byte[] bytes = c == null ? new byte[0] : CentroidWriter.toBytes(c);
+            return bytes;
+        });
+        centroidsDownload.setDownloadFileName(base + ".centroids");
         centroidsDownload.setId("gla-centroids-download");
 
         downloadControls = new HorizontalLayout(partitionDownload,
                 centroidsDownload);
         downloadControls.setVisible(false);
-    }
-
-    /**
+    }    /**
      * Refreshes the download controls' visibility and enabled state after a
      * result arrives. The controls appear only when a best partition exists;
      * the centroids control additionally requires carried centroids.
