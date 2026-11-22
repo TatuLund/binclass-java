@@ -7,6 +7,7 @@ package org.binclass.components.partition;
 import java.util.Arrays;
 
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable presentation data for a single binary vector rendered as a grid of
@@ -29,7 +30,7 @@ public record VectorData(
          */
         String name,
         /** Optional identifier shown alongside the name in tooltips. */
-        @org.jspecify.annotations.Nullable String identifier,
+        @Nullable String identifier,
         /** Hamming distance from this vector to its cluster centroid. */
         int distanceToCentroid,
         /**

@@ -529,7 +529,7 @@ public final class AutomaticSearch {
             LocalSearch.localSearch(partition, centroids,
                     config.heuristicCount(), vectorLength(), config.n(),
                     config.jeffreysPrior(), new Random(), display,
-                    config.heuristic());
+                    config.heuristic(), config.rounded());
         }
 
         double sc = score(partition, centroids);

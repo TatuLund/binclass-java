@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -86,7 +87,7 @@ public final class GlaViewTranslator {
                     ? centroids.get(i)
                     : null;
 
-            String name = mostFrequentStrain(vectors, i + 1);
+            String name = mostFrequentName(vectors, i + 1);
             double weight = clusterSet.size() / (double) totalVectors;
             @SuppressWarnings("null")
             double distortion = averageDistortion(vectors, centroid);
@@ -166,29 +167,56 @@ public final class GlaViewTranslator {
         int distance = centroid != null
                 ? bv.hammingDistance(centroidToBinary(centroid))
                 : 0;
-        return new VectorData(bits, strainOrNull(bv), classNameOrNull(bv),
+        return new VectorData(bits, classNameOrNull(bv), strainOrNull(bv),
                 distance, roundedCentroid(centroid, bits.length));
     }
 
     /**
-     * Returns the most frequent strain label inside a cluster, falling back to
-     * the one-based index when no vector carries a strain.
+     * Returns the dominant label inside a cluster, preferring the most frequent
+     * class-name (the group label such as {@code "ESCH COLI"}) and falling back
+     * to the most common strain identifier when no vector carries a class-name.
+     * When neither is present it returns the one-based index.
      *
      * @param vectors
      *            the cluster's binary vectors (may be empty)
      * @param fallbackIndex
-     *            the 1-based cluster index used as name when no strain exists
-     * @return the dominant strain label, or {@code "k" + fallbackIndex}
+     *            the 1-based cluster index used as name when no label exists
+     * @return the dominant class-name, or the dominant strain, or
+     *         {@code String.valueOf(fallbackIndex)}
      */
-    private static String mostFrequentStrain(List<BinaryVector> vectors,
+    @SuppressWarnings("null")
+    private static String mostFrequentName(List<BinaryVector> vectors,
             int fallbackIndex) {
+        @SuppressWarnings("null")
+        String name = dominantLabel(vectors, BinaryVector::getClassName);
+        if (name == null) {
+            name = dominantLabel(vectors, BinaryVector::getStrain);
+        }
+        return (name != null && !name.isBlank()) ? name
+                : String.valueOf(fallbackIndex);
+    }
+
+    /**
+     * Returns the most frequent non-blank label produced by {@code labelOf} for
+     * the given vectors, or {@code null} when every vector carries a blank
+     * label. Ties keep whichever label was seen first.
+     *
+     * @param vectors
+     *            the cluster's binary vectors (may be empty)
+     * @param labelOf
+     *            extracts a label from each vector
+     * @return the dominant label, or {@code null} when none is present
+     */
+    @SuppressWarnings("null")
+    private static @Nullable String dominantLabel(List<BinaryVector> vectors,
+            Function<BinaryVector, String> labelOf) {
         Map<String, Integer> counts = new HashMap<>();
         for (BinaryVector bv : vectors) {
-            String strain = bv.getStrain();
-            if (strain == null || strain.isBlank()) {
+            String label = labelOf.apply(bv);
+            if (label == null || label.isBlank()) {
                 continue;
             }
-            counts.merge(strain, 1, Integer::sum);
+            counts.merge(label, 1, Integer::sum);
         }
         String best = null;
         int bestCount = 0;
@@ -198,8 +226,7 @@ public final class GlaViewTranslator {
                 best = entry.getKey();
             }
         }
-        return (best != null && !best.isBlank()) ? best
-                : String.valueOf(fallbackIndex);
+        return best;
     }
 
     /**

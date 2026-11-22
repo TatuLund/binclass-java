@@ -308,6 +308,42 @@ class LocalSearchTest {
     }
 
     @Test
+    void testDriverRoundsCentroidsWhenFlagSet() {
+        Partition p = buildThreeClusterPartition();
+        InfiniteCentroids c = buildThreeCentroids();
+        int n = totalVectors(p);
+
+        LocalSearch.localSearch(p, c, 5, L, n, false, new Random(7), "t", 0,
+                true);
+
+        for (double v : c.get(0).getEl()) {
+            assertTrue(v == 0.0 || v == 1.0,
+                    "rounded driver must yield binary centroid values");
+        }
+    }
+
+    @Test
+    void testDriverKeepsFractionalCentroidsWhenFlagClear() {
+        Partition p = buildThreeClusterPartition();
+        InfiniteCentroids c = buildThreeCentroids();
+        int n = totalVectors(p);
+
+        LocalSearch.localSearch(p, c, 5, L, n, false, new Random(7), "t", 0,
+                false);
+
+        boolean anyFractional = false;
+        for (int i = 0; i < c.size(); i++) {
+            for (double v : c.get(i).getEl()) {
+                if (v != 0.0 && v != 1.0) {
+                    anyFractional = true;
+                }
+            }
+        }
+        assertTrue(anyFractional,
+                "fractional driver must keep a non-binary centroid value");
+    }
+
+    @Test
     void testSafeWorstMatchingVectorsSingleton() throws Exception {
         Method m = LocalSearch.class.getDeclaredMethod(
                 "safeWorstMatchingVectors", VectorSet.class, int.class,
@@ -382,14 +418,14 @@ class LocalSearchTest {
         // recomputeCentroids.
         Method m = LocalSearch.class.getDeclaredMethod(
                 "mseGla2", VectorSet.class, Partition.class,
-                InfiniteCentroids.class, int.class);
+                InfiniteCentroids.class, int.class, boolean.class);
         m.setAccessible(true);
 
         Partition p = new Partition(1);
         InfiniteCentroids c = new InfiniteCentroids(new double[][] { { 0.5, 0.5,
                 0.5, 0.5 } }, 1);
 
-        int ret = (int) m.invoke(null, new VectorSet(), p, c, 0);
+        int ret = (int) m.invoke(null, new VectorSet(), p, c, 0, false);
         assertEquals(2, ret);
     }
 

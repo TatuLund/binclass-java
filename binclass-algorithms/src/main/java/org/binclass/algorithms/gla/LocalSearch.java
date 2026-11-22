@@ -705,7 +705,7 @@ public final class LocalSearch {
             InfiniteCentroids centroids,
             int count, int l, int n, boolean jeffreysPrior, Random random) {
         return localSearch(partition, centroids, count, l, n, jeffreysPrior,
-                random, "localsearch", 0);
+                random, "localsearch", 0, false);
     }
 
     /**
@@ -747,7 +747,7 @@ public final class LocalSearch {
     public static int localSearch(Partition partition,
             InfiniteCentroids centroids,
             int count, int l, int n, boolean jeffreysPrior, Random random,
-            String display, int heuristicCode) {
+            String display, int heuristicCode, boolean rounded) {
         Objects.requireNonNull(partition, "Partition must not be null");
         Objects.requireNonNull(centroids, "InfiniteCentroids must not be null");
 
@@ -785,7 +785,7 @@ public final class LocalSearch {
                     random);
 
             VectorSet v = GLAEngine.partitionToSet(partition);
-            gt += mseGla2(v, partition, centroids, n);
+            gt += mseGla2(v, partition, centroids, n, rounded);
 
             double scn = scorePartition(partition, l, jeffreysPrior);
 
@@ -830,7 +830,7 @@ public final class LocalSearch {
 
         CentroidManager.copyCentroids(cmin, centroids);
         VectorSet v = GLAEngine.partitionToSet(partition);
-        gt += mseGla2(v, partition, centroids, n);
+        gt += mseGla2(v, partition, centroids, n, rounded);
         double scn = scorePartition(partition, l, jeffreysPrior);
         if (scn > sc) {
             CentroidManager.copyCentroids(cmin, centroids);
@@ -962,13 +962,13 @@ public final class LocalSearch {
      * @return a fixed cost constant (2), matching the C return value
      */
     private static int mseGla2(VectorSet vectors, Partition partition,
-            InfiniteCentroids centroids, int n) {
+            InfiniteCentroids centroids, int n, boolean rounded) {
         clearPartition(partition);
         NearestNeighbor.mseNearestNeighbor(vectors, partition, centroids);
         if (!isEmptyPartition(partition)) {
             GLAEngine.removeEmpty(partition, centroids);
         }
-        GLAEngine.recomputeCentroids(partition, centroids, true, n);
+        GLAEngine.recomputeCentroids(partition, centroids, rounded, n);
         VectorSet v = GLAEngine.partitionToSet(partition);
         clearPartition(partition);
         NearestNeighbor.mseNearestNeighbor(v, partition, centroids);

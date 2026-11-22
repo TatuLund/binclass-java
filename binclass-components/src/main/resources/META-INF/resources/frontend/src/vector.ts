@@ -189,12 +189,12 @@ export class Vector extends ThemableMixin(LitElement) {
         display: block;
         width: 100%;
         /* Fixed-width label column so stacked vectors align their bit strips. */
-        --label-width: 96px;
+        --label-width: 200px;
       }
 
       .row {
         display: flex;
-        align-items: flex-start;
+        align-items: baseline;
         gap: 4px;
       }
 

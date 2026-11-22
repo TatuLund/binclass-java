@@ -7,8 +7,6 @@ package org.binclass.components.partition;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import org.jspecify.annotations.Nullable;
-
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.Tag;

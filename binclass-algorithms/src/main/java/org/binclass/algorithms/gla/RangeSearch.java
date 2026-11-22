@@ -548,7 +548,7 @@ public final class RangeSearch {
             LocalSearch.localSearch(partition, centroids,
                     config.heuristicCount(), vectorSet.getVectorLength(),
                     config.n(), config.jeffreysPrior(), new java.util.Random(),
-                    display, config.heuristic());
+                    display, config.heuristic(), config.rounded());
         }
 
         // initializePartition() creates a partition with one spare index-0

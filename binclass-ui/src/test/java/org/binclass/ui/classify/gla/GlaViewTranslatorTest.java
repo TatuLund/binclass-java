@@ -17,6 +17,7 @@ import org.binclass.algorithms.core.Partition;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.partition.ClusterData;
 import org.binclass.components.partition.PartitionModel;
+import org.binclass.components.partition.VectorData;
 
 /**
  * Unit tests for {@link GlaViewTranslator}, covering the
@@ -68,6 +69,45 @@ class GlaViewTranslatorTest {
         ClusterData cluster = model.clusters().get(0);
 
         assertEquals("alpha", cluster.name());
+    }
+
+    @Test
+    void toPartitionModelPrefersClassNameAsClusterName() {
+        Partition partition = new Partition(1, 3);
+        // Distinct per-vector strain identifiers but a shared class-name.
+        BinaryVector a = new BinaryVector(new int[] { 0, 0 }, 0, 2, 0,
+                "0523-84", "ESCH COLI");
+        BinaryVector b = new BinaryVector(new int[] { 1, 1 }, 0, 2, 0,
+                "1434-82", "ESCH COLI");
+        BinaryVector c = new BinaryVector(new int[] { 0, 1 }, 0, 2, 0,
+                "2852-78", "ESCH COLI");
+        partition.addElement(1, a);
+        partition.addElement(1, b);
+        partition.addElement(1, c);
+
+        PartitionModel model = GlaViewTranslator.toPartitionModel(partition,
+                null, 0.0);
+        ClusterData cluster = model.clusters().get(0);
+
+        // The dominant class-name labels the cluster, not an arbitrary strain.
+        assertEquals("ESCH COLI", cluster.name());
+    }
+
+    @Test
+    void toPartitionModelFallsBackToStrainWhenNoClassName() {
+        Partition partition = new Partition(1, 2);
+        BinaryVector a = new BinaryVector(new int[] { 0, 0 }, 2);
+        a.setStrain("beta");
+        BinaryVector b = new BinaryVector(new int[] { 1, 1 }, 2);
+        b.setStrain("beta");
+        partition.addElement(1, a);
+        partition.addElement(1, b);
+
+        PartitionModel model = GlaViewTranslator.toPartitionModel(partition,
+                null, 0.0);
+        ClusterData cluster = model.clusters().get(0);
+
+        assertEquals("beta", cluster.name());
     }
 
     @Test
@@ -148,5 +188,22 @@ class GlaViewTranslatorTest {
         assertEquals(2, points.size());
         assertEquals(4, points.get(0).x());
         assertEquals(6, points.get(1).x());
+    }
+
+    @Test
+    void toVectorDataMapsClassNameToNameAndStrainToIdentifier() {
+        Partition partition = new Partition(1, 2);
+        BinaryVector bv = new BinaryVector(new int[] { 1, 0 }, 0, 2, 0,
+                "3093-84", "ESCH COLI");
+        partition.addElement(1, bv);
+
+        PartitionModel model = GlaViewTranslator.toPartitionModel(partition,
+                null, 0.0);
+        VectorData data = model.clusters().get(0).vectors().get(0);
+
+        // The class-name (group label) is the display name; the strain is the
+        // per-vector identifier shown after it.
+        assertEquals("ESCH COLI", data.name());
+        assertEquals("3093-84", data.identifier());
     }
 }

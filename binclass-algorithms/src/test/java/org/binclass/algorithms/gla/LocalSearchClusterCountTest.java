@@ -71,7 +71,8 @@ class LocalSearchClusterCountTest {
                     set.size());
             int before = countNonEmpty(partition);
             LocalSearch.localSearch(partition, centroids, cfg.heuristicCount(),
-                    L, set.size(), false, new java.util.Random(1), "test", 7);
+                    L, set.size(), false, new java.util.Random(1), "test", 7,
+                    false);
             int after = countNonEmpty(partition);
             double sc = DistanceCalculator.stochasticComplexity(
                     partition, after + 1, L, false);
