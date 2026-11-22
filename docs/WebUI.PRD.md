@@ -405,7 +405,7 @@ current-route highlight in the drawer follows routing automatically once each vi
 
 > **Status:** implemented — `RouteGlaView` renders a labelled parameter form with enum selects, tooltips,
 > a *Run* button that hides the form and reveals a results tab sheet (Search / SC Graph / Partition /
-> Summary), plus a run-summary tab echoing the resolved configuration. The translator and EventBus wiring
+> Dendrogram / Summary), plus a run-summary tab echoing the resolved configuration. The translator and EventBus wiring
 > described below are complete.
 
 The flagship display. Mirrors `ClassifyCommand.execute()`: range search **and** automatic search,
@@ -512,12 +512,15 @@ RouteGlaView extends VerticalLayout   (@Route("gla"))
 │   ├─ Select<Heuristic> heuristic      id="heuristic"        friendly labels, tooltip
 │   ├─ IntegerField     maxIter         id="maxiter"          label + tooltip
 │   └─ Button           run            id="run-gla"
-├─ TabSheet                   glaTabs      id="gla-tabs"     (Search | SC Graph | Partition | Summary)
+├─ TabSheet                   glaTabs      id="gla-tabs"     (Search | SC Graph | Partition | Dendrogram | Summary)
 │   ├─ "Search"  → Card searchCard          id="search-panel"
 │   │   ├─ ProgressIndicator    progress      id="gla-progress"
 │   │   └─ Div          statusText           id="gla-status"
 │   ├─ "SC Graph" → graphSC (binclass-graph)  id="sc-graph"
 │   ├─ "Partition" → partitionView (binclass-partition)  id="partition-view"
+│   ├─ "Dendrogram" → Scroller dendrogramScroller  id="gla-dendrogram-scroller"
+│   │   ├─ Button generateTree        id="generate-tree-gla"     (enabled when search complete)
+│   │   └─ Tree dendrogram            id="dendrogram-gla"        (bound to treeModel signal)
 │   └─ "Summary" → summaryContent             echoes resolved GLAConfig + New search button
 ```
 
@@ -530,6 +533,7 @@ the SC graph tab updates after each k; whenever a new best partition is detected
 The SC Graph tab shows the automatic-search curve with its global minimum (reuse `Graph`); the Partition tab renders the best
 partition via `Partition` (clusters → `ClusterData`, lazy vectors). On completion/cancellation the button is re-enabled and the
 future is cancelled in `onDetach(...)`. The *New search* button on the summary tab restores the form and hides the tabs.
+- **Dendrogram tab.** A *Generate dendrogram* button (`id="generate-tree-gla"`) sits above the Tree component; it is disabled until the search completes (bound to the result signal / not running). Clicking it posts `TreeBuilder.makeTreePnn(partition, centroids, jeffreysPrior)` (or `makeTreePnn2` for Hellinger) to a background task; on completion the flattened `TreeModel` updates the bound signal and the Tree component (`id="dendrogram-gla"`) re-renders. Building is done lazily because it is slower than rendering the Partition component, so the partition shows immediately while the dendrogram is generated only when asked. jeffreysPrior comes from the search config; an optional Hellinger toggle mirrors §15.2.
 - **Fixed lower bound still runs (range search):** setting `kStart` (`-b`) above 1 selects range search; *Run* must still start it
 even though automatic search is not selected — a fixed lower bound does not disable Run. The same `beforeLeave` guard that
 postpones navigation while a search is in flight (see §3.2.2) also applies here, so the user can leave only after confirming.
@@ -539,9 +543,15 @@ postpones navigation while a search is in flight (see §3.2.2) also applies here
 - best `Partition`/`InfiniteCentroids` → view-specific `PartitionModel` (+ per-cluster `ClusterData`, rounded centroid for hover).
   The GLA display shapes clusters/vectors to match its partition tab; the cumulative display shapes them differently.
 
+### 3.5.1 Dendrogram tab (on-demand)
+- Reuses `TreeBuilder.makeTreePnn(partition, centroids, jeffreysPrior)` / `makeTreePnn2(...)` (Hellinger vs class-nearness) and the §15 translation that flattens a `TreeNode` into an indexed `TreeModel` (leaf names = most-common strain, joint sizes summed). The GLA display passes its best `Partition` + `InfiniteCentroids` straight from the search result — no save/reload.
+- The *Generate dendrogram* button is enabled only when a search has completed (`canGenerateTree()`), so it is inert during and immediately after a run until the result signal is set; it can be re-clicked to rebuild if the config (e.g. Hellinger) changes.
+- Generation runs on the single-threaded executor like the search; completion sets the `treeModel` signal bound to the Tree component, which re-renders automatically. A running indicator accompanies generation so the user knows the tree is being built.
+
 ### 3.6 Testing
 - **Unit:** build `GLAConfig` from a form-value record; verify flag→config mapping (esp. search-type selection, alternate-mode int code, decreasing-epsilon detection). Also unit-test the translation layer: verify `PartitionModel` is populated correctly from the algorithm objects (`Partition`/`InfiniteCentroids`) — cluster names, per-cluster `ClusterData`, and lazy `VectorData`.
 - **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` is correct; fabricate a `SearchCompleted` event and assert `#sc-graph` accumulates points and the partition tab receives a model. (Graph / Partition rendering itself already covered in `binclass-components`.)
+- **Dendrogram tab:** assert the *Generate dendrogram* button is disabled before a search completes and enabled once `SearchCompleted` fires; fabricate a completed result and assert clicking it builds a `TreeModel` that populates `#dendrogram-gla`. (Tree web component SVG rendering already covered in `binclass-components`.)
 
 ---
 
@@ -587,6 +597,7 @@ The use cases below are exercised by tests that currently exist. Each maps to a 
 - `kstopAndKstopwhenMutuallyExclusiveDisablesRun`: setting both `-s` and `-S` positive marks both fields invalid (message *"kstop (-s) and kstopwhen (-S) are mutually exclusive."*) and disables Run; clearing one restores validity.
 - `epsilonOutOfRangeDisablesRunButDecreasingReenables`: out-of-range epsilon disables Run; toggling decreasing-epsilon re-enables it; returning to normal mode with an in-range value keeps it enabled.
 - `kStartGreaterThanOneStillRunsSearch`: a fixed lower bound still enables and starts the search (range search).
+- `generateDendrogramButtonDisabledUntilCompleteEnabledOnCompletion`: the *Generate dendrogram* button is disabled before completion and enabled once a result exists; clicking it builds a tree model that populates the Tree component.
 - `confirmDialogAppearsWhenNavigatingAwayWhileRunning` / `confirmResumesNavigationAndCancelsSearch` / `cancelKeepsSearchRunningAndStaysInView`: the `beforeLeave` guard opens a confirm dialog when navigating away mid-search; *confirm* cancels and proceeds, *cancel* keeps running and stays on the view.
 
 **End-to-end rendering — `GlaViewIT` (`binclass-ui`, Playwright).**
@@ -594,6 +605,7 @@ The use cases below are exercised by tests that currently exist. Each maps to a 
 - `glaViewRendersDefaultParameters`: the default form seeds range/epsilon values; uploading the bundled pair enables Run.
 - `glaViewGraphAccumulatesPointsOnCompletion` (marked `@Ignore flaky`): progress events draw a polyline on the SC graph.
 - `glaViewPartitionTabReceivesModelOnCompletion`: a fabricated `SearchCompleted` populates the partition tab.
+- `glaViewDendrogramTabDisabledUntilCompletion`: the Dendrogram tab's *Generate dendrogram* button is disabled until completion and enabled once a result exists; clicking it builds a tree model that populates the Tree component.
 
 ### 3.8 Embedded Report tab (§17)
 
@@ -604,7 +616,7 @@ The GLA display embeds one `ReportComponent` instance (`id="report-component-gla
 ## 4. Display B — Local Search (`ClassifyCommand` `-r7`/`-r8`)
 
 > **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Local Search")` title and a placeholder body
-> (`id="local-search-body"`). The parameter form, results area, translator and EventBus wiring described below are not yet built.
+> (`id="local-search-body"`). The parameter form, results area (including an on-demand Dendrogram tab), translator and EventBus wiring described below are not yet built.
 
 A focused view on heuristic local search (cycler `-r7`, adaptive `-r8`) which route through
 `LocalSearch.localSearch()` instead of a single GLA variant. Shares the GLA parameter form; narrows scope to
@@ -636,7 +648,7 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 │   ├─ NumberField  epsilon          id="epsilon"
 │   ├─ Checkbox     jeffreysPrior    id="jeffreys-prior"
 │   └─ Button       run              id="run-local"
-├─ TabSheet             localTabs        id="local-tabs"      (Search | SC Graph | Partition | Summary | Report)
+├─ TabSheet             localTabs        id="local-tabs"      (Search | SC Graph | Partition | Dendrogram | Summary | Report)
 │   ├─ "Search"  → Card searchCard          id="local-search-panel"
 │   │   ├─ ProgressIndicator progress         id="local-progress"
 │   │   ├─ Div          statusText           id="local-status"    (running strategy/progress text)
@@ -644,11 +656,15 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 │   ├─ "SC Graph" → graphSC                        id="sc-graph"
 │   ├─ "Partition" → partitionView              id="partition-view"
 │   │   └─ download controls (§18.5)             id="local-downloads"  (partition + centroids)
+│   ├─ "Dendrogram" → Scroller dendrogramScroller  id="local-dendrogram-scroller"
+│   │   ├─ Button generateTree        id="generate-tree-local"     (enabled when search complete)
+│   │   └─ Tree dendrogram            id="dendrogram-local"        (bound to treeModel signal)
 │   ├─ "Summary" → summaryContent             echoes resolved GLAConfig + New search button
 │   └─ "Report"  → ReportComponent            id="report-component-localsearch"
 ```
 
 **Flow (MVVM):** mirrors §3.4 — `#run-local` click → view calls `viewModel.setForm(buildForm())` then `viewModel.run(runButton)`. The VM builds `GLAConfig` from the form record with the chosen heuristic code and `lsCycler`/`lsAdaptive` set, submits to the single-threaded executor, disables the button with `setDisableOnClick(true)`, and hides the form revealing the results tab sheet. Per-`k` `SearchProgress("localsearch", k, sc, false)` updates the SC curve; best-partition snapshots (`SearchBestPartition`) refresh the Partition tab live; completion sets the bound result signal so graph/partition rebuild automatically. The *Search* tab's status text echoes the chosen strategy (e.g. *"Cycling all strategies for Local Search"* / *"Adaptive …"*) and per-operator success lines from `OperatorSuccess` events emitted by `LocalSearch.localSearch`, each appended as its own row in the `operatorLog` element below it. On completion/cancellation the button is re-enabled and the future cancelled in `onDetach(...)`.
+- **Dendrogram tab.** A *Generate dendrogram* button (`id="generate-tree-local"`) sits above the Tree component; it is disabled until the search completes (bound to the result signal / not running). Clicking it posts `TreeBuilder.makeTreePnn(partition, centroids, jeffreysPrior)` (or `makeTreePnn2` for Hellinger) to a background task; on completion the flattened `TreeModel` updates the bound signal and the Tree component (`id="dendrogram-local"`) re-renders. Building is done lazily because it is slower than rendering the Partition component, so the partition shows immediately while the dendrogram is generated only when asked. jeffreysPrior comes from the search config; an optional Hellinger toggle mirrors §15.2.
 
 **SC graph (fixed-k):** reuse §3.5 logic — for an automatic run populate the curve from `AutomaticSearch.Result.scs[]`; for a pure range search there is no `scs[]`, so either re-run at successive fixed `k`s to build a curve or show the single best point and disable the graph until data arrives (same approach GLA uses).
 
@@ -658,10 +674,16 @@ RouteLocalSearchView extends VerticalLayout   (@Route("local-search"))
 
 **Downloads (§18.5):** beside the Partition tab, expose two download controls — partition → `.partition` via `PartitionWriter.writePartition(partition, name)` and centroids → `.centroids` via `CentroidWriter.save(centroids, name)`. Build content in memory (no temp files), disable while a search is running (bind to the same `running` signal), re-enable once a result exists.
 
+### 4.5 Dendrogram tab (on-demand)
+- Reuses `TreeBuilder.makeTreePnn(partition, centroids, jeffreysPrior)` / `makeTreePnn2(...)` and the §15 translation that flattens a `TreeNode` into an indexed `TreeModel` (leaf names = most-common strain, joint sizes summed). Local Search passes its best `Partition` + `InfiniteCentroids` straight from the search result — no save/reload.
+- The *Generate dendrogram* button is enabled only when a search has completed (`canGenerateTree()`), so it is inert during and immediately after a run until the result signal is set; it can be re-clicked to rebuild if the config (e.g. Hellinger) changes.
+- Generation runs on the single-threaded executor like the search; completion sets the `treeModel` signal bound to the Tree component, which re-renders automatically. A running indicator accompanies generation so the user knows the tree is being built.
+
 ### 4.6 Testing
 - **Unit:** heuristic→config mapping; cycler/adaptive flags propagate (`lsCycler`/`lsAdaptive` set when code is 7/8, single operator otherwise). Also unit-test the translation layer exactly as §3.6: `PartitionModel` populated from the algorithm `Partition`/`InfiniteCentroids` (cluster names via most-frequent strain → index fallback, per-cluster `ClusterData`, rounded centroid for hover) and the SC curve graph model (`scs[]` → `GraphPoint(k, sc)`, dropping non-finite points).
 - **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` carries all 8 heuristic codes plus `lsCycler`/`lsAdaptive`; verify *Run* disables while a search is in flight and re-enables on completion; fabricate an `OperatorSuccess` event and assert `#local-status` appends a line; fabricate a `SearchCompleted` event and assert `#sc-graph` accumulates points, the partition tab receives a model, downloads enable, and the Summary tab renders. (SC graph / partition rendering already covered in `binclass-components`.)
-- **Playwright:** run a local search, assert status text mentions the chosen strategy (cycler/adaptive) plus per-operator success lines, the graph renders, and each download control produces its file.
+- **Playwright:** run a local search, assert status text mentions the chosen strategy (cycler/adaptive) plus per-operator success lines, the graph renders, and each download control produces its file; the Dendrogram tab's *Generate dendrogram* button is disabled until completion then enabled, and clicking it builds a tree that populates the Tree component.
+- **Dendrogram tab:** assert the *Generate dendrogram* button is disabled before a search completes and enabled once `SearchCompleted` fires; fabricate a completed result and assert clicking it builds a `TreeModel` that populates `#dendrogram-local`. (Tree web component SVG rendering already covered in `binclass-components`.)
 
 ### 4.7 Test coverage (reference from §3 + engine)
 
@@ -679,10 +701,10 @@ The Local Search view should follow the **same test structure as §3.7** — Bro
 - The translation layer is shared with GLA, so assert `PartitionModel` populated from `Partition`/`InfiniteCentroids` (cluster names via most-frequent strain → index fallback, per-cluster `ClusterData`, rounded centroid for hover) and the SC curve graph model (`scs[]` → `GraphPoint(k, sc)`, dropping non-finite points).
 
 **Real component driving — `RouteLocalSearchViewBrowserlessTest` (`binclass-ui`).**
-- Mirrors `RouteGlaViewBrowserlessTest`: uploading `/test.header` + `/test.data` parses vectors and enables Run; clicking *Run* flips `running()` to `true` synchronously while hiding the form; *Run* stays disabled before upload; the all-8-code heuristic select emits the right config (cycler/adaptive); a fabricated `OperatorSuccess` event appends a line to `#local-operator-log`; a fabricated `SearchCompleted` event makes `#sc-graph` accumulate points, gives the partition tab a model, enables downloads, and renders the Summary tab.
+- Mirrors `RouteGlaViewBrowserlessTest`: uploading `/test.header` + `/test.data` parses vectors and enables Run; clicking *Run* flips `running()` to `true` synchronously while hiding the form; *Run* stays disabled before upload; the all-8-code heuristic select emits the right config (cycler/adaptive); a fabricated `OperatorSuccess` event appends a line to `#local-operator-log`; a fabricated `SearchCompleted` event makes `#sc-graph` accumulate points, gives the partition tab a model, enables downloads, and renders the Summary tab; a *Generate dendrogram* button is disabled until completion then enabled, and clicking it builds a tree model that populates `#dendrogram-local`.
 
 **End-to-end rendering — `LocalSearchViewIT` (`binclass-ui`, Playwright).**
-- Mirrors `GlaViewIT`: every control renders (heuristic select showing all 8 codes, heuristic-count, epsilon, jeffreysPrior) plus each result tab incl. Report and Summary; a real run shows the chosen strategy text in the status element, appends per-operator success lines to `#local-operator-log`, draws the SC graph, and each download control produces its file.
+- Mirrors `GlaViewIT`: every control renders (heuristic select showing all 8 codes, heuristic-count, epsilon, jeffreysPrior) plus each result tab incl. Report, Summary and Dendrogram; a real run shows the chosen strategy text in the status element, appends per-operator success lines to `#local-operator-log`, draws the SC graph, enables the Dendrogram tab's *Generate dendrogram* button after completion (clicking it builds the tree), and each download control produces its file.
 
 **Engine reference (algorithm-level, not view tests).**
 - `AutomaticSearchTest` (`binclass-algorithms`): `configWithHeuristic(...)` helper + `testHeuristic7RunsLocalSearch` / `testHeuristic8RunsLocalSearch` verify the driver runs after GLA for every k > 3 and that every input vector is covered — the behaviour §4's view drives.
@@ -696,12 +718,20 @@ The Local Search view should follow the **same test structure as §3.7** — Bro
 
 > **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Cumulative Classification")` title and a placeholder body
 > (`id="cumulative-body"`). The parameter form, progress bar, log area, translator and EventBus wiring described below are not yet built.
+> Resolved decisions: events posted at 10% intervals (ProgressBar advances in 10% steps); log appends one line per new cluster with bold
+> SC when the SC-optimising variant is used; single `-I`/`-O` input; no SC Graph tab; DownloadAnchor for partition only; shared Partition +
+> ReportComponent.
 
 Processes vectors one at a time; each may create a new class or join an existing one, using Bayesian
 predictive identification with SC as criterion. Output is a `DynamicPartition` (grows over time).
 
 ### 5.1 Algorithm entry point
-- `CumulativeClassifier.doCumulativeClassification(vectorSet, CumulativeConfig)` → `DynamicPartition`.
+- `CumulativeClassifier.doCumulativeClassification(VectorSet, CumulativeConfig)` → `DynamicPartition`. The first vector always seeds class 1; each subsequent vector either joins an existing class or extends the partition by one (so the final cluster count is between 1 and `n`).
+- **No centroids object.** Unlike GLA/Local Search there is no `InfiniteCentroids` — a cumulative centroid for cluster `i` is derived from its frequency table (`dynPart.getFreqs(i)`) divided by the cluster size. The translator builds per-cluster centroid probabilities directly from these frequencies, so `PartitionModel` carries real (non-empty) centroids without a separate centroid pass.
+- **Final SC.** The dynamic partition exposes no single "whole-partition SC" method (only per-vector `calculateStochasticComplexityX(new)`), so the header metric shown on the Partition tab is computed from the static view via `DistanceCalculator.stochasticComplexity(dynPart.convert(), k, l)` with `k = dynPart.size()` and `l = dynPart.getVectorLength()`. (Cumulative's own incremental SC helpers exist but are per-vector, not a final score.)
+- **Null return.** The method can return `null` (the CLI checks for it), so the VM maps a non-null result to `SearchCompleted` and an exception/empty set to `SearchError`.
+- **Delta 3-state** (mirrors `CumulativeCommand`): `-D value` → `fixedDelta=true, delta=value`; `-d value` with no `-D` → `fixedDelta=false, delta=value`; neither flag → `delta=1, fixedDelta=false`. When both are present the lowercase `-d` wins for a non-fixed delta. Note the Java classifier currently applies `config.delta()` directly and does **not** apply C's non-fixed decrement `delta_value(k) = real_delta_value - k`, so that behaviour is out of scope unless explicitly added.
+- **`-I` vs `-O`.** The CLI parses both `cumulativeInputOrder (-I)` and `cumulativeInOrder (-O)`; only `inOrder` maps to a `CumulativeConfig` field. Treat `-I` as an alias that also forces in-order processing (documented below) rather than a separate signal.
 
 ### 5.2 Parameters → control (from `CumulativeConfig`)
 
@@ -716,22 +746,60 @@ predictive identification with SC as criterion. Output is a `DynamicPartition` (
 | cumSaveByPf (`!-c`) | bool | `Checkbox` (default on) | true |
 | cumNoNewClasses `-n` | bool | `Checkbox` | false |
 | cumulativeInOrder `-O` | bool | `Checkbox` | false |
-| epsilon `-E` | double | `NumberField` | EPSILON |
+| epsilon `-E` | double | `NumberField` | EPSILON (0.001) |
+
+> **No decreasing-epsilon mode.** Unlike GLA/Local Search, `CumulativeConfig` has no `decreasingEpsilon` field, so the epsilon field here is a plain bare value validated in `(0, 0.5)` — there is no checkbox toggle and no out-of-range re-enable path.
+
+The raw values are held by a dedicated immutable form record (mirroring `GlaParametersForm` / `LocalSearchParametersForm`):
+
+```
+record CumulativeParametersForm(
+    String filebase,
+    int delta, boolean fixedDelta,
+    boolean cumulativeAnalysis, int cumulativeSamples,
+    boolean bayesianPredictive, boolean testFeatureSignificance,
+    boolean cumSaveByPf, boolean cumNoNewClasses, boolean inOrder,
+    double epsilon) {
+    CumulativeConfig toConfig(int vectorCount);   // n unused by the algorithm
+    boolean isValid();                            // delta >= 0 && epsilon in (0,0.5)
+}
+```
+
+`toConfig()` maps straight onto the `CumulativeConfig` positional constructor; `fixedDelta` is set only when `-D` was provided (so `-d` and "no flag" both yield `fixedDelta=false`). `isValid()` gates *Run* on `delta >= 0` and epsilon in `(0, 0.5)`.
+
+### 5.2.1 Translation layer (`CumulativeViewTranslator`)
+- `DynamicPartition` → view-specific `PartitionModel`: one `ClusterData` per cluster (k = `dynPart.size()`), centroid probabilities from `getFreqs(i) / getClusterSize(i)` (no `InfiniteCentroids` needed), most-frequent-strain name with 1-based index fallback, lazy `VectorData` from each cluster's `VectorSet`, and the final SC computed via `DistanceCalculator.stochasticComplexity(convert(), k, l)` as the header metric.
+- No graph model is required — cumulative is inherently single-k and the SC Graph tab is intentionally omitted (see §5 answer 6). The translator is its own class — no shared partition translator (§1.3) because cumulative shapes centroids from frequencies rather than a centroid array.
 
 ### 5.3 EventBus events
-Cumulative classification runs fast, so pushing an update after every processed vector is too frequent — the view
-shows a single **indeterminate** progress bar for the whole run and does not update it per vector. The ViewModel posts
-`SearchCompleted("cumulative", PartitionResult)` (and `SearchError`) only; no per-item `SearchProgress` events are needed.
-Work is started by the ViewModel's `run()` command (a `CompletableFuture` on the single-threaded executor); the optional
-`SearchStarted` event may be posted but is not required. The existing agnostic `Partition` web component renders the final
-dynamic partition directly — no new `DynamicPartitionModel`/component is needed.
+Cumulative classification runs fast, so an event is posted at **10% progress intervals** rather than after every vector; the
+ProgressBar updates in matching **10% steps** (determinate). The ViewModel posts `SearchCompleted("cumulative", PartitionResult)`
+(and `SearchError`) on completion/failure. Work is started by the ViewModel's `run()` command (a `CompletableFuture` on the
+single-threaded executor); the optional `SearchStarted` event may be posted but is not required. The existing agnostic `Partition`
+web component renders the final dynamic partition directly — no new `DynamicPartitionModel`/component is needed.
+
+> **Event model.** GLA and Local Search post their events from the *algorithms* module (`AutomaticSearch`, `RangeSearch`,
+> `LocalSearch`) and the VM only listens; cumulative follows the same pattern so it stays consistent. Add lightweight event posting
+> to `doCumulativeClassification`:
+> - **Progress** — post a progress event at 10% intervals (after roughly every 10% of vectors processed) carrying the number of
+>   vectors processed so far; the VM sets the ProgressBar determinately to that percentage, rounding to the nearest 10%. The bar is
+>   not indeterminate and does not move per vector — it advances in discrete 10% steps.
+> - **New cluster** — post an event each time a vector *extends* the partition (creates a new class). The VM appends one line to the
+>   log for each such event; joins are not logged.
+
+**Log content.** The C command emits a per-vector decision trace (`"i: strain classname (d=…, pf=…, sc=…)"`) when logging is on.
+Cumulative logs only **new-cluster decisions** — one line per new class, carrying the cluster index and (optionally) the vector's
+assigned distance/probability. The classification has two variants: one that does not optimise SC and one that uses SC as its decision
+mechanism. When the **SC-optimising variant** is used, the log line prints the resulting stochastic complexity in **bold**; the
+non-optimising variant logs without it. Log lines are sanitized with JSoup content mode (Agents.md) since they may carry
+strain/class-name text from the data.
 
 ### 5.4 UI skeleton
 
 ```
 RouteCumulativeView extends VerticalLayout   (@Route("cumulative"))
 ├─ FormLayout paramsForm            id="cumulative-params"
-│   ├─ TextField        filebase     id="filebase"
+│   ├─ (filebase + uploader)         id="filebase"          (.hdr/.dat into memory)
 │   ├─ IntegerField     delta        id="delta"             min=1
 │   ├─ Checkbox         fixedDelta   id="fixed-delta"
 │   ├─ Checkbox         cumulativeAnalysis id="cum-analysis"
@@ -741,16 +809,65 @@ RouteCumulativeView extends VerticalLayout   (@Route("cumulative"))
 │   ├─ Checkbox         saveByPf     id="save-by-pf"
 │   ├─ Checkbox         noNewClasses id="no-new-classes"
 │   ├─ Checkbox         inOrder      id="in-order"
-│   ├─ NumberField      epsilon      id="epsilon"
+│   ├─ NumberField      epsilon      id="epsilon"           (0, 0.5)
 │   └─ Button           run          id="run-cumulative"
-├─ ProgressIndicator progress         id="cumulative-progress"   (indeterminate while running)
-├─ Div          logText               id="cumulative-log"     (sanitized with JSoup)
-└─ Partition partitionView            id="partition-view"    (final DynamicPartition)
+├─ TabSheet             cumTabs        id="cumulative-tabs"  (Partition | Report | Summary)
+│   ├─ "Partition" → partitionView              id="partition-view"    (final DynamicPartition)
+│   │   └─ download controls (§18.5)             id="cum-downloads"     (.partition via DynamicPartitionWriter)
+│   ├─ "Report"  → ReportComponent            id="report-component-cumulative"
+│   └─ "Summary" → summaryContent             echoes resolved CumulativeConfig + New search button
+├─ ProgressIndicator progress         id="cumulative-progress"   (determinate, advances in 10% steps)
+└─ Div          logText               id="cumulative-log"     (JSoup-sanitized; one line per new cluster, bold SC when optimising variant)
 ```
 
+**Flow (MVVM):** mirrors §3.4 — `#run-cumulative` click → view calls `viewModel.setForm(buildForm())` then
+`viewModel.run(runButton)`. The VM builds a `CumulativeConfig` from the form record, submits to the single-threaded
+executor, disables the button with `setDisableOnClick(true)`, and hides the form revealing the results tab sheet. On
+completion/cancellation the button is re-enabled and the future cancelled in `onDetach(...)`.
+- **Progress.** Determinate bar that advances in **10% steps**: each progress event (posted at ~10% intervals, see §5.3) sets the
+  ProgressBar to the corresponding percentage of input vectors processed. The bar is not indeterminate — it moves in discrete 10%
+  increments as classification proceeds.
+- **Final SC metric.** The dynamic partition exposes no whole-partition SC method, so the header metric shown on the Partition tab is
+  computed from the static view via `DistanceCalculator.stochasticComplexity(dynPart.convert(), k, l)` with `k = dynPart.size()` and
+  `l = dynPart.getVectorLength()`, using **uniform prior** by default. This applies to both classification variants; when the variant
+  that uses SC as its decision mechanism is selected this final SC is the meaningful optimum, while the non-optimising variant's value
+  is reported for reference. If a jeffreysPrior toggle is added later it can be threaded through; the config's `bayesianPredictive`
+  field governs class selection, not SC scoring.
+- **Log area.** The `#cumulative-log` Div appends one line each time cumulative classification creates a **new cluster** (a vector that
+  extends the partition); joins are not logged. Each line carries the new cluster index and, when the SC-optimising variant is used,
+  the resulting stochastic complexity printed in **bold**. Log lines are sanitized with JSoup content mode (Agents.md) since they may
+  carry strain/class-name text from the data. If no new cluster beyond the first is created, the log stays empty.
+- **Partition tab.** The agnostic `Partition` component renders the final dynamic partition directly via its own translator; no new
+  `DynamicPartitionModel`/component is needed. A *Download* control (see §5.4.1) sits beside it, disabled while running and enabled on result.
+- **Report tab.** Embed one `ReportComponent` (`id="report-component-cumulative"`) bound to the displayed partition via the shared
+  `ReportTab.bind(reportComponent, viewModel.partitionModel())`, mirroring §3.8/§17 — it recomputes centroids from the dynamic
+  partition's frequencies and regenerates on flag change.
+- **Downloads method (recommendation).** Reuse the in-memory byte-producer pattern (§18.5 DownloadAnchor). Extend
+  `DynamicPartitionWriter` with a `toBytes(DynamicPartition)` variant so the download control streams content without a temp file,
+  matching GLA/Local Search; disable while running, enable on result.
+- **Summary tab.** Own Summary tab echoing the resolved config (delta/fixedDelta, every flag, epsilon) with a *New search* button that
+  restores the form and hides the tabs — same contract as §3.4.
+
+#### 5.4.1 Downloads (§18.5)
+Beside the Partition tab, expose one `DownloadAnchor` (see §18.5): dynamic partition → `.partition`. Build content in memory (no temp
+files) via a `toBytes(DynamicPartition)` variant of `DynamicPartitionWriter`; disable while a search is running (bind to the same
+`running` signal), enable once a result exists. Unlike GLA/Local Search there is no separate centroids download — cumulative centroids
+are derived from frequencies on demand and are not valid as a standalone file.
+
 ### 5.6 Testing
-- **Unit:** `CumulativeConfig` mapping from a form record; `defaults()` sanity. Also unit-test the translation layer: verify `PartitionModel` is populated correctly from the algorithm `DynamicPartition` — cluster names, per-cluster `ClusterData`, and lazy `VectorData`.
-- **BrowserlessTests:** drive the params form and assert the emitted `CumulativeConfig` is correct; fabricate `SearchCompleted` and assert the partition tab receives the dynamic partition model. (Partition rendering already covered in `binclass-components`.)
+- **Unit — `CumulativeParametersFormTest` (`binclass-ui`).**
+  - defaults seed from `CumulativeConfig.defaults()` (bayesianPredictive=true, cumSaveByPf=true, inOrder=false, delta=1, epsilon=EPSILON); `-d`/no-delta both start at `fixedDelta=false`.
+  - delta 3-state mapping: `-D value` → `fixedDelta=true, delta=value`; `-d value` → `fixedDelta=false, delta=value`; neither → `delta=1, fixedDelta=false`.
+  - flag→config propagation: every boolean and the epsilon round-trip through `toConfig()`; vector count stored as `n` (unused by the algorithm).
+  - `isValid()`: `delta >= 0` and epsilon in `(0, 0.5)` gate *Run*; out-of-range epsilon disables it.
+- **Unit — `CumulativeViewTranslatorTest` (`binclass-ui`).** Verify `PartitionModel` is populated correctly from the algorithm `DynamicPartition` — cluster names (most-frequent strain → index fallback), per-cluster `ClusterData`, centroid probabilities derived from frequencies, lazy `VectorData`, and a non-null final SC header metric. Tolerate an empty partition.
+- **BrowserlessTests — `RouteCumulativeViewBrowserlessTest` (`binclass-ui`).** Drive the params form and assert the emitted `CumulativeConfig` is correct; fabricate a progress event at 10% intervals and assert the ProgressBar advances in 10% steps; fabricate new-cluster log events and assert one line is appended per cluster (bold SC when the SC-optimising variant is selected); fabricate `SearchCompleted` and assert the Partition tab receives the dynamic partition model, downloads enable, and the Summary tab renders. Assert *Run* disables while running and re-enables on completion. (Partition rendering already covered in `binclass-components`.)
+- **Playwright — `CumulativeViewIT` (`binclass-ui`).** Every control renders (delta field, fixedDelta checkbox, cumulativeAnalysis, cumSamples, bayesian, featureSig, saveByPf, noNewClasses, inOrder, epsilon) plus each result tab incl. Report and Summary; a real run shows the partition, advances the ProgressBar in 10% steps, appends new-cluster decisions to `#cumulative-log` (bold SC when the SC-optimising variant is used), and the download control produces its file.
+
+### 5.7 Resolved open questions
+All ten previously-open questions have been resolved ahead of implementation; the decisions above (event model, 10% progress/log
+granularity, two SC variants, single `-I`/`-O` input, delta left out of the UI, no SC Graph tab, DownloadAnchor for partition only,
+shared Partition + ReportComponent, determinate 10% progress, and `defaults()` seeding) make §5 self-contained.
 
 ---
 
@@ -1459,3 +1576,5 @@ fabricated-event updates) go to BrowserlessTests, and Playwright IT is used spar
 5. Centroids (§11), Compare (§12), Function Plot (§13), Data Generator (§14), Tree (§15), Cut (§16).
 
 Each chapter is self-contained: implement, add its JUnit + Playwright tests, merge, then move on.
+
+---
