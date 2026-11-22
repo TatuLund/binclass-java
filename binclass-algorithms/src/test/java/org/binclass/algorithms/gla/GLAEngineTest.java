@@ -12,12 +12,12 @@ import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
-import org.binclass.algorithms.gla.GLAConfig;
 import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link GLAEngine}.
  */
+@SuppressWarnings("null")
 class GLAEngineTest {
 
     private VectorSet createRandomVectorSet(int count, int length) {
@@ -919,6 +919,98 @@ class GLAEngineTest {
         partition.copyAllTo(all);
         assertEquals(40, all.size(),
                 "all vectors preserved with decreasing epsilon");
+    }
+
+    /**
+     * Verifies that {@code removeEmpty} fills two adjacent empty cells when a
+     * single donor class holds enough vectors. Regression test for the bug
+     * where only one of several empty cells was repaired because the scan loop
+     * stopped before reaching the last cluster index.
+     */
+    @Test
+    void testRemoveEmptyFillsMultipleAdjacentEmptyCells() {
+        BinaryVector a1 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector a2 = new BinaryVector(new int[] { 0, 0, 0, 1 });
+        BinaryVector a3 = new BinaryVector(new int[] { 0, 0, 1, 1 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 } });
+
+        Partition partition = new Partition(3);
+        partition.addElement(1, a1);
+        partition.addElement(1, a2);
+        partition.addElement(1, a3);
+        // clusters 2 and 3 intentionally left empty
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(true, false));
+
+        assertEquals(1, partition.getClusterSize(2), "cell 2 must be filled");
+        assertEquals(1, partition.getClusterSize(3), "cell 3 must be filled");
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(3, all.size(), "all vectors must be preserved");
+    }
+
+    /**
+     * Verifies that {@code removeEmpty} fills two non-contiguous empty cells
+     * (clusters 2 and 4) from a single donor class, using a partition whose
+     * size matches the centroid count so the last cluster is scanned.
+     */
+    @Test
+    void testRemoveEmptyFillsNonContiguousEmptyCells() {
+        BinaryVector a1 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector a2 = new BinaryVector(new int[] { 0, 0, 0, 1 });
+        BinaryVector a3 = new BinaryVector(new int[] { 0, 0, 1, 1 });
+        BinaryVector b1 = new BinaryVector(new int[] { 1, 1, 1, 1 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 }, { 0.3, 0.3, 0.3, 0.3 } });
+
+        Partition partition = new Partition(4);
+        partition.addElement(1, a1);
+        partition.addElement(1, a2);
+        partition.addElement(1, a3);
+        partition.addElement(3, b1);
+        // clusters 2 and 4 intentionally left empty
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(true, false));
+
+        assertEquals(1, partition.getClusterSize(2), "cell 2 must be filled");
+        assertEquals(1, partition.getClusterSize(4), "cell 4 must be filled");
+        VectorSet all = new VectorSet();
+        partition.copyAllTo(all);
+        assertEquals(4, all.size(), "all vectors must be preserved");
+    }
+
+    /**
+     * Verifies that {@code removeEmpty} fills three empty cells from a single
+     * donor class holding exactly one vector per cell.
+     */
+    @Test
+    void testRemoveEmptyFillsThreeEmptyCellsFromOneDonor() {
+        BinaryVector a1 = new BinaryVector(new int[] { 0, 0, 0, 0 });
+        BinaryVector a2 = new BinaryVector(new int[] { 0, 0, 0, 1 });
+        BinaryVector a3 = new BinaryVector(new int[] { 0, 0, 1, 1 });
+        BinaryVector a4 = new BinaryVector(new int[] { 0, 1, 1, 1 });
+
+        InfiniteCentroids centroids = createInfiniteCentroids(new double[][] {
+                { 0.1, 0.1, 0.1, 0.1 }, { 0.5, 0.5, 0.5, 0.5 },
+                { 0.9, 0.9, 0.9, 0.9 }, { 0.3, 0.3, 0.3, 0.3 } });
+
+        Partition partition = new Partition(4);
+        partition.addElement(1, a1);
+        partition.addElement(1, a2);
+        partition.addElement(1, a3);
+        partition.addElement(1, a4);
+        // clusters 2, 3 and 4 intentionally left empty
+
+        GLAEngine.removeEmpty(partition, centroids, configFor(true, false));
+
+        assertEquals(1, partition.getClusterSize(2), "cell 2 must be filled");
+        assertEquals(1, partition.getClusterSize(3), "cell 3 must be filled");
+        assertEquals(1, partition.getClusterSize(4), "cell 4 must be filled");
     }
 
 }

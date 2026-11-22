@@ -1066,7 +1066,7 @@ public final class GLAEngine {
         // absoluteWorstMatch() returns null), advance anyway so the scan
         // terminates instead of looping forever.
         int i = 1;
-        while (i <= k && i < partition.size()) {
+        while (i <= k && i <= partition.size()) {
             if (partition.getClusterSize(i) == 0) {
                 fillEmptyCell(partition, centroids, config, l, i);
                 if (partition.getClusterSize(i) == 0) {
