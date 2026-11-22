@@ -84,9 +84,11 @@ public class FrequencyTable extends Table {
 
         // Header row: an empty corner cell keeps the bit-position headers
         // aligned with their data columns, then one column per bit position.
+        // Columns are labelled by their 1-based position so a length-47 table
+        // reads "1..47" rather than the raw 0-based index "0..46".
         String[] header = new String[bits + 1];
         for (int b = 0; b < bits; b++) {
-            header[b + 1] = Integer.toString(frequencies.get(b).bit());
+            header[b + 1] = Integer.toString(b + 1);
         }
         TableRow headerRow = addHeaderRow(header);
         for (TableCell cell : headerRow.getCells()) {

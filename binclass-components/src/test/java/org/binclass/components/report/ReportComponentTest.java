@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.vaadin.flow.component.Component;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
  * bindings and structured HTML report (headings, frequency tables, per-class
  * blocks) described in PRD §17.4.
  */
+@SuppressWarnings("null")
 class ReportComponentTest {
 
     /** Builds a small two-cluster partition of three-bit vectors. */
@@ -86,6 +88,30 @@ class ReportComponentTest {
             count += countClass(child, className);
         }
         return count;
+    }
+
+    /**
+     * Collects every component in the subtree rooted at {@code root} whose
+     * class attribute contains {@code className}. Used to inspect each rendered
+     * frequency table individually.
+     *
+     * @param root
+     *            the component to search from (inclusive)
+     * @param className
+     *            the CSS class substring to match
+     * @return a mutable list of matching components
+     */
+    private static List<Component> collectClass(Component root,
+            String className) {
+        List<Component> found = new ArrayList<>();
+        String classes = root.getElement().getAttribute("class");
+        if (classes != null && classes.contains(className)) {
+            found.add(root);
+        }
+        for (Component child : root.getChildren().toList()) {
+            found.addAll(collectClass(child, className));
+        }
+        return found;
     }
 
     /**
@@ -173,6 +199,107 @@ class ReportComponentTest {
 
         // One total-frequencies table plus one per-class table (two clusters).
         assertEquals(3, countClass(report, "frequency-table"));
+    }
+
+    /**
+     * Builds a partition whose first cluster holds a short vector while another
+     * cluster holds the longest one. Used to prove the report spans every bit
+     * position rather than only those of a single representative vector.
+     *
+     * @param shortLength
+     *            length of the representative (first-cluster) vector
+     * @param maxLength
+     *            length of the longest vector in the partition
+     * @return a two-cluster partition with one short and one long vector
+     */
+    private static Partition mixedLengthPartition(int shortLength,
+            int maxLength) {
+        Partition partition = new Partition(2);
+        int[] shortBits = new int[shortLength];
+        for (int p = 0; p < shortLength; p++) {
+            shortBits[p] = 1;
+        }
+        int[] maxBits = new int[maxLength];
+        for (int p = 0; p < maxLength; p++) {
+            maxBits[p] = 1;
+        }
+        // Cluster 1 first so its shorter vector is the representative picked by
+        // a naive "first non-empty cluster" length lookup.
+        partition.addElement(1, new BinaryVector(shortBits));
+        partition.addElement(2, new BinaryVector(maxBits));
+        return partition;
+    }
+
+    @Test
+    void frequencyTableSpansMaxVectorLength() {
+        ReportComponent report = new ReportComponent();
+        // Representative (cluster 1) is 46 bits while the longest vector is 47,
+        // so a length lookup that returns only the representative would render
+        // 46 columns and drop the final bit position.
+        report.bindPartition(mixedLengthPartition(46, 47));
+
+        int expectedColumns = 47;
+        boolean sawFullWidthTable = false;
+        for (Component child : collectClass(report, "frequency-table")) {
+            Table table = (Table) child;
+            // Header row carries one cell per bit plus the leading corner cell.
+            assertEquals(expectedColumns + 1,
+                    table.getHeaderRows().get(0).getCells().size());
+            sawFullWidthTable = true;
+        }
+        assertTrue(sawFullWidthTable, "at least one frequency table rendered");
+    }
+
+    /**
+     * Builds a partition where the longest vector shares a cluster with shorter
+     * ones. Used to prove the report spans every bit position even when a
+     * cluster's first (representative) vector is shorter than a later member of
+     * that same cluster — the deeper off-by-one behind the 46-vs-47 bug.
+     *
+     * @param shortLength
+     *            length of the representative (first-in-cluster) vector
+     * @param maxLength
+     *            length of the longest vector in the partition
+     * @return a two-cluster partition with the long vector sharing cluster 1
+     */
+    private static Partition mixedLengthInSameCluster(int shortLength,
+            int maxLength) {
+        Partition partition = new Partition(2);
+        int[] shortBits = new int[shortLength];
+        for (int p = 0; p < shortLength; p++) {
+            shortBits[p] = 1;
+        }
+        int[] maxBits = new int[maxLength];
+        for (int p = 0; p < maxLength; p++) {
+            maxBits[p] = 1;
+        }
+        // Both vectors in cluster 1, short first so a per-cluster "first
+        // vector"
+        // lookup reports the shorter length.
+        partition.addElement(1, new BinaryVector(shortBits));
+        partition.addElement(1, new BinaryVector(maxBits));
+        partition.addElement(2, new BinaryVector(shortBits));
+        return partition;
+    }
+
+    @Test
+    void frequencyTableSpansMaxWithinCluster() {
+        ReportComponent report = new ReportComponent();
+        // Cluster 1's first vector is 46 bits but a later member is 47. A
+        // lookup
+        // that returns only the cluster's representative (first vector) renders
+        // 46 columns and drops the final bit position.
+        report.bindPartition(mixedLengthInSameCluster(46, 47));
+
+        int expectedColumns = 47;
+        boolean sawFullWidthTable = false;
+        for (Component child : collectClass(report, "frequency-table")) {
+            Table table = (Table) child;
+            assertEquals(expectedColumns + 1,
+                    table.getHeaderRows().get(0).getCells().size());
+            sawFullWidthTable = true;
+        }
+        assertTrue(sawFullWidthTable, "at least one frequency table rendered");
     }
 
     @Test
@@ -290,12 +417,12 @@ class ReportComponentTest {
         assertTrue(corner.hasClassName("frequency-header-cell"));
         assertEquals("", corner.getText());
 
-        // Bit-position headers fill the remaining cells.
+        // Bit-position headers fill the remaining cells, labelled by their
+        // 1-based column position so a length-N table reads "1..N".
         for (int b = 0; b < frequencies.size(); b++) {
             TableCell cell = headerRow.getCells().get(b + 1);
             assertTrue(cell.hasClassName("frequency-header-cell"));
-            assertEquals(Integer.toString(frequencies.get(b).bit()),
-                    cell.getText());
+            assertEquals(Integer.toString(b + 1), cell.getText());
         }
 
         // Body rows must share the header's width so their numeric cells line

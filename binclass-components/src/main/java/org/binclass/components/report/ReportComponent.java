@@ -14,6 +14,7 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NullMarked;
 
+import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
@@ -190,21 +191,27 @@ public class ReportComponent extends VerticalLayout {
     }
 
     /**
-     * Returns the vector length from the first non-empty cluster in the
-     * partition.
+     * Returns the maximum vector length across every non-empty cluster in the
+     * partition. The report must span all bit positions present in the data, so
+     * it uses the longest vector rather than a single representative's length;
+     * otherwise a shorter first vector would drop trailing columns and render
+     * fewer cells than the actual data (e.g. 46 instead of 47).
      *
      * @param partition
      *            the partition to inspect
      * @return bit-length of vectors, or 0 if all clusters are empty
      */
     private static int getVectorLength(Partition partition) {
+        int max = 0;
         for (int i = 1; i <= partition.size(); i++) {
             VectorSet cluster = partition.getElements(i);
             if (!cluster.isEmpty()) {
-                return cluster.getVectorLength();
+                for (BinaryVector bv : cluster) {
+                    max = Math.max(max, bv.getLength());
+                }
             }
         }
-        return 0;
+        return max;
     }
 
     /**
