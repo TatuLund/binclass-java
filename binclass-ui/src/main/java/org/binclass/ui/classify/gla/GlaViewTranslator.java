@@ -17,12 +17,15 @@ import org.binclass.algorithms.core.Centroid;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.core.TreeNode;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
 import org.binclass.components.partition.CentroidData;
 import org.binclass.components.partition.ClusterData;
 import org.binclass.components.partition.PartitionModel;
 import org.binclass.components.partition.VectorData;
+import org.binclass.components.tree.TreeModel;
+import org.binclass.components.tree.TreeModelBuilder;
 
 /**
  * Translation layer for the GLA Search display. Maps algorithm objects from
@@ -149,6 +152,130 @@ public final class GlaViewTranslator {
             points.add(new GraphPoint(x, sc));
         }
         return new GraphModel(points);
+    }
+
+    /**
+     * Flattens a dendrogram built from the best partition into an indexed
+     * {@link TreeModel} for the Tree component. Leaf names come from each
+     * cluster's most-frequent strain (falling back to its one-based index) and
+     * leaf sizes are the cluster sizes; internal nodes sum their children's
+     * sizes and derive a dominant label.
+     * <p>
+     * The partition clusters are keyed by the {@code "C" + (i + 1)} names that
+     * {@link org.binclass.algorithms.tree.TreeBuilder} uses for its leaves, so
+     * the builder can look each one up. A single-cluster partition yields a
+     * lone leaf node.
+     * </p>
+     *
+     * @param partition
+     *            the best partition to build the dendrogram from (must not be
+     *            {@code null})
+     * @param root
+     *            the dendrogram root produced by
+     *            {@code TreeBuilder.makeTreePnn(...)}; may be {@code null} for
+     *            an empty partition, in which case a single-leaf model is built
+     * @return a non-empty {@link TreeModel} ready to bind to the Tree component
+     */
+    public static TreeModel toTreeModel(Partition partition,
+            @Nullable TreeNode root) {
+        Map<String, String> labels = new HashMap<>(partition.size());
+        Map<String, Integer> sizes = new HashMap<>(partition.size());
+        buildLeafMaps(partition, labels, sizes);
+        return toTreeModel(partition, root, labels, sizes);
+    }
+
+    /**
+     * Fills the given maps with each cluster's dominant label and size. Called
+     * before {@code TreeBuilder.makeTreePnn(...)} mutates the partition in
+     * place, so leaf names and sizes reflect the true dataset rather than the
+     * post-merge counts makeTreePnn leaves behind. Keys are the
+     * {@code "C" + (i + 1)} names makeTreePnn uses for its leaves; a cluster
+     * with no vectors falls back to its one-based index as name and size zero.
+     *
+     * @param partition
+     *            the best partition (must not be {@code null})
+     * @param labels
+     *            map to fill: leaf name -> dominant strain label
+     * @param sizes
+     *            map to fill: leaf name -> cluster size
+     */
+    public static void buildLeafMaps(Partition partition,
+            Map<String, String> labels, Map<String, Integer> sizes) {
+        int k = partition.size();
+        for (int i = 0; i < k; i++) {
+            var clusterSet = partition.getCluster(i);
+            @SuppressWarnings("null")
+            List<BinaryVector> vectors = toList(clusterSet);
+            labels.put("C" + (i + 1), mostFrequentName(vectors, i + 1));
+            sizes.put("C" + (i + 1), clusterSet.size());
+        }
+    }
+
+    /**
+     * Builds a {@link TreeModel} from pre-computed leaf label/size maps and the
+     * dendrogram root. The maps must already contain every cluster keyed by its
+     * {@code "C" + (i + 1)} name; callers that build them via
+     * {@link #buildLeafMaps(Partition, Map, Map)} before makeTreePnn mutates
+     * the partition avoid the post-merge size inflation.
+     *
+     * @param partition
+     *            the best partition (must not be {@code null})
+     * @param root
+     *            the dendrogram root produced by
+     *            {@code TreeBuilder.makeTreePnn(...)}; may be {@code null} for
+     *            an empty partition, in which case a single-leaf model is built
+     * @param labels
+     *            pre-computed leaf label map keyed by {@code "C" + (i + 1)}
+     * @param sizes
+     *            pre-computed leaf size map keyed by {@code "C" + (i + 1)}
+     * @return a non-empty {@link TreeModel} ready to bind to the Tree component
+     */
+    public static TreeModel toTreeModel(Partition partition,
+            @Nullable TreeNode root,
+            Map<String, String> labels, Map<String, Integer> sizes) {
+        return new TreeModelBuilder(labels, sizes).build(
+                convert(root != null ? root : singleLeaf(partition)));
+    }
+
+    /**
+     * Wraps an algorithms {@link TreeNode} as a components {@code TreeNode}.
+     */
+    private static org.binclass.components.tree.TreeNode convert(
+            org.binclass.algorithms.core.TreeNode node) {
+        return new org.binclass.components.tree.TreeNode() {
+            @Override
+            public String getName() {
+                return node.getName();
+            }
+
+            @Override
+            public double getSC() {
+                return node.getSC();
+            }
+
+            @Override
+            public boolean isLeaf() {
+                return node.isLeaf();
+            }
+
+            @Override
+            public org.binclass.components.tree.TreeNode getLeft() {
+                return node.getLeft() == null ? null : convert(node.getLeft());
+            }
+
+            @Override
+            public org.binclass.components.tree.TreeNode getRight() {
+                return node.getRight() == null ? null
+                        : convert(node.getRight());
+            }
+        };
+    }
+
+    /** Builds a single-leaf model for an empty or one-cluster partition. */
+    private static org.binclass.algorithms.core.TreeNode singleLeaf(
+            Partition partition) {
+        return new org.binclass.algorithms.core.TreeNode(
+                partition.getNumberOfVectors(), "C1");
     }
 
     /**

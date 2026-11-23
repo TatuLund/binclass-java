@@ -15,11 +15,10 @@ import com.vaadin.flow.component.card.Card;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.DetachEvent;
-import com.vaadin.flow.component.html.Anchor;
-import com.vaadin.flow.component.html.AttachmentType;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -49,6 +48,7 @@ import org.binclass.components.graph.Graph;
 import org.binclass.components.partition.Partition;
 import org.binclass.components.partition.PartitionModel;
 import org.binclass.components.report.ReportComponent;
+import org.binclass.components.tree.Tree;
 import org.binclass.ui.MultiFileMemoryBuffer;
 import org.binclass.ui.UploadedDataLoader;
 import org.binclass.ui.classify.CentroidType;
@@ -103,6 +103,9 @@ public class RouteLocalSearchView extends VerticalLayout
     private final Graph graphSC = new Graph();
     private final Partition partitionView = new Partition();
     private final ReportComponent reportComponent = new ReportComponent();
+    private final Tree dendrogram = new Tree();
+    private final Button generateTreeButton = new Button("Generate dendrogram");
+    private final Scroller dendrogramScroller = new Scroller();
 
     // Download controls for the best partition and its logged centroids, shown
     // once a search completes. Built lazily so they only exist after a result.
@@ -137,6 +140,13 @@ public class RouteLocalSearchView extends VerticalLayout
         reportComponent.setId("report-component-localsearch");
         reportBinding = ReportTab.bind(reportComponent,
                 viewModel.partitionModel());
+
+        generateTreeButton.setEnabled(true);
+        generateTreeButton.setId("generate-tree-local");
+        generateTreeButton.bindEnabled(viewModel.canGenerateTree());
+        generateTreeButton.addClickListener(_ -> viewModel.generateTree());
+        dendrogram.setId("dendrogram-local");
+        dendrogram.bindModel(viewModel.treeModel());
 
         // Progress bar: indeterminate for automatic searches, a fraction of the
         // evaluated k-range otherwise. The status text Div is driven by its own
@@ -299,6 +309,7 @@ public class RouteLocalSearchView extends VerticalLayout
         graphSC.setId("sc-graph");
         partitionView.setId("partition-view");
         reportComponent.setId("report-component-localsearch");
+        dendrogramScroller.setId("local-dendrogram-scroller");
 
         // Build the download controls up front so they are non-null when the
         // search panel is assembled; refreshDownloadState() later toggles their
@@ -317,8 +328,14 @@ public class RouteLocalSearchView extends VerticalLayout
         graphSC.setHeight("500px");
         localTabs.add("SC Graph", graphSC);
         localTabs.add("Partition", partitionView);
-        localTabs.add("Report", reportComponent);
+
+        VerticalLayout dendrogramPanel = new VerticalLayout(
+                generateTreeButton, dendrogram);
+        dendrogramPanel.setSpacing(true);
+        dendrogramScroller.setContent(dendrogramPanel);
+        localTabs.add("Dendrogram", dendrogramScroller);
         localTabs.add("Summary", summaryContent);
+        localTabs.add("Report", reportComponent);
 
         renderSummary();
     }

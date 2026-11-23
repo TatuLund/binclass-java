@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.binclass.algorithms.core.BinaryVector;
@@ -28,6 +29,7 @@ import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.RangeSearch;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
+import org.binclass.components.tree.TreeModel;
 import org.binclass.components.partition.PartitionModel;
 
 import org.binclass.ui.MultiFileMemoryBuffer;
@@ -162,6 +164,54 @@ class GlaViewModelTest {
         assertEquals(30.0,
                 viewModel.partitionModel().peek().stochasticComplexity());
         // assertEquals(2, viewModel.graphPoints().peek().points().size());
+    }
+
+    @Test
+    void canGenerateTreeFalseBeforeResult() {
+        viewModel.setData(vectors(4, 3));
+        viewModel.uploadValid().update(
+                _ -> new MultiFileMemoryBuffer.UploadValidation(true, ""));
+
+        assertFalse(viewModel.canGenerateTree().map(s -> s).peek());
+    }
+
+    @Test
+    void generateTreePopulatesTreeModelAfterResult() throws Exception {
+        viewModel.setData(vectors(4, 3));
+        viewModel.uploadValid().update(
+                _ -> new MultiFileMemoryBuffer.UploadValidation(true, ""));
+
+        Partition partition = new Partition(2, 4);
+        partition.addElement(1, new BinaryVector(new int[] { 0, 1, 1 }, 3));
+        partition.addElement(1, new BinaryVector(new int[] { 1, 1, 0 }, 3));
+        partition.addElement(2, new BinaryVector(new int[] { 1, 0, 0 }, 3));
+
+        PartitionResult result = new PartitionResult(1, 42.5, 2,
+                new double[] { Double.NaN, 50.0, 42.5 }, new int[] { 0, 1, 2 },
+                partition, new InfiniteCentroids(2, 3));
+        viewModel.eventFired(new SearchBestPartition("gla", result));
+
+        assertTrue(viewModel.canGenerateTree().map(s -> s).peek());
+        viewModel.generateTree();
+
+        // Generation runs on the executor; poll until the model is set.
+        TreeModel model = null;
+        for (int i = 0; i < 100 && model == null; i++) {
+            Thread.sleep(10);
+            model = viewModel.treeModel().peek();
+        }
+
+        assertNotNull(model,
+                "treeModel should be populated after generateTree");
+        assertEquals(3, model.nodes().size());
+    }
+
+    @Test
+    void generateTreeIsNoOpWithoutResult() {
+        viewModel.setData(vectors(4, 3));
+        viewModel.generateTree();
+        // No result yet: the signal stays null and no exception is thrown.
+        assertNull(viewModel.treeModel().peek());
     }
 
     @Test

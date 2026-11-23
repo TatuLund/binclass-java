@@ -26,6 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.vaadin.browserless.BrowserlessTest;
 import com.vaadin.browserless.ViewPackages;
 
+import org.binclass.algorithms.core.BinaryVector;
+import org.binclass.algorithms.core.InfiniteCentroids;
+import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.events.PartitionResult;
+import org.binclass.algorithms.events.SearchBestPartition;
+import org.binclass.components.tree.TreeModel;
 import org.binclass.ui.MainLayout;
 import org.binclass.ui.classify.gla.RouteGlaView;
 
@@ -57,6 +63,15 @@ class RouteLocalSearchViewBrowserlessTest extends BrowserlessTest {
         Field field = RouteLocalSearchView.class.getDeclaredField("viewModel");
         field.setAccessible(true);
         return (LocalSearchViewModel) field.get(view);
+    }
+
+    /** Selects the Dendrogram tab so its button is visible in MockedUI. */
+    private void selectDendrogramTab(RouteLocalSearchView view)
+            throws Exception {
+        Field tabs = RouteLocalSearchView.class.getDeclaredField("localTabs");
+        tabs.setAccessible(true);
+        ((com.vaadin.flow.component.tabs.TabSheet) tabs.get(view))
+                .setSelectedIndex(3);
     }
 
     /**
@@ -213,5 +228,44 @@ class RouteLocalSearchViewBrowserlessTest extends BrowserlessTest {
         assertEquals(true, vm.running().peek());
         assertTrue(RouteLocalSearchView.class.isAssignableFrom(
                 getCurrentView().getClass()));
+    }
+
+    @Test
+    void generateDendrogramButtonDisabledUntilCompleteEnabledOnCompletion()
+            throws Exception {
+        RouteLocalSearchView view = navigate(RouteLocalSearchView.class);
+        selectDendrogramTab(view);
+        Button generateTree = find(Button.class)
+                .withId("generate-tree-local").single();
+        runPendingSignalsTasks();
+
+        // Before a result exists, the button is disabled.
+        assertFalse(test(generateTree).isUsable());
+
+        LocalSearchViewModel vm = viewModel(view);
+        Partition partition = new Partition(2, 4);
+        partition.addElement(1, new BinaryVector(new int[] { 0, 1, 1 }, 3));
+        partition.addElement(1, new BinaryVector(new int[] { 1, 1, 0 }, 3));
+        partition.addElement(2, new BinaryVector(new int[] { 1, 0, 0 }, 3));
+
+        PartitionResult result = new PartitionResult(1, 42.5, 2,
+                new double[] { Double.NaN, 50.0, 42.5 }, new int[] { 0, 1, 2 },
+                partition, new InfiniteCentroids(2, 3));
+        vm.eventFired(new SearchBestPartition("local-search", result));
+        runPendingSignalsTasks();
+
+        // After a result exists, the button becomes enabled.
+        assertTrue(test(generateTree).isUsable());
+
+        test(generateTree).click();
+        // Poll until the tree model is populated on the bound signal.
+        TreeModel model = null;
+        for (int i = 0; i < 100 && model == null; i++) {
+            Thread.sleep(10);
+            model = vm.treeModel().peek();
+        }
+
+        assertNotNull(model, "treeModel should be populated after clicking");
+        assertEquals(3, model.nodes().size());
     }
 }

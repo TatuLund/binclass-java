@@ -5,8 +5,10 @@
 package org.binclass.ui.classify.localsearch;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,6 +20,7 @@ import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.core.TreeNode;
 import org.binclass.algorithms.core.VectorSet;
 import org.binclass.algorithms.events.AbstractEvent;
 import org.binclass.algorithms.events.OperatorSuccess;
@@ -29,14 +32,17 @@ import org.binclass.algorithms.eventbus.EventBus;
 import org.binclass.algorithms.gla.AutomaticSearch;
 import org.binclass.algorithms.gla.GLAConfig;
 import org.binclass.algorithms.gla.RangeSearch;
+import org.binclass.algorithms.tree.TreeBuilder;
 import org.binclass.components.graph.GraphModel;
 import org.binclass.components.graph.GraphPoint;
 import org.binclass.components.partition.PartitionModel;
+import org.binclass.components.tree.TreeModel;
 import org.binclass.ui.MultiFileMemoryBuffer;
 import org.binclass.ui.classify.CentroidType;
 import org.binclass.ui.classify.DistanceType;
 import org.binclass.ui.classify.EmptyCellFix;
 import org.binclass.ui.classify.Heuristic;
+import org.binclass.ui.classify.gla.GlaViewTranslator;
 
 /**
  * UI-free view model for the Local Search display. Hosts all state as
@@ -125,6 +131,12 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     private InfiniteCentroids bestCentroids;
 
     /**
+     * Best partition found so far, kept for on-demand dendrogram generation.
+     */
+    @Nullable
+    private Partition bestPartition;
+
+    /**
      * Whether the current search has finished or been cancelled, so late events
      * arriving after {@link #cancel()} are ignored and do not resurrect a dead
      * result on the Partition tab.
@@ -133,6 +145,14 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
 
     @Nullable
     CompletableFuture<Object> task;
+
+    /**
+     * Whether jeffreys prior was requested for the current search, threaded
+     * through to {@code TreeBuilder.makeTreePnn} when a dendrogram is built.
+     */
+    private boolean jeffreysPrior;
+
+    private final ValueSignal<TreeModel> treeModel = new ValueSignal<>(null);
 
     /**
      * Creates a view model with empty data, not running, and no results yet.
@@ -423,6 +443,8 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         running.set(true);
         finished = false;
         bestCentroids = null;
+        bestPartition = null;
+        treeModel.update(_ -> null);
         operatorLog.clear();
         statusText.set("Search started…");
 
@@ -468,6 +490,8 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     public void cancel() {
         finished = true;
         bestCentroids = null;
+        bestPartition = null;
+        treeModel.update(_ -> null);
         if (task != null) {
             task.cancel(true);
             task = null;
@@ -526,6 +550,8 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         // The search events now carry the best-partition centroids alongside
         // the partition, so remember them for the next model rebuild.
         bestCentroids = result.centroids();
+        bestPartition = partition;
+        jeffreysPrior = form != null && form.jeffreysPrior();
         boolean available = partition != null;
         resultAvailable.update(_ -> available);
         canDownload.update(_ -> available);
@@ -593,6 +619,63 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     @Nullable
     public InfiniteCentroids bestCentroids() {
         return bestCentroids;
+    }
+
+    /**
+     * Returns the signal holding the flattened dendrogram model, populated when
+     * {@link #generateTree()} completes. Bound to the Tree component by the
+     * view so it re-renders automatically once generation finishes.
+     *
+     * @return the tree-model signal (initially {@code null})
+     */
+    public ValueSignal<TreeModel> treeModel() {
+        return treeModel;
+    }
+
+    /**
+     * Derives whether a dendrogram may be generated: a best partition exists
+     * and no search is running. Bound to the Generate button's enabled state by
+     * the view.
+     *
+     * @return a signal that is {@code true} when a dendrogram can be built
+     */
+    public Signal<Boolean> canGenerateTree() {
+        return Signal.computed(() -> resultAvailable.get()
+                && !running.get());
+    }
+
+    /**
+     * Builds the dendrogram for the best partition on the single-threaded
+     * executor. Reads the stored partition and centroids outside a reactive
+     * context so it can be called from a click handler, then flattens the
+     * resulting {@link TreeNode} into a {@link TreeModel} that updates the
+     * bound signal when generation completes. A no-op when no result is
+     * available yet.
+     */
+    public void generateTree() {
+        Partition partition = bestPartition;
+        if (partition == null || bestCentroids == null) {
+            return;
+        }
+        boolean prior = jeffreysPrior;
+        // Snapshot each cluster's label and size before makeTreePnn mutates the
+        // partition in place, so leaf sizes reflect the true dataset rather
+        // than
+        // the post-merge counts makeTreePnn leaves behind.
+        Map<String, String> labels = new HashMap<>();
+        Map<String, Integer> sizes = new HashMap<>();
+        GlaViewTranslator.buildLeafMaps(partition, labels, sizes);
+        task = CompletableFuture.supplyAsync(
+                () -> TreeBuilder.makeTreePnn(partition, bestCentroids, prior),
+                executor);
+        task.whenComplete((root, error) -> {
+            if (error != null) {
+                statusText.set("Dendrogram failed: " + error.getMessage());
+                return;
+            }
+            treeModel.update(_ -> GlaViewTranslator.toTreeModel(partition,
+                    (TreeNode) root, labels, sizes));
+        });
     }
 
     /**

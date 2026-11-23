@@ -18,6 +18,7 @@ import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -47,6 +48,7 @@ import org.binclass.components.graph.Graph;
 import org.binclass.components.partition.Partition;
 import org.binclass.components.partition.PartitionModel;
 import org.binclass.components.report.ReportComponent;
+import org.binclass.components.tree.Tree;
 import org.binclass.ui.MultiFileMemoryBuffer;
 import org.binclass.ui.UploadedDataLoader;
 import org.binclass.ui.classify.CentroidType;
@@ -105,6 +107,9 @@ public class RouteGlaView extends VerticalLayout
     private final Graph graphSC = new Graph();
     private final Partition partitionView = new Partition();
     private final ReportComponent reportComponent = new ReportComponent();
+    private final Tree dendrogram = new Tree();
+    private final Button generateTreeButton = new Button("Generate dendrogram");
+    private final Scroller dendrogramScroller = new Scroller();
 
     // Download controls for the best partition and its logged centroids,
     // shown
@@ -141,6 +146,13 @@ public class RouteGlaView extends VerticalLayout
         reportComponent.setId("report-component-gla");
         reportBinding = ReportTab.bind(reportComponent,
                 viewModel.partitionModel());
+
+        generateTreeButton.setEnabled(true);
+        generateTreeButton.setId("generate-tree-gla");
+        generateTreeButton.bindEnabled(viewModel.canGenerateTree());
+        generateTreeButton.addClickListener(_ -> viewModel.generateTree());
+        dendrogram.setId("dendrogram-gla");
+        dendrogram.bindModel(viewModel.treeModel());
 
         // Progress bar: indeterminate for automatic searches, a
         // fraction of the
@@ -372,6 +384,7 @@ public class RouteGlaView extends VerticalLayout
         graphSC.setId("sc-graph");
         partitionView.setId("partition-view");
         reportComponent.setId("report-component-gla");
+        dendrogramScroller.setId("gla-dendrogram-scroller");
 
         // Build the download controls up front so they are non-null
         // when the
@@ -394,6 +407,12 @@ public class RouteGlaView extends VerticalLayout
         glaTabs.add("SC Graph", graphSC);
         glaTabs.add("Partition", partitionView);
         glaTabs.add("Report", reportComponent);
+
+        VerticalLayout dendrogramPanel = new VerticalLayout(
+                generateTreeButton, dendrogram);
+        dendrogramPanel.setSpacing(true);
+        dendrogramScroller.setContent(dendrogramPanel);
+        glaTabs.add("Dendrogram", dendrogramScroller);
         glaTabs.add("Summary", summaryContent);
 
         renderSummary();
@@ -553,7 +572,9 @@ public class RouteGlaView extends VerticalLayout
         downloadControls = new HorizontalLayout(partitionDownload,
                 centroidsDownload);
         downloadControls.setVisible(false);
-    }    /**
+    }
+
+    /**
      * Refreshes the download controls' visibility and enabled state after a
      * result arrives. The controls appear only when a best partition exists;
      * the centroids control additionally requires carried centroids.
