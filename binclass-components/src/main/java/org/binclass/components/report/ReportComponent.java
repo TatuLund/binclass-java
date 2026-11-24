@@ -163,7 +163,8 @@ public class ReportComponent extends VerticalLayout {
         reportBody.add(details("LIST OF CLASSES:", classesContent));
 
         if (model.showNearness() && model.matrixValues() != null) {
-            affinityMatrixTable.render(model.matrixValues(), k);
+            affinityMatrixTable.render(model.matrixValues(), k,
+                    model.partition());
             VerticalLayout matrixContent = new VerticalLayout();
             matrixContent.add(affinityMatrixTable);
             reportBody.add(details("CLASS NEARNESS MATRIX:", matrixContent));

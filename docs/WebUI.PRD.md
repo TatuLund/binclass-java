@@ -1400,6 +1400,17 @@ The report was reorganized so dense tables stay compact instead of forcing exten
   cells so values never wrap — otherwise a wide matrix becomes too sparse. Diagonal cells render as `-`; the
   default Hamming distance is an integer, but Hellinger (`-h`) and affinity-transform (`-a`, `(k-d)/k`)
   distances are fractional.
+- **Row labels name each cluster.** Each row's leading label uses the `X: NAME` form where `X` is the
+  one-based cluster index and `NAME` is the most common vector name in that cluster. The name is taken from
+  each vector's class-name first, falling back to its strain identifier, then to the bare index when a cluster
+  carries no names — mirroring `GlaViewTranslator.mostFrequentName`. The label column stays sticky so it stays
+  visible while scrolling wide matrices.
+- **Distance heat-map coloring.** Every off-diagonal cell gets an inline `background-color` interpolated across
+  three anchors scaled to the matrix's observed range: green (`#a0f0a0`) at the smallest distance, orange
+  (`#f0f0a0`) at the midpoint, and red (`#f0a0a0`) at the largest. The min/max are computed by scanning every
+  cell except the diagonal and any zero-distance cells (so a self-distance or an exact-zero similarity does not
+  skew the scale), then each value maps to `t = (v - min) / (max - min)` with linear interpolation between the
+  anchors. Diagonal cells are left uncolored so their `-` marker keeps its default background.
 - **Adaptive number formatting.** Matrix values no longer always print `.00`. Integer values (the default
   Hamming distance) render without a decimal point; fractional values keep two decimals with trailing zeros
   stripped, so `1.50` reads as `1.5` and `2.00` reads as `2`. This removes wasted space in the common case.
@@ -1526,7 +1537,7 @@ Decisions below are grouped by how they map to Aura tokens (see the `aura-theme`
 - **Spacing scale:** use a single gap unit across every view so layouts feel uniform. Prefer `gap` on `VerticalLayout`/`FormLayout` in multiples of `8px` (`8 / 12 / 16`) rather than ad-hoc padding. Keep the params form and its results separated by at least `16px`.
 - **Density:** keep the default base size (`--aura-base-size: 16`). BinClass forms are long (GLA has ~20 flags); comfortable spacing beats cramming them in.
 - **Tables (§12, §17):** `Table` renders a plain HTML `<table>` and inherits nothing from Aura, so give it an explicit look via class hooks in CSS: `border-collapse: collapse`, 1px borders on `th/td` using `var(--vaadin-border-color)`, padding from `--vaadin-padding-xs/s`, and right-aligned numeric cells. Sticky the first header cell (`position: sticky; left: 0`) so wide contingency/affinity matrices stay readable while scrolling.
-  - **Report tables:** the report's frequency tables and affinity matrix live in their own files rather than `styles.css`. The affinity matrix uses class hooks (`matrix-header-cell`, `matrix-corner`, `matrix-label`, `matrix-cell`, `matrix-diagonal`) defined in `binclass-components/src/main/resources/META-INF/resources/affinitymatrix.css` (imported via `@StyleSheet` on `ReportComponent`); the frequency table uses the `frequency-table` hook. Both set `white-space: nowrap` so cells never wrap and stay dense.
+  - **Report tables:** the report's frequency tables and affinity matrix live in their own files rather than `styles.css`. The affinity matrix uses class hooks (`matrix-header-cell`, `matrix-corner`, `matrix-label`, `matrix-cell`, `matrix-diagonal`) defined in `binclass-components/src/main/resources/META-INF/resources/affinitymatrix.css` (imported via `@StyleSheet` on `ReportComponent`); the frequency table uses the `frequency-table` hook. Both set `white-space: nowrap` so cells never wrap and stay dense. The affinity matrix additionally colors each off-diagonal cell by distance — a green/orange/red heat map scaled to the observed min/max (excluding diagonal and zero-distance cells) — and labels each row `X: NAME` with the cluster's most common vector name.
 
 #### Typography (firm)
 - **Font family:** set a single modern sans-serif globally, e.g. `--vaadin-font-family: "Inter", system-ui, sans-serif` (or another from the skill's list). Do not vary fonts per view.

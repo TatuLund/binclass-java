@@ -40,6 +40,7 @@
     /* Accent-colored headers so section titles read as emphasis on the
        surface, per the Aura theme (see aura-theme skill). */
     color: var(--aura-accent-text-color);
+    rotate: 90deg;
 }
 
 /* Sticky first column keeps the corner cell and row labels visible while
@@ -54,7 +55,14 @@
 /* Subtle hover highlight on data rows for readability across dense matrices. */
 .affinity-matrix tbody tr:hover .matrix-cell,
 .affinity-matrix tbody tr:hover .matrix-diagonal {
-    background: var(--vaadin-container-secondary-color);
+    /* !important keeps the hover tint visible over each cell's inline
+       background-color set from the interpolated distance heat map. */
+    background: var(--vaadin-container-secondary-color) !important;
+}
+
+.affinity-matrix .matrix-lablel {
+    color: var(--aura-accent-text-color);
+    font-weight: 600;
 }
 
 /* --------------------------------------------------------------------------

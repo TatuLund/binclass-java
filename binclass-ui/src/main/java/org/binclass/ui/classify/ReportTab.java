@@ -71,7 +71,7 @@ public final class ReportTab {
                 int[] bits = vector.bits();
                 String strain = identifierOrName(vector);
                 BinaryVector bv = new BinaryVector(bits, 0, bits.length, 0,
-                        strain);
+                        strain, vector.name());
                 partition.addElement(i + 1, bv);
             }
         }
