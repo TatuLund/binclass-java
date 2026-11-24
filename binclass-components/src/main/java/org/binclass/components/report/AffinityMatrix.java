@@ -277,9 +277,9 @@ public class AffinityMatrix extends Table {
 
     /**
      * Scans the {@code 1..k} data region of a symmetric matrix and returns its
-     * observed minimum and maximum distance. Diagonal cells (self-distance)
-     * and any cell whose distance is exactly zero are excluded from the range,
-     * so the color scale reflects only real pairwise separations.
+     * observed minimum and maximum distance. Diagonal cells (self-distance) and
+     * any cell whose distance is exactly zero are excluded from the range, so
+     * the color scale reflects only real pairwise separations.
      *
      * @param matrix
      *            the nearness/affinity matrix (1-based), may be {@code null}
