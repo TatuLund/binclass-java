@@ -195,6 +195,60 @@ class LocalSearchViewModelTest {
     }
 
     @Test
+    void completionAppendsOperatorStatistics() {
+        viewModel.setData(vectors(4, 3));
+        PartitionResult result = new PartitionResult(1, 30.0, 1,
+                new double[] { Double.NaN, 10.0, 30.0 }, new int[] { 0, 1, 2 },
+                new Partition(1, 2), new InfiniteCentroids(1, 2));
+
+        viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
+                "SPLITJOIN1"));
+        viewModel.eventFired(new OperatorSuccess("localsearch", 3, 8, 0.25,
+                "REPLACEWORST"));
+        viewModel.eventFired(new OperatorSuccess("localsearch", 4, 7, 0.10,
+                "SPLITJOIN1"));
+        viewModel.eventFired(new SearchCompleted("localsearch", result));
+
+        List<String> log = viewModel.operatorLog().peekValues().toList();
+        assertEquals(6, log.size(), log.toString());
+        assertEquals("Operator improvement statistics:", log.get(3),
+                log.toString());
+        assertEquals("  SPLITJOIN1: 2 improvements", log.get(4),
+                log.toString());
+        assertEquals("  REPLACEWORST: 1 improvement", log.get(5),
+                log.toString());
+    }
+
+    @Test
+    void completionOmitsStatisticsWhenNoOperatorsImproved() {
+        viewModel.setData(vectors(4, 3));
+        PartitionResult result = new PartitionResult(1, 30.0, 1,
+                new double[] { Double.NaN, 10.0, 30.0 }, new int[] { 0, 1, 2 },
+                new Partition(1, 2), new InfiniteCentroids(1, 2));
+
+        viewModel.eventFired(new SearchCompleted("localsearch", result));
+
+        List<String> log = viewModel.operatorLog().peekValues().toList();
+        assertEquals(0, log.size(), log.toString());
+    }
+
+    @Test
+    void runClearsOperatorStatistics() {
+        viewModel.setData(vectors(4, 3));
+        PartitionResult result = new PartitionResult(1, 30.0, 1,
+                new double[] { Double.NaN, 10.0, 30.0 }, new int[] { 0, 1, 2 },
+                new Partition(1, 2), new InfiniteCentroids(1, 2));
+
+        viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
+                "SPLITJOIN1"));
+        viewModel.eventFired(new SearchCompleted("localsearch", result));
+        assertEquals(3, viewModel.operatorLog().peekValues().count());
+
+        viewModel.run();
+        assertEquals(0, viewModel.operatorLog().peekValues().count());
+    }
+
+    @Test
     void setFormStoresAndReturnsForm() {
         LocalSearchParametersForm form = LocalSearchParametersForm.defaults();
         viewModel.setForm(form);

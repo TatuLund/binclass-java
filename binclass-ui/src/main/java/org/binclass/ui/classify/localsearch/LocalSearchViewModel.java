@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -78,6 +79,14 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
      * monolithic block of newline-joined text.
      */
     private final ListSignal<String> operatorLog = new ListSignal<>();
+
+    /**
+     * Per-operator improvement counts collected during a search, keyed by the
+     * {@link OperatorSuccess#operator()} name. Thread-safe because events are
+     * consumed off the event-bus pool; reset at the start of each run and
+     * summarised when the search completes.
+     */
+    private final Map<String, Integer> operatorCounts = new ConcurrentHashMap<>();
 
     /**
      * Exposed parameter signals, bound two-way to the form fields by the view.
@@ -446,6 +455,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         bestPartition = null;
         treeModel.update(_ -> null);
         operatorLog.clear();
+        operatorCounts.clear();
         statusText.set("Search started…");
 
         VectorSet vectorSet = data.peek().vectorSet();
@@ -523,6 +533,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
             applyResult(result);
         } else if (event instanceof SearchCompleted(_, var result)) {
             applyResult(result);
+            appendOperatorStatistics();
         } else if (event instanceof SearchProgress(_, var k, var sc, _)) {
             appendPoint(k, sc);
             statusText.set("Evaluated k=" + k + " (SC = "
@@ -530,6 +541,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
             updateProgress(k);
         } else if (event instanceof OperatorSuccess(_, var k, var code,
                 var delta, var operator)) {
+            recordOperator(operator);
             appendOperatorLine(k, code, delta, operator);
         }
     }
@@ -585,6 +597,44 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         operatorLog.insertLast(
                 String.format(Locale.ROOT, "k=%d: %s improved SC by %.2f",
                         k, operator.toLowerCase(), delta));
+    }
+
+    /**
+     * Records one successful local-search operator application so the counts
+     * can be summarised when the search completes. Safe to call from the
+     * event-bus consumer threads that deliver {@link OperatorSuccess} events.
+     *
+     * @param operator
+     *            the name of the operator that lowered SC
+     */
+    private void recordOperator(String operator) {
+        operatorCounts.merge(operator, 1, Integer::sum);
+    }
+
+    /**
+     * Appends a per-operator improvement summary to the operator log once the
+     * search completes, tallying how many times each local-search operator
+     * lowered SC during the run. Entries are ordered by count (descending) so
+     * the most effective strategy appears first; omitted entirely when no
+     * operator improved SC.
+     */
+    private void appendOperatorStatistics() {
+        if (operatorCounts.isEmpty()) {
+            return;
+        }
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(
+                operatorCounts.entrySet());
+        entries.sort((a, b) -> {
+            int cmp = Integer.compare(b.getValue(), a.getValue());
+            return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());
+        });
+        operatorLog.insertLast("Operator improvement statistics:");
+        for (Map.Entry<String, Integer> entry : entries) {
+            boolean singular = entry.getValue() == 1;
+            operatorLog.insertLast(String.format(Locale.ROOT,
+                    "  %s: %d improvement%s", entry.getKey(), entry.getValue(),
+                    singular ? "" : "s"));
+        }
     }
 
     /**
