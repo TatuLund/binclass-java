@@ -60,7 +60,7 @@
     background: var(--vaadin-container-secondary-color) !important;
 }
 
-.affinity-matrix .matrix-lablel {
+.affinity-matrix .matrix-label {
     color: var(--aura-accent-text-color);
     font-weight: 600;
 }
