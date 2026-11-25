@@ -1,0 +1,71 @@
+/* Copyright (c) 2024 BinClass Contributors - SPDX-License-Identifier: Apache-2.0 */
+.op-log-root {
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+    overflow: auto;
+    gap: 12px;
+    background: white;
+    border: var(--vaadin-border-color-secondary);
+    border-radius: var(--vaadin-radius-m);
+    padding: var(--vaadin-padding-m);
+    box-shadow: var(--aura-shadow-s);
+}
+
+.op-log-header {
+    font-weight: 600;
+}
+
+.op-log-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.op-log-swatch-label {
+    color: var(--vaadin-body-text-color, currentColor);
+}
+
+.op-log-square {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+}
+
+.op-log-row-label {
+    font-weight: 600;
+    margin-right: 8px;
+    width: 50px;
+}
+
+.op-log-row {
+    display: flex;
+    align-items: center;
+}
+
+.op-log-stat-label {
+    width: 160px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.op-log-track {
+    flex-grow: 1;
+    max-width: 400px;
+    background-color: #e5e7eb;
+    border-radius: 3px;
+}
+
+.op-log-fill {
+    height: 16px;
+    border-radius: 3px;
+}
+
+.op-log-stat-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+}

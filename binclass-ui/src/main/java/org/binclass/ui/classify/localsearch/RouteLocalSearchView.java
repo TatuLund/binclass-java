@@ -98,7 +98,7 @@ public class RouteLocalSearchView extends VerticalLayout
     private final ProgressBar progress = new ProgressBar(0, 1);
     private final Div statusText = new Div();
     private final Span operatorLabel = new Span("Operator improvements");
-    private final VerticalLayout operatorLog = new VerticalLayout();
+    private final OperatorLog operatorLog = new OperatorLog();
     private final VerticalLayout summaryContent = new VerticalLayout();
     private final Graph graphSC = new Graph();
     private final Partition partitionView = new Partition();
@@ -157,17 +157,11 @@ public class RouteLocalSearchView extends VerticalLayout
                         viewModel.progressIndeterminate().get()));
         statusText.bindText(viewModel.statusText());
 
-        // Per-operator success entries render as their own list rows below the
-        // running status text, so each improvement stays a distinct line rather
-        // than being flattened into the monolithic status Div.
+        // Visual operator log: legend, per-{@code k} success squares and the
+        // completion statistic bars. Bound to its own model signal so it
+        // re-renders live as operators succeed and finalises on completion.
         operatorLog.setId("local-operator-log");
-        operatorLog.bindChildren(viewModel.operatorLog(), itemSignal -> {
-            Span entry = new Span();
-            entry.bindText(itemSignal);
-            return entry;
-        });
-        operatorLog.setHeight("500px");
-        operatorLog.getElement().getStyle().setOverflow(Overflow.AUTO);
+        operatorLog.bindModel(viewModel.operatorLogModel());
 
         // Refresh the download controls whenever a best partition appears or is
         // cleared. The controls are built lazily on first refresh so they only

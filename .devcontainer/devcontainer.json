@@ -28,7 +28,7 @@
   "containerEnv": {
     "JAVA_HOME": "/home/vscode/.sdkman/candidates/java/current",
     "MAVEN_HOME": "/home/vscode/.sdkman/candidates/maven/current",
-    "MAVEN_OPTS": "-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=fatjar"
+    "MAVEN_OPTS": "-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=fatjar -DexcludeClassLoaderPatterns=com[.]vaadin[.]flow[.]plugin[.]maven[.]Reflector[$]ReflectorClassLoader"
   },
 
   "customizations": {

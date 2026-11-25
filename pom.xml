@@ -54,7 +54,8 @@
 							    <version>4.35</version>
 								<file>${project.parent.basedir}/eclipse-formatter.xml</file>
 							</eclipse>
-						</java>						<format id="frontend">
+						</java>
+						<format id="frontend">
 							<includes>
 								<include>**/*.ts</include>
 								<include>**/*.tsx</include>
@@ -68,7 +69,8 @@
 							<prettier>
 								<version>${prettier.version}</version>
 							</prettier>
-						</format>					</configuration>
+						</format>	
+					</configuration>
 					<executions>
 						<execution>
 							<goals>

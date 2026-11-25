@@ -5,6 +5,7 @@
 package org.binclass.ui.classify.localsearch;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -87,6 +88,23 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
      * summarised when the search completes.
      */
     private final Map<String, Integer> operatorCounts = new ConcurrentHashMap<>();
+
+    /**
+     * Per-cluster-count success rows collected during a search, keyed by the
+     * cluster count {@code k}. Each entry lists the operator names that lowered
+     * the stochastic complexity at that {@code k}, in the order they succeeded.
+     * Thread-safe because events are consumed off the event-bus pool; reset at
+     * the start of each run and summarised when the search completes.
+     */
+    private final Map<Integer, List<String>> kSuccesses = new ConcurrentHashMap<>();
+
+    /**
+     * Reactive visual operator-log model rebuilt as operators succeed so the
+     * {@link OperatorLog} component re-renders live with per-{@code k} success
+     * squares and, once the search completes, proportional statistic bars.
+     */
+    private final ValueSignal<OperatorLogModel> operatorLogModel = new ValueSignal<>(
+            OperatorLogModel.empty());
 
     /**
      * Exposed parameter signals, bound two-way to the form fields by the view.
@@ -456,6 +474,8 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
         treeModel.update(_ -> null);
         operatorLog.clear();
         operatorCounts.clear();
+        kSuccesses.clear();
+        buildModel();
         statusText.set("Search started…");
 
         VectorSet vectorSet = data.peek().vectorSet();
@@ -541,8 +561,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
             updateProgress(k);
         } else if (event instanceof OperatorSuccess(_, var k, var code,
                 var delta, var operator)) {
-            recordOperator(operator);
-            appendOperatorLine(k, code, delta, operator);
+            recordOperator(k, operator);
         }
     }
 
@@ -577,64 +596,83 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
     }
 
     /**
-     * Appends a human-readable per-operator success line to the operator log so
-     * the Search tab can surface which strategy lowered SC mid-run as its own
-     * list entry. The delta is reported here, so it must be non-zero for an
-     * improvement; callers only post {@link OperatorSuccess} when SC dropped.
+     * Records one successful local-search operator application at cluster count
+     * {@code k}: appends the operator name to that {@code k}'s success row and
+     * increments its per-operator counter, then rebuilds and publishes the
+     * visual {@link OperatorLogModel} so the log updates live as operators
+     * succeed. Safe to call from the event-bus consumer threads that deliver
+     * {@link OperatorSuccess} events.
      *
      * @param k
      *            the cluster count being refined
-     * @param code
-     *            the {@code -r} heuristic code that selected the driver
-     * @param delta
-     *            the reduction in stochastic complexity achieved by this
-     *            operator
      * @param operator
      *            the name of the applied operator
      */
-    private void appendOperatorLine(int k, int code, double delta,
-            String operator) {
-        operatorLog.insertLast(
-                String.format(Locale.ROOT, "k=%d: %s improved SC by %.2f",
-                        k, operator.toLowerCase(), delta));
-    }
-
-    /**
-     * Records one successful local-search operator application so the counts
-     * can be summarised when the search completes. Safe to call from the
-     * event-bus consumer threads that deliver {@link OperatorSuccess} events.
-     *
-     * @param operator
-     *            the name of the operator that lowered SC
-     */
-    private void recordOperator(String operator) {
+    private void recordOperator(int k, String operator) {
+        kSuccesses.computeIfAbsent(k, key -> new ArrayList<>())
+                .add(operator);
         operatorCounts.merge(operator, 1, Integer::sum);
+        buildModel();
     }
 
     /**
-     * Appends a per-operator improvement summary to the operator log once the
-     * search completes, tallying how many times each local-search operator
-     * lowered SC during the run. Entries are ordered by count (descending) so
-     * the most effective strategy appears first; omitted entirely when no
-     * operator improved SC.
+     * Builds the current {@link OperatorLogModel} from the fixed legend, the
+     * per-{@code k} success rows and the per-operator counters, then publishes
+     * it to {@link #operatorLogModel()} so the bound component re-renders.
+     * Called after each operator success and once more when the search
+     * completes.
+     */
+    private void buildModel() {
+        List<OperatorLogModel.LegendItem> legend = new ArrayList<>();
+        for (OperatorLegend entry : OperatorLegend.values()) {
+            legend.add(new OperatorLogModel.LegendItem(
+                    entry.name(), entry.label(), entry.tooltip(),
+                    entry.color()));
+        }
+
+        List<OperatorLogModel.KRow> rows = new ArrayList<>();
+        kSuccesses.keySet().stream().sorted().forEach(k -> {
+            List<String> operators = List.copyOf(
+                    kSuccesses.getOrDefault(k, List.of()));
+            if (!operators.isEmpty()) {
+                rows.add(new OperatorLogModel.KRow(k, operators));
+            }
+        });
+
+        List<OperatorLogModel.StatBar> stats = new ArrayList<>();
+        operatorCounts.entrySet().stream()
+                .sorted(Comparator.<Map.Entry<String, Integer>> comparingInt(
+                        Map.Entry::getValue).reversed()
+                        .thenComparing(Map.Entry::getKey))
+                .forEach(entry -> stats.add(
+                        new OperatorLogModel.StatBar(entry.getKey(),
+                                entry.getValue())));
+
+        operatorLogModel.update(_ -> new OperatorLogModel(legend, rows, stats));
+    }
+
+    /**
+     * Rebuilds and publishes the visual operator-log model once the search
+     * completes. Called from {@link #eventFired(AbstractEvent)} on
+     * {@link SearchCompleted}; it is a no-op when no operator improved SC so
+     * the log stays empty until there is something to show.
      */
     private void appendOperatorStatistics() {
         if (operatorCounts.isEmpty()) {
             return;
         }
-        List<Map.Entry<String, Integer>> entries = new ArrayList<>(
-                operatorCounts.entrySet());
-        entries.sort((a, b) -> {
-            int cmp = Integer.compare(b.getValue(), a.getValue());
-            return cmp != 0 ? cmp : a.getKey().compareTo(b.getKey());
-        });
-        operatorLog.insertLast("Operator improvement statistics:");
-        for (Map.Entry<String, Integer> entry : entries) {
-            boolean singular = entry.getValue() == 1;
-            operatorLog.insertLast(String.format(Locale.ROOT,
-                    "  %s: %d improvement%s", entry.getKey(), entry.getValue(),
-                    singular ? "" : "s"));
-        }
+        buildModel();
+    }
+
+    /**
+     * Returns the signal holding the visual operator-log model, rebuilt live as
+     * operators succeed and finalised when the search completes. Bound by the
+     * {@link OperatorLog} component so it re-renders automatically.
+     *
+     * @return the operator-log-model signal (initially empty)
+     */
+    public ValueSignal<OperatorLogModel> operatorLogModel() {
+        return operatorLogModel;
     }
 
     /**

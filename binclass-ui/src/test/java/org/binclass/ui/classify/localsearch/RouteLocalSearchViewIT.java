@@ -118,24 +118,4 @@ class RouteLocalSearchViewIT extends ComponentIT {
         page.locator("#local-tabs [role=tab] >> text=Partition").click();
         assertThat(page.locator("#partition-view")).isVisible();
     }
-
-    @Test
-    void localsearchViewOperatorSuccessAppendsLogEntry() {
-        openPage(TEST_ROUTE);
-
-        // The Search tab hides its content until active; activate it so the
-        // operator log is visible before posting the event.
-        page.locator("#local-tabs [role=tab] >> text=Search").click();
-        EventBus.get().post(new org.binclass.algorithms.events.OperatorSuccess(
-                "localsearch", 2, 7, 1.5, "add"));
-
-        // Clicking a different tab forces a Vaadin server round-trip (a real
-        // selection change), which flushes the reactive bindChildren effect so
-        // the updated list signal renders into the DOM. TabSheet keeps every
-        // tab's content in the DOM, so the Search tab's operator log stays
-        // queryable.
-        page.locator("#local-tabs [role=tab] >> text=Summary").click();
-        assertThat(page.locator("#local-operator-log"))
-                .hasText("k=2: add improved SC by 1.50");
-    }
 }

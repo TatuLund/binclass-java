@@ -156,46 +156,53 @@ class LocalSearchViewModelTest {
     }
 
     @Test
-    void operatorSuccessAppendsLineToLog() {
+    void operatorSuccessAppendsKRowToModel() {
         viewModel.setData(vectors(4, 3));
         viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
-                "add"));
+                "SPLITJOIN1"));
 
-        List<String> log = viewModel.operatorLog().peekValues().toList();
-        assertEquals(1, log.size(), log.toString());
-        assertEquals("k=2: add improved SC by 1.50", log.get(0),
-                log.toString());
+        OperatorLogModel model = viewModel.operatorLogModel().peek();
+        assertEquals(6, model.legend().size(), model.legend().toString());
+        List<OperatorLogModel.KRow> rows = model.rows();
+        assertEquals(1, rows.size(), rows.toString());
+        assertEquals(2, rows.get(0).k(), rows.get(0).k());
+        assertEquals(List.of("SPLITJOIN1"), rows.get(0).operators(),
+                rows.get(0).operators().toString());
     }
 
     @Test
-    void operatorSuccessAppendsMultipleLinesToLog() {
+    void operatorSuccessAppendsMultipleKRowsToModel() {
         viewModel.setData(vectors(4, 3));
         viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
-                "add"));
+                "SPLITJOIN1"));
         viewModel.eventFired(new OperatorSuccess("localsearch", 3, 8, 0.25,
-                "splitjoin"));
+                "REPLACEWORST"));
 
-        List<String> log = viewModel.operatorLog().peekValues().toList();
-        assertEquals(2, log.size(), log.toString());
-        assertEquals("k=2: add improved SC by 1.50", log.get(0),
-                log.toString());
-        assertEquals("k=3: splitjoin improved SC by 0.25", log.get(1),
-                log.toString());
+        OperatorLogModel model = viewModel.operatorLogModel().peek();
+        List<OperatorLogModel.KRow> rows = model.rows();
+        assertEquals(2, rows.size(), rows.toString());
+        assertEquals(2, rows.get(0).k(), rows.get(0).k());
+        assertEquals(List.of("SPLITJOIN1"), rows.get(0).operators(),
+                rows.get(0).operators().toString());
+        assertEquals(3, rows.get(1).k(), rows.get(1).k());
+        assertEquals(List.of("REPLACEWORST"), rows.get(1).operators(),
+                rows.get(1).operators().toString());
     }
 
     @Test
-    void runClearsOperatorLog() {
+    void runClearsOperatorLogModel() {
         viewModel.setData(vectors(4, 3));
         viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
-                "add"));
-        assertEquals(1, viewModel.operatorLog().peekValues().count());
+                "SPLITJOIN1"));
+        assertEquals(1, viewModel.operatorLogModel().peek().rows().size());
 
         viewModel.run();
-        assertEquals(0, viewModel.operatorLog().peekValues().count());
+        assertTrue(viewModel.operatorLogModel().peek().rows().isEmpty(),
+                viewModel.operatorLogModel().peek().rows().toString());
     }
 
     @Test
-    void completionAppendsOperatorStatistics() {
+    void completionPopulatesOperatorStatistics() {
         viewModel.setData(vectors(4, 3));
         PartitionResult result = new PartitionResult(1, 30.0, 1,
                 new double[] { Double.NaN, 10.0, 30.0 }, new int[] { 0, 1, 2 },
@@ -209,14 +216,15 @@ class LocalSearchViewModelTest {
                 "SPLITJOIN1"));
         viewModel.eventFired(new SearchCompleted("localsearch", result));
 
-        List<String> log = viewModel.operatorLog().peekValues().toList();
-        assertEquals(6, log.size(), log.toString());
-        assertEquals("Operator improvement statistics:", log.get(3),
-                log.toString());
-        assertEquals("  SPLITJOIN1: 2 improvements", log.get(4),
-                log.toString());
-        assertEquals("  REPLACEWORST: 1 improvement", log.get(5),
-                log.toString());
+        OperatorLogModel model = viewModel.operatorLogModel().peek();
+        List<OperatorLogModel.StatBar> stats = model.stats();
+        assertEquals(2, stats.size(), stats.toString());
+        assertEquals("SPLITJOIN1", stats.get(0).operator(),
+                stats.get(0).operator().toString());
+        assertEquals(2, stats.get(0).count(), stats.get(0).count());
+        assertEquals("REPLACEWORST", stats.get(1).operator(),
+                stats.get(1).operator().toString());
+        assertEquals(1, stats.get(1).count(), stats.get(1).count());
     }
 
     @Test
@@ -228,8 +236,9 @@ class LocalSearchViewModelTest {
 
         viewModel.eventFired(new SearchCompleted("localsearch", result));
 
-        List<String> log = viewModel.operatorLog().peekValues().toList();
-        assertEquals(0, log.size(), log.toString());
+        OperatorLogModel model = viewModel.operatorLogModel().peek();
+        assertTrue(model.rows().isEmpty(), model.rows().toString());
+        assertTrue(model.stats().isEmpty(), model.stats().toString());
     }
 
     @Test
@@ -242,10 +251,11 @@ class LocalSearchViewModelTest {
         viewModel.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
                 "SPLITJOIN1"));
         viewModel.eventFired(new SearchCompleted("localsearch", result));
-        assertEquals(3, viewModel.operatorLog().peekValues().count());
+        assertEquals(1, viewModel.operatorLogModel().peek().stats().size());
 
         viewModel.run();
-        assertEquals(0, viewModel.operatorLog().peekValues().count());
+        assertTrue(viewModel.operatorLogModel().peek().stats().isEmpty(),
+                viewModel.operatorLogModel().peek().stats().toString());
     }
 
     @Test

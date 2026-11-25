@@ -14,6 +14,7 @@ import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.NumberField;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.UploadTester;
 import com.vaadin.flow.component.sidenav.SideNav;
@@ -29,6 +30,7 @@ import com.vaadin.browserless.ViewPackages;
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.InfiniteCentroids;
 import org.binclass.algorithms.core.Partition;
+import org.binclass.algorithms.events.OperatorSuccess;
 import org.binclass.algorithms.events.PartitionResult;
 import org.binclass.algorithms.events.SearchBestPartition;
 import org.binclass.components.tree.TreeModel;
@@ -267,5 +269,39 @@ class RouteLocalSearchViewBrowserlessTest extends BrowserlessTest {
 
         assertNotNull(model, "treeModel should be populated after clicking");
         assertEquals(3, model.nodes().size());
+    }
+
+    /**
+     * Navigates to the Local Search view and adds the app layout so its
+     * {@code SideNav} is present in the component tree (browserless navigation
+     * does not apply the router layout automatically).
+     */
+    private RouteLocalSearchView lsWithAppLayout() throws Exception {
+        RouteLocalSearchView view = navigate(RouteLocalSearchView.class);
+        UI.getCurrent().add(new MainLayout());
+        return view;
+    }
+
+    @Test
+    void operatorSuccessRendersVisualLogLegendAndRow() throws Exception {
+        lsWithAppLayout();
+        LocalSearchViewModel vm = viewModel(lsWithAppLayout());
+
+        // Post an operator success so the model gains its fixed legend and one
+        // per-k row; runPendingSignalsTasks flushes the bindModel effect.
+        vm.eventFired(new OperatorSuccess("localsearch", 2, 7, 1.5,
+                "SPLITJOIN1"));
+        runPendingSignalsTasks();
+
+        // The fixed legend renders all six operators with their labels.
+        Span legend = find(Span.class).withId("operator-log-legend")
+                .single();
+        assertTrue(legend.getElement().getTextRecursively()
+                .contains("Split-Join 1"),
+                legend.getElement().getTextRecursively());
+
+        // The per-k row for k=2 holds SPLITJOIN1's success square.
+        Span row = find(Span.class).withId("op-log-row-2").single();
+        assertTrue(row.isVisible());
     }
 }
