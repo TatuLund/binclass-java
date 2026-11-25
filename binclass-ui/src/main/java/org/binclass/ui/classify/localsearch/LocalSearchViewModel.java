@@ -609,7 +609,7 @@ public final class LocalSearchViewModel implements EventBus.EventBusListener {
      *            the name of the applied operator
      */
     private void recordOperator(int k, String operator) {
-        kSuccesses.computeIfAbsent(k, key -> new ArrayList<>())
+        kSuccesses.computeIfAbsent(k, _ -> new ArrayList<>())
                 .add(operator);
         operatorCounts.merge(operator, 1, Integer::sum);
         buildModel();

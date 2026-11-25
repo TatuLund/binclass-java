@@ -52,7 +52,7 @@ public enum OperatorLegend {
     RANDOMSWAP2(
             "Random-Swap v2",
             "Random swap v2 — set a random class's centroid to a random vector from that same class, then repartition.",
-            "#e11d48");
+            "#e1781d");
 
     private final String label;
     private final String tooltip;

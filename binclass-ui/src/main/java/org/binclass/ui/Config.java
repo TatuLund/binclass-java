@@ -7,5 +7,6 @@ import com.vaadin.flow.theme.aura.Aura;
 
 @Push
 @StyleSheet(Aura.STYLESHEET)
+@StyleSheet("/styles.css")
 public class Config implements AppShellConfigurator {
 }

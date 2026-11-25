@@ -1,0 +1,19 @@
+/* Copyright (c) 2024 BinClass Contributors - SPDX-License-Identifier: Apache-2.0 */
+binclass-graph {
+    box-shadow: var(--aura-shadow-s);
+}
+
+binclass-partition {
+    padding: var(--vaadin-padding-l);
+    box-shadow: var(--aura-shadow-s);
+    border-radius: var(--vaadin-radius-m);
+}
+
+binclass-tree {
+    box-shadow: var(--aura-shadow-s);
+}
+
+#report-body vaadin-vertical-layout {
+    box-shadow: var(--aura-shadow-s);
+    border-radius: var(--vaadin-radius-m);
+}

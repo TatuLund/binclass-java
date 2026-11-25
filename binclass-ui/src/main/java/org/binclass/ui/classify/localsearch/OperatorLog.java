@@ -105,7 +105,7 @@ public final class OperatorLog extends Div {
         // the DOM before any round-trip, and again reactively whenever the
         // bound signal changes from another thread. peek() reads outside a
         // reactive context without setting up dependency tracking.
-        attachRegistration = addAttachListener(event -> render(model.peek()));
+        attachRegistration = addAttachListener(_ -> render(model.peek()));
         render(model.peek());
     }
 

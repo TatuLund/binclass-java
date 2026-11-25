@@ -101,6 +101,7 @@ public final class OperatorLogModel {
      *            the per-operator statistic bars ordered by count descending
      *            (may be empty when no operator succeeded)
      */
+    @SuppressWarnings("null")
     public OperatorLogModel(List<LegendItem> legend, List<KRow> rows,
             List<StatBar> stats) {
         this.legend = List.copyOf(legend);
