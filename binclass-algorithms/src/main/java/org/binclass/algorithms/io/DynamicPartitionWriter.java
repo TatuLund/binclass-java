@@ -5,6 +5,7 @@
 package org.binclass.algorithms.io;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -130,5 +131,36 @@ public final class DynamicPartitionWriter {
             sb.append(PartitionWriter.formatPicLine(bv)).append("\n");
         }
         sb.append("\n");
+    }
+
+    /**
+     * Serializes a dynamic partition to text in memory, without touching the
+     * filesystem. Mirrors {@link #writeDynamicPartition} but returns the bytes
+     * so callers can stream them directly (for example a browser download)
+     * instead of writing a temp file first. The output keeps the standard
+     * BinClass PIC-format vector lines alongside the frequency table, so it
+     * round-trips through {@link PartitionReader}.
+     *
+     * @param dynPartition
+     *            the dynamic partition to serialize (must not be {@code null})
+     * @return the partition content encoded as UTF-8
+     */
+    public static byte[] toBytes(DynamicPartition dynPartition) {
+        StringBuilder sb = new StringBuilder();
+
+        // Header information.
+        sb.append("# Dynamic Partition\n");
+        sb.append("# Number of clusters: ").append(dynPartition.size())
+                .append("\n");
+        sb.append("# Vector length: ").append(dynPartition.getVectorLength())
+                .append("\n");
+        sb.append("\n");
+
+        int k = dynPartition.size();
+        for (int i = 1; i <= k; i++) {
+            writeCluster(sb, dynPartition, i);
+        }
+
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 }

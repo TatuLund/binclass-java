@@ -6,11 +6,15 @@ package org.binclass.algorithms.classify;
 
 import java.util.Objects;
 import java.util.Random;
+import java.util.Vector;
 
 import org.binclass.algorithms.core.BinaryVector;
 import org.binclass.algorithms.core.DynamicPartition;
 import org.binclass.algorithms.core.Partition;
 import org.binclass.algorithms.core.VectorSet;
+import org.binclass.algorithms.eventbus.EventBus;
+import org.binclass.algorithms.events.CumulativeProgress;
+import org.binclass.algorithms.events.NewCluster;
 import org.binclass.algorithms.util.MathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,11 +99,21 @@ public final class CumulativeClassifier {
         logger.debug("Initialized with {} classes from first vector",
                 dynPart.size());
 
+        // Post a progress sample after roughly every ten percent of the input
+        // vectors are processed, so the determinate ProgressBar can advance in
+        // matching ten-percent steps.
+        int progressStep = Math.max(1, n / 10);
+
         for (int i = 1; i < n; i++) {
             BinaryVector bv = vectorArray[i];
             // extendWithNewClass returns a new DynamicPartition, so the caller
             // must reassign to keep growing the partition.
             dynPart = processVector(dynPart, bv, i, config);
+
+            if ((i + 1) % progressStep == 0) {
+                EventBus.get().post(new CumulativeProgress(
+                        "cumulative", i + 1));
+            }
         }
 
         logger.info(
@@ -124,9 +138,13 @@ public final class CumulativeClassifier {
             // DynamicPartition that must replace the current one.
             dynPart = extendWithNewClass(dynPart, bv);
             logger.debug("Vector {} created new class", i + 1);
+            EventBus.get().post(new NewCluster(
+                    "cumulative", dynPart.size(),
+                    config.bayesianPredictive() ? null
+                            : calculateStochasticComplexityXnew(dynPart, bv)));
         } else {
             assignToClass(dynPart, bv, bestClass);
-            logger.debug("Vector {} assigned to class {}", i + 1, bestClass);
+            logger.trace("Vector {} assigned to class {}", i + 1, bestClass);
         }
 
         applyCumulativeAnalysisCheckpoint(i, config.cumulativeAnalysis());

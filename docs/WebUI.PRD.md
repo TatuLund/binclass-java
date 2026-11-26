@@ -718,10 +718,12 @@ The Local Search view should follow the **same test structure as §3.7** — Bro
 ## 5. Display C — Cumulative Classification (`CumulativeCommand`)
 
 > **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Cumulative Classification")` title and a placeholder body
-> (`id="cumulative-body"`). The parameter form, progress bar, log area, translator and EventBus wiring described below are not yet built.
+> (`id="cumulative-body"`). The parameter form, progress bar, log area, translator and EventBus wiring described below are now built.
 > Resolved decisions: events posted at 10% intervals (ProgressBar advances in 10% steps); log appends one line per new cluster with bold
 > SC when the SC-optimising variant is used; single `-I`/`-O` input; no SC Graph tab; DownloadAnchor for partition only; shared Partition +
-> ReportComponent.
+> ReportComponent. The `#cumulative-log` Div renders one line per new-cluster event via `ListSignal<String>` + `Div.bindChildren`, with the
+> SC portion wrapped in a bold span; the child factory reads the value with `.peek()` (not `.get()`) so Vaadin's usage tracker does not flag
+> it, and tests verify each event appends exactly one DOM child to the container.
 
 Processes vectors one at a time; each may create a new class or join an existing one, using Bayesian
 predictive identification with SC as criterion. Output is a `DynamicPartition` (grows over time).
@@ -862,7 +864,7 @@ are derived from frequencies on demand and are not valid as a standalone file.
   - flag→config propagation: every boolean and the epsilon round-trip through `toConfig()`; vector count stored as `n` (unused by the algorithm).
   - `isValid()`: `delta >= 0` and epsilon in `(0, 0.5)` gate *Run*; out-of-range epsilon disables it.
 - **Unit — `CumulativeViewTranslatorTest` (`binclass-ui`).** Verify `PartitionModel` is populated correctly from the algorithm `DynamicPartition` — cluster names (most-frequent strain → index fallback), per-cluster `ClusterData`, centroid probabilities derived from frequencies, lazy `VectorData`, and a non-null final SC header metric. Tolerate an empty partition.
-- **BrowserlessTests — `RouteCumulativeViewBrowserlessTest` (`binclass-ui`).** Drive the params form and assert the emitted `CumulativeConfig` is correct; fabricate a progress event at 10% intervals and assert the ProgressBar advances in 10% steps; fabricate new-cluster log events and assert one line is appended per cluster (bold SC when the SC-optimising variant is selected); fabricate `SearchCompleted` and assert the Partition tab receives the dynamic partition model, downloads enable, and the Summary tab renders. Assert *Run* disables while running and re-enables on completion. (Partition rendering already covered in `binclass-components`.)
+- **BrowserlessTests — `RouteCumulativeViewBrowserlessTest` (`binclass-ui`).** Drive the params form and assert the emitted `CumulativeConfig` is correct; fabricate a progress event at 10% intervals and assert the ProgressBar advances in 10% steps, asserting both the signal value and the component's `getValue()`; fabricate new-cluster log events and assert one line is appended per cluster — capture the container's initial DOM child count, verify each event adds exactly one child incrementally (`initialChildren + n`), and confirm the SC-optimising variant renders its bold SC portion via recursive text (bold SC when the SC-optimising variant is selected); fabricate `SearchCompleted` and assert the Partition tab receives the dynamic partition model, downloads enable, and the Summary tab renders. Assert *Run* disables while running and re-enables on completion. (Partition rendering already covered in `binclass-components`.)
 - **Playwright — `CumulativeViewIT` (`binclass-ui`).** Every control renders (delta field, fixedDelta checkbox, cumulativeAnalysis, cumSamples, bayesian, featureSig, saveByPf, noNewClasses, inOrder, epsilon) plus each result tab incl. Report and Summary; a real run shows the partition, advances the ProgressBar in 10% steps, appends new-cluster decisions to `#cumulative-log` (bold SC when the SC-optimising variant is used), and the download control produces its file.
 
 ### 5.7 Resolved open questions
@@ -876,6 +878,8 @@ shared Partition + ReportComponent, determinate 10% progress, and `defaults()` s
 
 > **Status:** skeleton view implemented — `VerticalLayout` with an `H1("Semi-Cumulative Classification")` title and a placeholder body
 > (`id="sclassify-body"`). The parameter form, progress bar, SC graph, partition area, translator and EventBus wiring described below are not yet built.
+> Applies the same MVVM/skeleton approach as §5; join-GLA also emits new-cluster events, so the `ListSignal<String>` + `Div.bindChildren` log-area
+> pattern (child factory reading with `.peek()`, bold SC when optimising) is reusable if a per-k decision log is added.
 
 Join-GLA search: grow from a 2-cluster seed using join operations with SC selection.
 
@@ -911,7 +915,7 @@ RouteSemiCumulativeView extends VerticalLayout   (@Route("sclassify"))
 
 ### 6.6 Testing
 - **Unit:** `GLAConfig` build for join-GLA (rounded=true, heuristicCount=joinTarget).
-- **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` is correct; fabricate a `SearchCompleted` event and assert the partition tab receives k = optimal. (SC graph / Partition rendering already covered in `binclass-components`.)
+- **BrowserlessTests:** drive the params form and assert the emitted `GLAConfig` is correct; fabricate a progress event and assert the ProgressBar advances in steps, asserting both the signal value and the component's `getValue()` (mirroring §5); fabricate new-cluster/SearchCompleted events and assert the partition tab receives k = optimal. (SC graph / Partition rendering already covered in `binclass-components`.)
 
 ---
 

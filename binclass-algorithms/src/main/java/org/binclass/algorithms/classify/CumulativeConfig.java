@@ -51,7 +51,13 @@ public record CumulativeConfig(
         boolean inOrder,
 
         /** Epsilon convergence threshold for cumulative analysis (-E flag) */
-        double epsilon) {
+        double epsilon,
+
+        /**
+         * Total number of vectors in the dataset (stored for the algorithm;
+         * unused by cumulative classification)
+         */
+        int n) {
 
     /**
      * Creates a CumulativeConfig with default values.
@@ -73,8 +79,8 @@ public record CumulativeConfig(
                 true, // cumSaveByPf enabled by default
                 false, // cumNoNewClasses disabled
                 false, // inOrder disabled (shuffle vectors)
-                MathUtils.EPSILON // epsilon convergence threshold
-        );
+                MathUtils.EPSILON, // epsilon convergence threshold
+                0); // n = vector count (unused)
     }
 
     /**
@@ -96,8 +102,8 @@ public record CumulativeConfig(
                 true, // cumSaveByPf enabled by default
                 false, // cumNoNewClasses disabled
                 false, // inOrder disabled (shuffle vectors)
-                0.001 // epsilon convergence threshold
-        );
+                0.001, // epsilon convergence threshold
+                0); // n = vector count (unused)
     }
 
     /**
@@ -122,8 +128,8 @@ public record CumulativeConfig(
                 true, // cumSaveByPf enabled by default
                 false, // cumNoNewClasses disabled
                 false, // inOrder disabled (shuffle vectors)
-                0.001 // epsilon convergence threshold
-        );
+                0.001, // epsilon convergence threshold
+                0); // n = vector count (unused)
     }
 
     /**
@@ -165,7 +171,8 @@ public record CumulativeConfig(
             boolean cumSaveByPf,
             boolean cumNoNewClasses,
             boolean inOrder,
-            double epsilon) {
+            double epsilon,
+            int n) {
 
         if (delta < 0) {
             throw new IllegalArgumentException("Delta must be >= 0");
@@ -181,6 +188,7 @@ public record CumulativeConfig(
         this.cumNoNewClasses = cumNoNewClasses;
         this.inOrder = inOrder;
         this.epsilon = epsilon;
+        this.n = n;
     }
 
     /**
@@ -206,7 +214,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -233,7 +242,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -261,7 +271,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -287,7 +298,8 @@ public record CumulativeConfig(
                 cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -313,7 +325,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -340,7 +353,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -367,7 +381,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     /**
@@ -393,7 +408,8 @@ public record CumulativeConfig(
                 this.cumSaveByPf,
                 this.cumNoNewClasses,
                 this.inOrder,
-                this.epsilon);
+                this.epsilon,
+                this.n);
     }
 
     @Override

@@ -96,7 +96,8 @@ public class CumulativeCommand implements BaseCommand {
                 cumSaveByPf,
                 cumNoNewClasses,
                 cumulativeInOrder,
-                epsilon);
+                epsilon,
+                vectorSet.size());
 
         String partitionFile = opts.getOrDefault("-P", null);
 
